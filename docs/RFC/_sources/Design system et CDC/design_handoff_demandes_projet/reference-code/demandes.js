@@ -1,4 +1,3 @@
-
 /* Demandes de projet — entonnoir amont du portefeuille
    Saisie d'une demande → circuit de validation (avec ou sans passage en cycle de
    pilotage, selon la configuration) → création du projet.
@@ -644,4 +643,3 @@ function demFormSave(submit){
   showToast('Demande « '+d.t+' » enregistrée en brouillon');
   demOpen(d.id);
 }
-

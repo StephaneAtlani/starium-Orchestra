@@ -7,7 +7,7 @@
 | **Parent** | [RFC-PROJ-INTAKE-001](./RFC-PROJ-INTAKE-001%20%E2%80%94%20Demandes%20projet%20et%20workflow%20de%20validation%20configurable.md) (MVP livré) |
 | **Source produit** | [*Demandes de projet — Cahier des charges · Écrans*](./_sources/Design%20system%20et%20CDC/Demandes%20de%20projet%20-%20Cahier%20des%20charges.html) (13 p. A4 paysage, sept. 2026) |
 | **Import Design** | Projet Claude Design `019e02e2-4e88-7dc4-aa25-b0b6a6a0ab23` via MCP `claude-design` (`get_project` / `list_files` / `read_file` / `render_preview`) |
-| **Handoff** | [`design_handoff_demandes_projet/`](./_sources/Design%20system%20et%20CDC/design_handoff_demandes_projet/) — README + `reference-code/` + captures |
+| **Handoff** | [`design_handoff_demandes_projet/`](./_sources/Design%20system%20et%20CDC/design_handoff_demandes_projet/) — README + `reference-code/` + captures ; resync zip **Starium Design System-handoff** 2026-09-14 (`ui_kits/app/modules/demandes.js` = form 5 sections) |
 | **Captures** | [`screenshots/dp/`](./_sources/Design%20system%20et%20CDC/screenshots/dp/) — `list` · `form` · `fiche` · `config` · `instruction` · `odj` · `decision` |
 | **Règle UX** | Fidélité CDC via styles `features/project-requests/styles/demandes.css` (classes `.dem-*`) + `StariumModal` ; toasts CDC. Recette visuelle PNG encore à valider opérateur (§4.5). |
 
@@ -50,7 +50,7 @@
 | H1 | On **évolue** le module `project_requests` (pas de second module). |
 | H2 | `defaultApprovedTarget` MVP : **déprécié** après P1. Routage = calcul seuils + exempt. Champ conservé en DB lecture seule jusqu’à migration cleanup (P5+). |
 | H3 | **N+1** = utilisateur avec `project_requests.validate` **et** appartenance à la direction demandeuse (annuaire / `Collaborator` direction). Si aucun N+1 résolu à la soumission → erreur métier `PROJECT_REQUEST_N1_REQUIRED` (sauf `requireN1Validation=false`). Fallback : intersection avec `authorizedValidatorUserIds` si non vide. |
-| H4 | **Instruction / ODJ / décision / conversion** : permission **`project_requests.instruct`** (nouvelle). Config circuit : **`project_requests.settings.manage`** (pas de permission `configure` séparée) **ou** `CLIENT_ADMIN`. `project_requests.route` MVP → alias accepté avec `instruct`. |
+| H4 | **Instruction / ODJ / décision / conversion** : permission **`project_requests.instruct`** (alias `route` MVP). **Lecture** config : `settings.manage` **ou** `read`. **Écriture** config (`PATCH` settings) : **`CLIENT_ADMIN` / `PLATFORM_ADMIN` uniquement** (`ClientAdminOrPlatformAdminGuard`) — le bouton A4 UI est aussi filtré `settings.manage` (écart : Chef de projet peut voir le bouton mais le PATCH refuse hors admin client). |
 | H5 | **Ajournement** = `POSTPONED` ; réouverture → `DRAFT` + journal append « Demande rouverte pour complément de dossier ». |
 | H6 | **`referenceCode`** `DP-AAAA-NNN` unique par `clientId` ; `cuid` jamais en UI. |
 | H7 | **Fidélité visuelle** zéro écart vs PNG ; `StariumModal` uniquement ; toasts = libellés CDC exacts. |
@@ -293,6 +293,7 @@ enum ProjectRequestCircuitStep {
 
 - `referenceCode` (unique par client, `DP-AAAA-NNN`)
 - `type` (`ProjectRequestType`)
+- `portfolioCategoryId` (FK sous-catégorie portefeuille niveau 2 — même référentiel que `Project`)
 - `requestingDirection` (libellé métier ; FK org si dispo)
 - `sponsorLabel` / `sponsorUserId?`
 - `objectives` (`String[]` ou JSON)
@@ -306,6 +307,25 @@ enum ProjectRequestCircuitStep {
 - `meetingRef` / `agendaItemId?` / `meetingLabel?`
 - Journal : table `ProjectRequestJournalEntry { id, clientId, projectRequestId, label, authorLabel, authorUserId?, at }` append-only
 
+#### Formulaire A2 étendu (handoff 2026-09-14 — zip Design System)
+
+Champs persistés (migrations `20260914150000_project_request_portfolio_category` + `20260914160000_project_request_intake_detail`) :
+
+| Champ | Rôle UI |
+| --- | --- |
+| `expectedOutcome` | Résultat attendu (situation atteinte) |
+| `affectedScope` | Périmètre concerné |
+| `affectedUsersCount` | Nb utilisateurs (indicatif) |
+| `deadlineRationale` | Pourquoi cette échéance |
+| `knownConstraints` | Contraintes connues |
+| `solutionsTried` | Solutions déjà envisagées |
+| `strategicObjectiveLabel` | Objectif stratégique (libellé métier, pas d’UUID) |
+| `swot` / `tows` | JSON SWOT (S/W/O/T) et TOWS (SO/WO/ST/WT) |
+| `budgetUnknown` / `effortUnknown` | Estimation inconnue → budget/charge ignorés pour le circuit |
+
+Pièces jointes : **UI only** (zone `.dem-drop`) — upload réel hors lot (documents module).
+
+UI formulaire : 5 sections numérotées `.dem-sh` (Votre demande · Pourquoi maintenant · Estimation · SWOT/TOWS · Gouvernance) ; catégorie CDC = select `ProjectRequestType` ; sous-catégorie portefeuille optionnelle.
 ### `ProjectRequestWorkflowSettings` — champs additionnels
 
 - `copilThresholdAmount` (défaut 50000)
@@ -369,25 +389,29 @@ Toute écriture : `clientId` depuis scope · DTO class-validator · audit sensib
 | **P8** | Scoring multicritère | [INTAKE-005](./RFC-PROJ-INTAKE-005%20—%20Scoring%20multicritère%20demandes.md) | Hors lot |
 | **P9** | Portail externe | [INTAKE-006](./RFC-PROJ-INTAKE-006%20—%20Portail%20externe%20demandes.md) | Hors lot |
 
-### Avancement code (synchro doc 2026-09-14)
+### Avancement code (synchro doc 2026-09-14 soir)
 
 - [x] Migration `apps/api/prisma/migrations/20260914140000_rfc_proj_intake_002_circuit`
+- [x] Migrations `20260914150000_project_request_portfolio_category` + `20260914160000_project_request_intake_detail`
 - [x] `project-request-circuit.ts` + `ProjectRequestCdcWorkflowService` + routes controller
-- [x] UI `apps/web/src/features/project-requests/` + styles `styles/demandes.css`
+- [x] UI `apps/web/src/features/project-requests/` + styles `styles/demandes.css` (A2 = 5 sections handoff)
+- [x] Conversion → projet reprend `portfolioCategoryId` + enveloppe `retainedBudget ?? estimatedBudget`
 - [x] Seed démo `seed-project-requests-demo.ts` (branché `runDemoSeed`)
 - [x] Tests jest module `project-requests` ; `audit:ui-ids` / `audit:modals` verts
+- [x] Handoff Design System zip resync → `docs/RFC/_sources/Design system et CDC/` (Portail + `ui_kits/app/modules/demandes.js`)
 - [ ] Recette manuelle 32 critères §4.5 (opérateur vs PNG)
-- [ ] `prisma migrate deploy` sur chaque environnement
+- [ ] `prisma migrate deploy` sur chaque environnement (3 migrations INTAKE-002+)
 
 ### Écarts connus vs CDC (à traiter en polish / P4+)
 
 | Sujet | Réalité code |
 | --- | --- |
-| Config | `project_requests.settings.manage` (pas `configure`) |
+| Config écriture | `PATCH` settings = **CLIENT_ADMIN / PLATFORM_ADMIN** ; UI bouton aussi `settings.manage` (écart possible Chef de projet) |
 | ODJ A6 | Libellé séance texte (`meetingLabel`) ; pas encore select Cycles/Réunions live |
 | Plan cadrage PLA | Non bloquant à la conversion ; TODO journalisé si module absent |
 | N+1 direction | Permission `validate` ; scope direction strict H3 peut être assoupli selon données annuaire |
-
+| PJ formulaire | Zone drop visuelle sans persistance documents |
+| Captures A2 | PNG handoff encore typecards 5 types ; UI live = select + sections étendues (mock `demForm` 2026-09-14) |
 ---
 
 ## 9. Récapitulatif (état)
@@ -395,8 +419,9 @@ Toute écriture : `clientId` depuis scope · DTO class-validator · audit sensib
 - **Pilote P0–P5 livré** dans le module `project_requests` (pas de second module).
 - Circuit **recalculé** (`computedCircuit`) ; journal append-only ; `referenceCode` `DP-AAAA-NNN`.
 - UI A1–A7 sous `apps/web/src/features/project-requests/` + CSS CDC `styles/demandes.css`.
+- **A2** : formulaire 5 sections (handoff 2026-09-14) + `portfolioCategoryId` optionnel + champs intake étendus.
 - RFCs filles 003–006 restent stubs (P6–P9).
-- Reste opérateur : checklist §4.5 + `migrate deploy` envs.
+- Reste opérateur : checklist §4.5 + `migrate deploy` envs (circuit + portfolio + intake detail).
 
 ---
 
@@ -432,7 +457,7 @@ Toute écriture : `clientId` depuis scope · DTO class-validator · audit sensib
 
 ### Sécurité
 
-- RBAC client-aware ; `configure` / `instruct` / `validate` séparés ; audit sur config, instruction, ODJ, décision, conversion, réouverture ; DTO validés.
+- RBAC client-aware ; écriture config = admin client/plateforme ; `instruct` / `validate` séparés ; audit sur config, instruction, ODJ, décision, conversion, réouverture ; DTO validés.
 
 ### Interface mobile
 

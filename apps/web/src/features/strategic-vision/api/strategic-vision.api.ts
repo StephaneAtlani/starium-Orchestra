@@ -93,6 +93,11 @@ export type CreateStrategicDirectionInput = {
   code: string;
   name: string;
   description?: string;
+  accentTone?: string;
+  parentLabel?: string;
+  sponsorResourceId?: string;
+  fteCount?: number;
+  operatingBudgetCents?: number;
   sortOrder?: number;
   isActive?: boolean;
 };
@@ -114,6 +119,11 @@ export type UpdateStrategicDirectionInput = {
   code?: string;
   name?: string;
   description?: string | null;
+  accentTone?: string | null;
+  parentLabel?: string | null;
+  sponsorResourceId?: string | null;
+  fteCount?: number | null;
+  operatingBudgetCents?: number | null;
   sortOrder?: number;
   isActive?: boolean;
 };

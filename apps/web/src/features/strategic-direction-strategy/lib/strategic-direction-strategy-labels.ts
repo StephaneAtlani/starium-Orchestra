@@ -6,8 +6,8 @@ export const STRATEGIC_DIRECTION_STRATEGY_STATUS_LABELS: Record<
   string
 > = {
   DRAFT: 'Brouillon',
-  SUBMITTED: 'Soumis à validation',
-  APPROVED: 'Validée',
+  SUBMITTED: 'En revue',
+  APPROVED: 'Validé',
   REJECTED: 'Refusée',
   ARCHIVED: 'Archivée',
 };

@@ -1,15 +1,38 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Compass } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { toast } from '@/lib/toast';
+import { cn } from '@/lib/utils';
+import { displayLabel } from '@/lib/display-label';
+import { usePermissions } from '@/hooks/use-permissions';
+import { HumanResourceCombobox } from '@/features/teams/work-teams/components/human-resource-combobox';
 import {
   useCreateStrategicDirectionMutation,
+  useStrategicDirectionsQuery,
   useUpdateStrategicDirectionMutation,
 } from '../hooks/use-strategic-vision-queries';
 import type { StrategicDirectionDto } from '../types/strategic-vision.types';
+
+const TONES = [
+  { value: 'info', label: 'Bleu', bg: 'var(--state-info-bg)', c: 'var(--state-info)' },
+  { value: 'gold', label: 'Or', bg: 'var(--brand-gold-050)', c: 'var(--brand-gold-700)' },
+  { value: 'purple', label: 'Violet', bg: 'var(--purple-bg)', c: 'var(--purple)' },
+  { value: 'teal', label: 'Teal', bg: 'var(--teal-bg)', c: 'var(--teal)' },
+] as const;
+
+/** Sentinel Select — parentLabel API = null / absent */
+const PARENT_NONE = '__none__';
 
 export function StrategicDirectionCreateEditDialog({
   mode,
@@ -24,13 +47,45 @@ export function StrategicDirectionCreateEditDialog({
   direction: StrategicDirectionDto | null;
   onSuccess?: (direction: StrategicDirectionDto) => void;
 }) {
+  const { has, isSuccess: permsOk } = usePermissions();
+  const canReadResources = permsOk && has('resources.read');
+  const canReadDirections = permsOk && has('strategic_vision.read');
   const createDirection = useCreateStrategicDirectionMutation();
   const updateDirection = useUpdateStrategicDirectionMutation();
+  const directionsQ = useStrategicDirectionsQuery({
+    enabled: open && canReadDirections,
+  });
 
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [accentTone, setAccentTone] = useState('info');
+  const [parentLabel, setParentLabel] = useState('');
+  const [sponsorResourceId, setSponsorResourceId] = useState('');
+  const [fteCount, setFteCount] = useState('');
+  const [budgetKe, setBudgetKe] = useState('');
   const [isActive, setIsActive] = useState(true);
+
+  const parentOptions = useMemo(() => {
+    const rows = directionsQ.data ?? [];
+    return rows
+      .filter((d) => (mode === 'edit' && direction ? d.id !== direction.id : true))
+      .filter((d) => d.isActive)
+      .sort(
+        (a, b) =>
+          a.sortOrder - b.sortOrder ||
+          a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' }),
+      );
+  }, [directionsQ.data, mode, direction]);
+
+  const parentSelectValue = useMemo(() => {
+    const trimmed = parentLabel.trim();
+    if (!trimmed) return PARENT_NONE;
+    const match = parentOptions.find(
+      (d) => d.name.localeCompare(trimmed, 'fr', { sensitivity: 'base' }) === 0,
+    );
+    return match ? match.id : PARENT_NONE;
+  }, [parentLabel, parentOptions]);
 
   useEffect(() => {
     if (!open) return;
@@ -38,11 +93,25 @@ export function StrategicDirectionCreateEditDialog({
       setCode(direction.code);
       setName(direction.name);
       setDescription(direction.description ?? '');
+      setAccentTone(direction.accentTone ?? 'info');
+      setParentLabel(direction.parentLabel?.trim() ?? '');
+      setSponsorResourceId(direction.sponsorResourceId ?? '');
+      setFteCount(direction.fteCount != null ? String(direction.fteCount) : '');
+      setBudgetKe(
+        direction.operatingBudgetCents != null
+          ? String(Math.round(direction.operatingBudgetCents / 100_000) || '')
+          : '',
+      );
       setIsActive(direction.isActive);
     } else if (mode === 'create') {
       setCode('');
       setName('');
       setDescription('');
+      setAccentTone('info');
+      setParentLabel('');
+      setSponsorResourceId('');
+      setFteCount('');
+      setBudgetKe('');
       setIsActive(true);
     }
   }, [open, mode, direction]);
@@ -51,16 +120,32 @@ export function StrategicDirectionCreateEditDialog({
     setCode('');
     setName('');
     setDescription('');
+    setAccentTone('info');
+    setParentLabel('');
+    setSponsorResourceId('');
+    setFteCount('');
+    setBudgetKe('');
     setIsActive(true);
   };
 
   const handleSubmit = async () => {
+    const fte = fteCount.trim() === '' ? undefined : parseInt(fteCount, 10);
+    const budgetCents =
+      budgetKe.trim() === ''
+        ? undefined
+        : Math.round((parseFloat(budgetKe.replace(',', '.')) || 0) * 100_000);
+    const parentPayload = parentLabel.trim() || null;
     try {
       if (mode === 'create') {
         const created = await createDirection.mutateAsync({
           code: code.trim(),
           name: name.trim(),
           description: description.trim() || undefined,
+          accentTone,
+          parentLabel: parentPayload || undefined,
+          sponsorResourceId: sponsorResourceId.trim() || undefined,
+          fteCount: Number.isFinite(fte) ? fte : undefined,
+          operatingBudgetCents: budgetCents,
           sortOrder: 0,
           isActive,
         });
@@ -73,6 +158,11 @@ export function StrategicDirectionCreateEditDialog({
             code: code.trim(),
             name: name.trim(),
             description: description.trim() || null,
+            accentTone,
+            parentLabel: parentPayload,
+            sponsorResourceId: sponsorResourceId.trim() || null,
+            fteCount: Number.isFinite(fte) ? fte! : null,
+            operatingBudgetCents: budgetCents ?? null,
             sortOrder: direction.sortOrder,
             isActive,
           },
@@ -98,7 +188,7 @@ export function StrategicDirectionCreateEditDialog({
         onOpenChange(next);
       }}
       title={mode === 'create' ? 'Nouvelle direction' : 'Modifier la direction'}
-      description="Code court unique (ex. DSI), libellé affiché partout dans les sélecteurs et tableaux."
+      description="Identité mock : sigle, teinte, sponsor, rattachement, ETP et budget de fonctionnement."
       icon={Compass}
       accent="blue"
       size="lg"
@@ -129,7 +219,7 @@ export function StrategicDirectionCreateEditDialog({
         <div className="starium-form-grid starium-form-grid--2">
           <div className="starium-form-field">
             <label className="starium-form-label" htmlFor="sv-dir-code">
-              Code <span className="text-destructive">*</span>
+              Code / sigle <span className="text-destructive">*</span>
             </label>
             <input
               id="sv-dir-code"
@@ -159,7 +249,7 @@ export function StrategicDirectionCreateEditDialog({
         </div>
         <div className="starium-form-field">
           <label className="starium-form-label" htmlFor="sv-dir-description">
-            Description (optionnel)
+            Périmètre / description
           </label>
           <textarea
             id="sv-dir-description"
@@ -170,9 +260,127 @@ export function StrategicDirectionCreateEditDialog({
             maxLength={4000}
           />
         </div>
-        <p className="rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-          Ordre d&apos;affichage : automatique (alphabétique).
-        </p>
+        <div className="starium-form-field">
+          <label className="starium-form-label" htmlFor="sv-dir-parent">
+            Rattachée à
+          </label>
+          <Select
+            value={parentSelectValue}
+            onValueChange={(v) => {
+              if (v == null || v === PARENT_NONE) {
+                setParentLabel('');
+                return;
+              }
+              const selected = parentOptions.find((d) => d.id === v);
+              setParentLabel(selected?.name ?? '');
+            }}
+            disabled={pending || directionsQ.isLoading}
+          >
+            <SelectTrigger
+              id="sv-dir-parent"
+              className="starium-form-input min-h-11 w-full"
+              aria-busy={directionsQ.isLoading}
+            >
+              <SelectValue placeholder="Aucune">
+                {parentSelectValue === PARENT_NONE
+                  ? 'Aucune'
+                  : displayLabel(
+                      parentOptions.find((d) => d.id === parentSelectValue)?.name,
+                      'Aucune',
+                    )}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={PARENT_NONE}>Aucune</SelectItem>
+              {parentOptions.map((d) => (
+                <SelectItem key={d.id} value={d.id}>
+                  {displayLabel(d.name, 'Direction')}
+                  {d.code ? ` (${displayLabel(d.code, 'code')})` : ''}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {directionsQ.isError ? (
+            <p className="mt-1 text-xs text-destructive" role="alert">
+              Impossible de charger la liste des directions.
+            </p>
+          ) : null}
+        </div>
+        {canReadResources ? (
+          <HumanResourceCombobox
+            id="sv-dir-sponsor"
+            label="Sponsor / directeur·rice"
+            dialogOpen={open}
+            value={sponsorResourceId}
+            onChange={setSponsorResourceId}
+            fallbackLabel={direction?.sponsorLabel ?? null}
+            disabled={pending}
+          />
+        ) : (
+          <Alert>
+            <AlertTitle>Catalogue ressources indisponible</AlertTitle>
+            <AlertDescription>
+              Permission <code className="text-xs">resources.read</code> requise pour sélectionner
+              un sponsor.
+            </AlertDescription>
+          </Alert>
+        )}
+        <fieldset className="starium-form-field">
+          <legend className="starium-form-label">Teinte</legend>
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Teinte de la direction">
+            {TONES.map((t) => {
+              const selected = accentTone === t.value;
+              return (
+                <button
+                  key={t.value}
+                  type="button"
+                  disabled={pending}
+                  className={cn(
+                    'min-h-11 rounded-full border px-3 text-sm font-semibold',
+                    selected
+                      ? 'border-[color:var(--brand-gold)]'
+                      : 'border-border',
+                  )}
+                  style={{ background: t.bg, color: t.c }}
+                  aria-pressed={selected}
+                  onClick={() => setAccentTone(t.value)}
+                >
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
+        </fieldset>
+        <div className="starium-form-grid starium-form-grid--2">
+          <div className="starium-form-field">
+            <label className="starium-form-label" htmlFor="sv-dir-fte">
+              Effectif (ETP)
+            </label>
+            <input
+              id="sv-dir-fte"
+              type="number"
+              min={0}
+              className="starium-form-input"
+              value={fteCount}
+              onChange={(event) => setFteCount(event.target.value)}
+              disabled={pending}
+            />
+          </div>
+          <div className="starium-form-field">
+            <label className="starium-form-label" htmlFor="sv-dir-budget">
+              Budget de fonctionnement (k€)
+            </label>
+            <input
+              id="sv-dir-budget"
+              type="number"
+              min={0}
+              className="starium-form-input"
+              value={budgetKe}
+              onChange={(event) => setBudgetKe(event.target.value)}
+              disabled={pending}
+            />
+          </div>
+        </div>
         <label className="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-border/60 px-3 py-2 text-sm sm:min-h-9">
           <input
             type="checkbox"

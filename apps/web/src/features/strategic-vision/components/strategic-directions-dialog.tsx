@@ -2,7 +2,7 @@
 
 import { Signpost } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { FormDialogShell } from '@/components/layout/form-dialog-shell';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import type { StrategicDirectionDto } from '../types/strategic-vision.types';
 import { StrategicDirectionsTab } from './strategic-directions-tab';
 
@@ -12,23 +12,23 @@ export function StrategicDirectionsDialog({
   directions,
   directionsQueryState,
   canManageDirections,
+  onRetry,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   directions: StrategicDirectionDto[];
   directionsQueryState: { isLoading: boolean; isError: boolean };
   canManageDirections: boolean;
+  onRetry?: () => void;
 }) {
   return (
-    <FormDialogShell
+    <StariumModal
       open={open}
       onOpenChange={onOpenChange}
       title="Référentiel directions"
-      description="Directions porteuses pour objectifs et stratégies de direction."
+      description="Directions porteuses pour objectifs et schémas directeurs."
       icon={Signpost}
       size="xl"
-      contentClassName="sm:max-w-4xl"
-      bodyClassName="px-0.5"
       footer={
         <Button
           type="button"
@@ -45,7 +45,8 @@ export function StrategicDirectionsDialog({
         directionsQueryState={directionsQueryState}
         canManageDirections={canManageDirections}
         embedded
+        onRetry={onRetry}
       />
-    </FormDialogShell>
+    </StariumModal>
   );
 }

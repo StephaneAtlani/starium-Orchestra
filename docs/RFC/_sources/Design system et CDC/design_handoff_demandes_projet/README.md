@@ -1,4 +1,3 @@
-
 # Handoff : Demandes de projet (module amont du portefeuille — Starium)
 
 > Les fichiers de ce dossier sont des **références design** réalisées en HTML/CSS/JS : des prototypes qui montrent l'apparence et le comportement attendus, **pas du code de production à copier**. La tâche est de **recréer ces écrans dans l'environnement du codebase cible** (React, Vue, Angular, SwiftUI, natif…) avec ses patterns et ses librairies existants. Si aucun environnement n'existe encore, choisir le framework le plus adapté et y implémenter les designs.
@@ -200,4 +199,3 @@ Accessibilité : contraste ≥ 4.5:1 pour tout texte (les badges utilisent l'enc
 ## Assets
 
 Aucune image propre au module : toutes les icônes sont des SVG au trait 1.75 (jeu type Feather) inlinés, à remplacer par la librairie d'icônes du codebase. Logos et fonte Manrope : voir `design_handoff_starium/`.
-

@@ -1,6 +1,9 @@
 import type { AuthFetch } from '@/features/budgets/api/budget-management.api';
 import { parseApiFormError } from '@/features/budgets/api/budget-management.api';
 import type {
+  ConsolidationDto,
+  SchemaMetricsDto,
+  StrategicDirectionPortfolioCardDto,
   StrategicDirectionStrategyCompareDto,
   StrategicDirectionStrategyDto,
   StrategicDirectionStrategyLinksDto,
@@ -21,6 +24,12 @@ export type CreateStrategicDirectionStrategyInput = {
   kpis?: Array<Record<string, unknown>>;
   majorInitiatives?: Array<Record<string, unknown>>;
   risks?: Array<Record<string, unknown>>;
+  ownAxes?: Array<Record<string, unknown>>;
+  horizonStartYear?: number;
+  horizonYearCount?: number;
+  budgetsByYear?: Record<string, number>;
+  axisContributions?: Record<string, number>;
+  contentBlocks?: Array<Record<string, unknown>>;
   horizonLabel: string;
   ownerLabel?: string;
 };
@@ -37,6 +46,12 @@ export type UpdateStrategicDirectionStrategyInput = {
   kpis?: Array<Record<string, unknown>>;
   majorInitiatives?: Array<Record<string, unknown>>;
   risks?: Array<Record<string, unknown>>;
+  ownAxes?: Array<Record<string, unknown>>;
+  horizonStartYear?: number;
+  horizonYearCount?: number;
+  budgetsByYear?: Record<string, number>;
+  axisContributions?: Record<string, number>;
+  contentBlocks?: Array<Record<string, unknown>>;
   horizonLabel?: string;
   ownerLabel?: string;
 };
@@ -44,6 +59,8 @@ export type UpdateStrategicDirectionStrategyInput = {
 export type ReviewStrategicDirectionStrategyInput = {
   decision: 'APPROVED' | 'REJECTED';
   rejectionReason?: string;
+  decisionNote?: string;
+  reviewInstanceLabel?: string;
 };
 
 export async function listStrategicDirectionStrategies(
@@ -231,4 +248,93 @@ export async function patchStrategicDirectionStrategyWorkflowSettings(
   });
   if (!res.ok) throw await parseApiFormError(res);
   return res.json() as Promise<StrategicDirectionStrategyWorkflowSettingsResponse>;
+}
+
+export async function getStrategicDirectionStrategyPortfolio(
+  authFetch: AuthFetch,
+  filters?: { alignedVisionId?: string; search?: string },
+): Promise<StrategicDirectionPortfolioCardDto[]> {
+  const params = new URLSearchParams();
+  if (filters?.alignedVisionId) params.set('alignedVisionId', filters.alignedVisionId);
+  if (filters?.search) params.set('search', filters.search);
+  const query = params.size > 0 ? `?${params.toString()}` : '';
+  const res = await authFetch(`/api/strategic-direction-strategies/portfolio${query}`);
+  if (!res.ok) throw await parseApiFormError(res);
+  const body = (await res.json()) as
+    | StrategicDirectionPortfolioCardDto[]
+    | { items: StrategicDirectionPortfolioCardDto[] };
+  return Array.isArray(body) ? body : (body.items ?? []);
+}
+
+export async function getStrategicDirectionStrategySchemaMetrics(
+  authFetch: AuthFetch,
+  strategyId: string,
+): Promise<SchemaMetricsDto> {
+  const res = await authFetch(
+    `/api/strategic-direction-strategies/${strategyId}/schema-metrics`,
+  );
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<SchemaMetricsDto>;
+}
+
+export async function getStrategicDirectionStrategyConsolidation(
+  authFetch: AuthFetch,
+  filters?: { alignedVisionId?: string },
+): Promise<ConsolidationDto> {
+  const params = new URLSearchParams();
+  if (filters?.alignedVisionId) params.set('alignedVisionId', filters.alignedVisionId);
+  const query = params.size > 0 ? `?${params.toString()}` : '';
+  const res = await authFetch(`/api/strategic-direction-strategies/consolidation${query}`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ConsolidationDto>;
+}
+
+export type StrategyDocumentDto = {
+  id: string;
+  name: string;
+  originalFilename: string | null;
+  mimeType: string | null;
+  extension: string | null;
+  sizeBytes: number | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export async function listStrategicDirectionStrategyDocuments(
+  authFetch: AuthFetch,
+  strategyId: string,
+): Promise<StrategyDocumentDto[]> {
+  const res = await authFetch(
+    `/api/strategic-direction-strategies/${strategyId}/documents`,
+  );
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<StrategyDocumentDto[]>;
+}
+
+export async function uploadStrategicDirectionStrategyDocument(
+  authFetch: AuthFetch,
+  strategyId: string,
+  file: File,
+): Promise<StrategyDocumentDto> {
+  const form = new FormData();
+  form.append('file', file);
+  const res = await authFetch(
+    `/api/strategic-direction-strategies/${strategyId}/documents/upload`,
+    { method: 'POST', body: form },
+  );
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<StrategyDocumentDto>;
+}
+
+export async function downloadStrategicDirectionStrategyDocument(
+  authFetch: AuthFetch,
+  strategyId: string,
+  documentId: string,
+): Promise<Blob> {
+  const res = await authFetch(
+    `/api/strategic-direction-strategies/${strategyId}/documents/${documentId}/download`,
+  );
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.blob();
 }

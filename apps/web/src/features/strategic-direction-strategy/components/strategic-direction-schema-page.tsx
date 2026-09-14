@@ -1,0 +1,3280 @@
+'use client';
+
+import Link from 'next/link';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import {
+  AlertTriangle,
+  ArrowLeft,
+  CheckCircle2,
+  ClipboardCheck,
+  FileText,
+  LayoutGrid,
+  Pencil,
+  Plus,
+  Printer,
+  Target,
+  Trash2,
+} from 'lucide-react';
+import { PageContainer } from '@/components/layout/page-container';
+import { PageHeader } from '@/components/layout/page-header';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { LoadingState } from '@/components/feedback/loading-state';
+import { EmptyState } from '@/components/feedback/empty-state';
+import { ErrorState } from '@/components/feedback/error-state';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { cn } from '@/lib/utils';
+import { displayLabel, firstDisplayLabel } from '@/lib/display-label';
+import { toast } from '@/lib/toast';
+import { usePermissions } from '@/hooks/use-permissions';
+import { StrategicDirectionCreateEditDialog } from '@/features/strategic-vision/components/strategic-direction-create-edit-dialog';
+import type { StrategicDirectionDto } from '@/features/strategic-vision/types/strategic-vision.types';
+import { StrategyDocumentPicker } from './strategy-document-picker';
+import { StrategyBlockImagePreview } from './strategy-block-image-preview';
+import {
+  useReviewStrategicDirectionStrategyMutation,
+  useStrategicDirectionOptionsQuery,
+  useStrategicDirectionStrategyDetailQuery,
+  useStrategicDirectionStrategyLinksQuery,
+  useStrategicDirectionStrategySchemaMetricsQuery,
+  useStrategicDirectionStrategyValidatorOptionsQuery,
+  useStrategicDirectionStrategyVersionsQuery,
+  useStrategicDirectionStrategyWorkflowSettingsQuery,
+  useSubmitStrategicDirectionStrategyMutation,
+  useUpdateStrategicDirectionStrategyMutation,
+} from '../hooks/use-strategic-direction-strategy-queries';
+import {
+  getStrategicDirectionStrategyStatusLabel,
+  STRATEGIC_DIRECTION_STRATEGY_APPROVE_LABEL,
+  STRATEGIC_DIRECTION_STRATEGY_REJECT_LABEL,
+  STRATEGIC_DIRECTION_STRATEGY_SUBMIT_LABEL,
+} from '../lib/strategic-direction-strategy-labels';
+import {
+  contribFillColor,
+  formatEurCents,
+  formatReviewDate,
+  MATURITY_DIMS,
+  progressFillColor,
+  stgBarPct,
+  stgQuarterLabel,
+  stgTone,
+} from '../lib/strategie-ui';
+import type {
+  StrategyContentBlock,
+  StrategyInitiative,
+  StrategyKpi,
+  StrategyOutcome,
+  StrategyOwnAxis,
+  StrategyRisk,
+  StrategySchemaNormalized,
+} from '../types/strategic-direction-strategy.types';
+import '../styles/strategie.css';
+
+const TABS = [
+  { id: 'axes', label: 'Axes stratégiques' },
+  { id: 'objectifs', label: 'Objectifs' },
+  { id: 'alignement', label: 'Alignement' },
+  { id: 'alertes', label: 'Alertes' },
+  { id: 'historique', label: 'Historique' },
+] as const;
+
+type TabId = (typeof TABS)[number]['id'];
+
+const AXIS_TONES = [
+  { value: 'info', label: 'Bleu' },
+  { value: 'gold', label: 'Or' },
+  { value: 'purple', label: 'Violet' },
+  { value: 'teal', label: 'Teal' },
+] as const;
+
+function isTabId(v: string | null): v is TabId {
+  return TABS.some((t) => t.id === v);
+}
+
+function strategyStatusBadgeClass(status: string): string {
+  switch (status) {
+    case 'APPROVED':
+      return 'bdg-success';
+    case 'SUBMITTED':
+      return 'bdg-warn';
+    case 'REJECTED':
+      return 'bdg-danger';
+    case 'ARCHIVED':
+      return 'bdg-neutral';
+    default:
+      return 'bdg-neutral';
+  }
+}
+
+/** Options trimestre pour fenêtre chantier / jalons (mock STG). */
+function quarterOptions(startYear: number, yearCount: number) {
+  const n = Math.max(1, yearCount) * 12;
+  const opts: Array<{ value: number; label: string }> = [];
+  for (let m = 0; m < n; m += 3) {
+    opts.push({ value: m, label: stgQuarterLabel(m, startYear) });
+  }
+  return opts;
+}
+
+function snapToQuarter(monthOffset: number): number {
+  return Math.max(0, Math.floor(monthOffset / 3) * 3);
+}
+
+function ScoreRingLarge({ score, color }: { score: number; color: string }) {
+  const r = 22;
+  const c = 2 * Math.PI * r;
+  const offset = c * (1 - score / 100);
+  return (
+    <div className="stg-ring" style={{ width: 72, height: 72 }} aria-label={`Alignement ${score} %`}>
+      <svg width="72" height="72" viewBox="0 0 52 52" style={{ width: 72, height: 72 }} aria-hidden>
+        <circle cx="26" cy="26" r={r} fill="none" stroke="var(--neutral-200)" strokeWidth="6" />
+        <circle
+          cx="26"
+          cy="26"
+          r={r}
+          fill="none"
+          stroke={color}
+          strokeWidth="6"
+          strokeLinecap="round"
+          strokeDasharray={c.toFixed(1)}
+          strokeDashoffset={offset.toFixed(1)}
+          transform="rotate(-90 26 26)"
+        />
+      </svg>
+      <div
+        className="stg-ring-v"
+        style={{ color, fontSize: 17, flexDirection: 'column' }}
+      >
+        <div>{score}</div>
+        <div
+          style={{
+            fontSize: 8.5,
+            fontWeight: 700,
+            color: 'var(--neutral-500)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.06em',
+          }}
+        >
+          align.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function emptyInitiative(lane = 0): StrategyInitiative {
+  return {
+    id:
+      typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : `init-${Date.now()}`,
+    title: '',
+    description: '',
+    ownerLabel: '',
+    budgetCents: 0,
+    progressPct: 0,
+    lane,
+    startMonthOffset: 0,
+    endMonthOffset: 11,
+    strategicAxisIds: [],
+    milestones: [],
+    linkedProjectNames: [],
+  };
+}
+
+function emptyOutcome(): StrategyOutcome {
+  return {
+    title: '',
+    ownerLabel: '',
+    target: '',
+    current: '',
+    progressPct: 0,
+  };
+}
+
+function emptyBlock(): StrategyContentBlock {
+  return { kind: 'text', title: '', body: '', documentId: null };
+}
+
+function emptyRisk(): StrategyRisk {
+  return {
+    name: '',
+    probability: '',
+    impact: '',
+    ownerLabel: '',
+    level: 'warning',
+    mitigation: '',
+  };
+}
+
+function emptyOwnAxis(): StrategyOwnAxis {
+  return {
+    id:
+      typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : `axis-${Date.now()}`,
+    name: '',
+    tone: 'info',
+  };
+}
+
+function emptyKpi(): StrategyKpi {
+  return { label: '', value: '', detail: '' };
+}
+
+type Props = { strategyId: string };
+
+export function StrategicDirectionSchemaPage({ strategyId }: Props) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const tab: TabId = isTabId(tabParam) ? tabParam : 'axes';
+
+  const { has } = usePermissions();
+  const canUpdate = has('strategic_direction_strategy.update');
+  const canReview = has('strategic_direction_strategy.review');
+  const canCreate = has('strategic_direction_strategy.create');
+  const canManageDirection =
+    has('strategic_vision.update') || has('strategic_vision.manage_directions');
+
+  const detailQ = useStrategicDirectionStrategyDetailQuery(strategyId);
+  const metricsQ = useStrategicDirectionStrategySchemaMetricsQuery(strategyId);
+  const versionsQ = useStrategicDirectionStrategyVersionsQuery(strategyId);
+  const linksQ = useStrategicDirectionStrategyLinksQuery(strategyId);
+  const directionsQ = useStrategicDirectionOptionsQuery({
+    enabled: canManageDirection,
+  });
+  const workflowQ = useStrategicDirectionStrategyWorkflowSettingsQuery({
+    enabled: canUpdate || canCreate,
+  });
+  const validatorsQ = useStrategicDirectionStrategyValidatorOptionsQuery({
+    enabled: canUpdate || canCreate,
+  });
+
+  const updateMutation = useUpdateStrategicDirectionStrategyMutation();
+  const submitMutation = useSubmitStrategicDirectionStrategyMutation();
+  const reviewMutation = useReviewStrategicDirectionStrategyMutation();
+
+  const [editOpen, setEditOpen] = useState(false);
+  const [directionEditOpen, setDirectionEditOpen] = useState(false);
+  const [ambitionDraft, setAmbitionDraft] = useState('');
+  const [contextDraft, setContextDraft] = useState('');
+  const [horizonDraft, setHorizonDraft] = useState('');
+  const [ownerDraft, setOwnerDraft] = useState('');
+
+  const [initiativeOpen, setInitiativeOpen] = useState(false);
+  const [initiativeDraft, setInitiativeDraft] = useState<StrategyInitiative>(emptyInitiative());
+  const [editingInitiativeId, setEditingInitiativeId] = useState<string | null>(null);
+
+  const [okrOpen, setOkrOpen] = useState(false);
+  const [okrDraft, setOkrDraft] = useState<StrategyOutcome>(emptyOutcome());
+  const [editingOkrIndex, setEditingOkrIndex] = useState<number | null>(null);
+
+  const [blockOpen, setBlockOpen] = useState(false);
+  const [blockDraft, setBlockDraft] = useState<StrategyContentBlock>(emptyBlock());
+  const [editingBlockIndex, setEditingBlockIndex] = useState<number | null>(null);
+
+  const [riskOpen, setRiskOpen] = useState(false);
+  const [riskDraft, setRiskDraft] = useState<StrategyRisk>(emptyRisk());
+  const [editingRiskIndex, setEditingRiskIndex] = useState<number | null>(null);
+
+  const [contribDraft, setContribDraft] = useState<Record<string, number>>({});
+  const [budgetDraft, setBudgetDraft] = useState<Record<string, string>>({});
+
+  const [axisOpen, setAxisOpen] = useState(false);
+  const [axisDraft, setAxisDraft] = useState<StrategyOwnAxis>(emptyOwnAxis());
+  const [editingAxisIndex, setEditingAxisIndex] = useState<number | null>(null);
+
+  const [kpiOpen, setKpiOpen] = useState(false);
+  const [kpiDraft, setKpiDraft] = useState<StrategyKpi>(emptyKpi());
+  const [editingKpiIndex, setEditingKpiIndex] = useState<number | null>(null);
+
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [submitValidatorUserId, setSubmitValidatorUserId] = useState('');
+  const [rejectReason, setRejectReason] = useState('');
+  const [reviewInstanceLabel, setReviewInstanceLabel] = useState('CODIR');
+  const [decisionNote, setDecisionNote] = useState('');
+
+  const strategy = detailQ.data;
+  const schema: StrategySchemaNormalized | null = strategy?.schema ?? null;
+  const metrics = metricsQ.data;
+  const T = stgTone(strategy?.direction?.accentTone);
+  const score = metrics?.score ?? 0;
+
+  useEffect(() => {
+    if (!schema) return;
+    setContribDraft({ ...schema.axisContributions });
+    const bd: Record<string, string> = {};
+    for (const [y, cents] of Object.entries(schema.budgetsByYear)) {
+      bd[y] = String(Math.round((cents ?? 0) / 100_000) || '');
+    }
+    // assurer 3 années horizon
+    const y0 = schema.horizonStartYear;
+    for (let i = 0; i < schema.horizonYearCount; i++) {
+      const y = String(y0 + i);
+      if (!(y in bd)) bd[y] = '';
+    }
+    setBudgetDraft(bd);
+  }, [schema]);
+
+  const qOpts = useMemo(
+    () =>
+      quarterOptions(
+        schema?.horizonStartYear ?? 2026,
+        schema?.horizonYearCount ?? 3,
+      ),
+    [schema?.horizonStartYear, schema?.horizonYearCount],
+  );
+
+  const setTab = (next: TabId) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (next === 'axes') params.delete('tab');
+    else params.set('tab', next);
+    const q = params.toString();
+    router.replace(
+      q
+        ? `/strategic-direction-strategy/${strategyId}?${q}`
+        : `/strategic-direction-strategy/${strategyId}`,
+    );
+  };
+
+  const openEdit = () => {
+    if (!strategy) return;
+    setAmbitionDraft(strategy.ambition ?? '');
+    setContextDraft(strategy.context ?? '');
+    setHorizonDraft(strategy.horizonLabel ?? '');
+    setOwnerDraft(strategy.ownerLabel ?? '');
+    setEditOpen(true);
+  };
+
+  const saveEdit = async () => {
+    if (!strategy) return;
+    try {
+      await updateMutation.mutateAsync({
+        strategyId: strategy.id,
+        body: {
+          ambition: ambitionDraft.trim(),
+          context: contextDraft.trim(),
+          horizonLabel: horizonDraft.trim() || strategy.horizonLabel,
+          statement: ambitionDraft.trim() || strategy.statement,
+          ownerLabel: ownerDraft.trim() || undefined,
+        },
+      });
+      toast.success('Schéma directeur mis à jour.');
+      setEditOpen(false);
+    } catch (e) {
+      const msg =
+        typeof e === 'object' && e && 'message' in e && typeof (e as { message: unknown }).message === 'string'
+          ? (e as { message: string }).message
+          : 'Enregistrement impossible.';
+      toast.error(msg);
+    }
+  };
+
+  const patchInitiatives = async (next: StrategyInitiative[]) => {
+    if (!strategy || !schema) return;
+    await updateMutation.mutateAsync({
+      strategyId: strategy.id,
+      body: {
+        majorInitiatives: next as unknown as Array<Record<string, unknown>>,
+      },
+    });
+  };
+
+  const patchOutcomes = async (next: StrategyOutcome[]) => {
+    if (!strategy) return;
+    await updateMutation.mutateAsync({
+      strategyId: strategy.id,
+      body: {
+        expectedOutcomes: next as unknown as Array<Record<string, unknown>>,
+      },
+    });
+  };
+
+  const patchBlocks = async (next: StrategyContentBlock[]) => {
+    if (!strategy) return;
+    await updateMutation.mutateAsync({
+      strategyId: strategy.id,
+      body: {
+        contentBlocks: next as unknown as Array<Record<string, unknown>>,
+      },
+    });
+  };
+
+  const patchRisks = async (next: StrategyRisk[]) => {
+    if (!strategy) return;
+    await updateMutation.mutateAsync({
+      strategyId: strategy.id,
+      body: {
+        risks: next as unknown as Array<Record<string, unknown>>,
+      },
+    });
+  };
+
+  const openInitiative = (init?: StrategyInitiative) => {
+    if (init) {
+      setEditingInitiativeId(init.id);
+      setInitiativeDraft({
+        ...init,
+        startMonthOffset: snapToQuarter(init.startMonthOffset),
+        endMonthOffset: snapToQuarter(init.endMonthOffset),
+        milestones: (init.milestones ?? []).map((m) => ({
+          ...m,
+          monthOffset: snapToQuarter(m.monthOffset),
+        })),
+        strategicAxisIds: [...(init.strategicAxisIds ?? [])],
+      });
+    } else {
+      setEditingInitiativeId(null);
+      setInitiativeDraft(emptyInitiative(0));
+    }
+    setInitiativeOpen(true);
+  };
+
+  const saveInitiative = async () => {
+    if (!schema) return;
+    const title = initiativeDraft.title.trim();
+    if (!title) {
+      toast.error('Intitulé du chantier requis.');
+      return;
+    }
+    if (initiativeDraft.endMonthOffset <= initiativeDraft.startMonthOffset) {
+      toast.error('La fin doit être postérieure au début.');
+      return;
+    }
+    const list = [...schema.majorInitiatives];
+    const payload = {
+      ...initiativeDraft,
+      title,
+      milestones: (initiativeDraft.milestones ?? []).filter((m) => m.label.trim()),
+    };
+    if (editingInitiativeId) {
+      const idx = list.findIndex((i) => i.id === editingInitiativeId);
+      if (idx >= 0) list[idx] = payload;
+      else list.push(payload);
+    } else {
+      list.push(payload);
+    }
+    try {
+      await patchInitiatives(list);
+      toast.success(editingInitiativeId ? 'Chantier mis à jour.' : 'Chantier ajouté.');
+      setInitiativeOpen(false);
+    } catch (e) {
+      const msg =
+        typeof e === 'object' && e && 'message' in e && typeof (e as { message: unknown }).message === 'string'
+          ? (e as { message: string }).message
+          : 'Enregistrement impossible.';
+      toast.error(msg);
+    }
+  };
+
+  const deleteInitiative = async () => {
+    if (!schema || !editingInitiativeId) return;
+    const list = schema.majorInitiatives.filter((i) => i.id !== editingInitiativeId);
+    try {
+      await patchInitiatives(list);
+      toast.success('Chantier supprimé.');
+      setInitiativeOpen(false);
+    } catch (e) {
+      const msg =
+        typeof e === 'object' && e && 'message' in e && typeof (e as { message: unknown }).message === 'string'
+          ? (e as { message: string }).message
+          : 'Suppression impossible.';
+      toast.error(msg);
+    }
+  };
+
+  const openOkr = (outcome?: StrategyOutcome, index?: number) => {
+    if (outcome && index != null) {
+      setEditingOkrIndex(index);
+      setOkrDraft({ ...outcome });
+    } else {
+      setEditingOkrIndex(null);
+      setOkrDraft(emptyOutcome());
+    }
+    setOkrOpen(true);
+  };
+
+  const saveOkr = async () => {
+    if (!schema) return;
+    const title = okrDraft.title.trim();
+    if (!title) {
+      toast.error('Objectif requis.');
+      return;
+    }
+    const list = [...schema.expectedOutcomes];
+    const payload = { ...okrDraft, title };
+    if (editingOkrIndex != null && editingOkrIndex >= 0) list[editingOkrIndex] = payload;
+    else list.push(payload);
+    try {
+      await patchOutcomes(list);
+      toast.success(editingOkrIndex != null ? 'Objectif mis à jour.' : 'Objectif ajouté.');
+      setOkrOpen(false);
+    } catch (e) {
+      const msg =
+        typeof e === 'object' && e && 'message' in e && typeof (e as { message: unknown }).message === 'string'
+          ? (e as { message: string }).message
+          : 'Enregistrement impossible.';
+      toast.error(msg);
+    }
+  };
+
+  const deleteOkr = async () => {
+    if (!schema || editingOkrIndex == null) return;
+    await deleteOkrAt(editingOkrIndex);
+  };
+
+  const deleteOkrAt = async (index: number) => {
+    if (!schema) return;
+    const list = schema.expectedOutcomes.filter((_, i) => i !== index);
+    try {
+      await patchOutcomes(list);
+      toast.success('Objectif supprimé.');
+      setOkrOpen(false);
+      setEditingOkrIndex(null);
+    } catch (e) {
+      const msg =
+        typeof e === 'object' && e && 'message' in e && typeof (e as { message: unknown }).message === 'string'
+          ? (e as { message: string }).message
+          : 'Suppression impossible.';
+      toast.error(msg);
+    }
+  };
+
+  const openBlock = (block?: StrategyContentBlock, index?: number) => {
+    if (block && index != null) {
+      setEditingBlockIndex(index);
+      setBlockDraft({ ...block });
+    } else if (block) {
+      setEditingBlockIndex(null);
+      setBlockDraft({ ...block });
+    } else {
+      setEditingBlockIndex(null);
+      setBlockDraft(emptyBlock());
+    }
+    setBlockOpen(true);
+  };
+
+  const saveBlock = async () => {
+    if (!schema) return;
+    const title = blockDraft.title.trim();
+    if (!title) {
+      toast.error('Titre du bloc requis.');
+      return;
+    }
+    const list = [...schema.contentBlocks];
+    const payload = { ...blockDraft, title, body: blockDraft.body?.trim() ?? '' };
+    if (editingBlockIndex != null && editingBlockIndex >= 0) list[editingBlockIndex] = payload;
+    else list.push(payload);
+    try {
+      await patchBlocks(list);
+      toast.success(editingBlockIndex != null ? 'Bloc mis à jour.' : 'Bloc ajouté.');
+      setBlockOpen(false);
+    } catch (e) {
+      const msg =
+        typeof e === 'object' && e && 'message' in e && typeof (e as { message: unknown }).message === 'string'
+          ? (e as { message: string }).message
+          : 'Enregistrement impossible.';
+      toast.error(msg);
+    }
+  };
+
+  const deleteBlock = async () => {
+    if (!schema || editingBlockIndex == null) return;
+    const list = schema.contentBlocks.filter((_, i) => i !== editingBlockIndex);
+    try {
+      await patchBlocks(list);
+      toast.success('Bloc supprimé.');
+      setBlockOpen(false);
+    } catch (e) {
+      const msg =
+        typeof e === 'object' && e && 'message' in e && typeof (e as { message: unknown }).message === 'string'
+          ? (e as { message: string }).message
+          : 'Suppression impossible.';
+      toast.error(msg);
+    }
+  };
+
+  const openRisk = (risk?: StrategyRisk, index?: number) => {
+    if (risk && index != null) {
+      setEditingRiskIndex(index);
+      setRiskDraft({ ...risk });
+    } else {
+      setEditingRiskIndex(null);
+      setRiskDraft(emptyRisk());
+    }
+    setRiskOpen(true);
+  };
+
+  const saveRisk = async () => {
+    if (!schema) return;
+    const name = riskDraft.name.trim();
+    if (!name) {
+      toast.error('Libellé du risque requis.');
+      return;
+    }
+    const list = [...schema.risks];
+    const payload = { ...riskDraft, name };
+    if (editingRiskIndex != null && editingRiskIndex >= 0) list[editingRiskIndex] = payload;
+    else list.push(payload);
+    try {
+      await patchRisks(list);
+      toast.success(editingRiskIndex != null ? 'Risque mis à jour.' : 'Risque ajouté.');
+      setRiskOpen(false);
+    } catch (e) {
+      const msg =
+        typeof e === 'object' && e && 'message' in e && typeof (e as { message: unknown }).message === 'string'
+          ? (e as { message: string }).message
+          : 'Enregistrement impossible.';
+      toast.error(msg);
+    }
+  };
+
+  const deleteRisk = async () => {
+    if (!schema || editingRiskIndex == null) return;
+    const list = schema.risks.filter((_, i) => i !== editingRiskIndex);
+    try {
+      await patchRisks(list);
+      toast.success('Risque supprimé.');
+      setRiskOpen(false);
+    } catch (e) {
+      const msg =
+        typeof e === 'object' && e && 'message' in e && typeof (e as { message: unknown }).message === 'string'
+          ? (e as { message: string }).message
+          : 'Suppression impossible.';
+      toast.error(msg);
+    }
+  };
+
+  const saveContributions = async () => {
+    if (!strategy) return;
+    try {
+      await updateMutation.mutateAsync({
+        strategyId: strategy.id,
+        body: { axisContributions: contribDraft },
+      });
+      toast.success('Contributions enregistrées.');
+    } catch (e) {
+      const msg =
+        typeof e === 'object' && e && 'message' in e && typeof (e as { message: unknown }).message === 'string'
+          ? (e as { message: string }).message
+          : 'Enregistrement impossible.';
+      toast.error(msg);
+    }
+  };
+
+  const saveBudgets = async () => {
+    if (!strategy || !schema) return;
+    const next: Record<string, number> = {};
+    for (const [y, raw] of Object.entries(budgetDraft)) {
+      const k = parseFloat(String(raw).replace(',', '.')) || 0;
+      next[y] = Math.round(k * 100_000); // k€ → cents
+    }
+    // garder années existantes non éditées
+    for (const y of Object.keys(schema.budgetsByYear)) {
+      if (!(y in next)) next[y] = schema.budgetsByYear[y] ?? 0;
+    }
+    try {
+      await updateMutation.mutateAsync({
+        strategyId: strategy.id,
+        body: { budgetsByYear: next },
+      });
+      toast.success('Budgets enregistrés.');
+    } catch (e) {
+      const msg =
+        typeof e === 'object' && e && 'message' in e && typeof (e as { message: unknown }).message === 'string'
+          ? (e as { message: string }).message
+          : 'Enregistrement impossible.';
+      toast.error(msg);
+    }
+  };
+
+  const patchOwnAxes = async (next: StrategyOwnAxis[]) => {
+    if (!strategy) return;
+    await updateMutation.mutateAsync({
+      strategyId: strategy.id,
+      body: { ownAxes: next as unknown as Array<Record<string, unknown>> },
+    });
+  };
+
+  const openAxis = (axis?: StrategyOwnAxis, index?: number) => {
+    if (axis && index != null) {
+      setEditingAxisIndex(index);
+      setAxisDraft({ ...axis });
+    } else {
+      setEditingAxisIndex(null);
+      setAxisDraft(emptyOwnAxis());
+    }
+    setAxisOpen(true);
+  };
+
+  const saveAxis = async () => {
+    if (!schema) return;
+    const name = axisDraft.name.trim();
+    if (!name) {
+      toast.error('Nom de l’axe requis.');
+      return;
+    }
+    const list = [...schema.ownAxes];
+    const payload = { ...axisDraft, name };
+    if (editingAxisIndex != null && editingAxisIndex >= 0) list[editingAxisIndex] = payload;
+    else list.push(payload);
+    try {
+      await patchOwnAxes(list);
+      toast.success(editingAxisIndex != null ? 'Axe mis à jour.' : 'Axe ajouté.');
+      setAxisOpen(false);
+    } catch (e) {
+      const msg =
+        typeof e === 'object' && e && 'message' in e && typeof (e as { message: unknown }).message === 'string'
+          ? (e as { message: string }).message
+          : 'Enregistrement impossible.';
+      toast.error(msg);
+    }
+  };
+
+  const deleteAxis = async () => {
+    if (!schema || editingAxisIndex == null) return;
+    const list = schema.ownAxes.filter((_, i) => i !== editingAxisIndex);
+    try {
+      await patchOwnAxes(list);
+      toast.success('Axe supprimé.');
+      setAxisOpen(false);
+    } catch (e) {
+      const msg =
+        typeof e === 'object' && e && 'message' in e && typeof (e as { message: unknown }).message === 'string'
+          ? (e as { message: string }).message
+          : 'Suppression impossible.';
+      toast.error(msg);
+    }
+  };
+
+  const patchKpis = async (next: StrategyKpi[]) => {
+    if (!strategy) return;
+    await updateMutation.mutateAsync({
+      strategyId: strategy.id,
+      body: { kpis: next as unknown as Array<Record<string, unknown>> },
+    });
+  };
+
+  const openKpi = (kpi?: StrategyKpi, index?: number) => {
+    if (kpi && index != null) {
+      setEditingKpiIndex(index);
+      setKpiDraft({ ...kpi });
+    } else {
+      setEditingKpiIndex(null);
+      setKpiDraft(emptyKpi());
+    }
+    setKpiOpen(true);
+  };
+
+  const saveKpi = async () => {
+    if (!schema) return;
+    const label = kpiDraft.label.trim();
+    if (!label) {
+      toast.error('Libellé de l’indicateur requis.');
+      return;
+    }
+    const list = [...schema.kpis];
+    const payload = {
+      ...kpiDraft,
+      label,
+      value: kpiDraft.value.trim() || '—',
+      detail: kpiDraft.detail.trim(),
+    };
+    if (editingKpiIndex != null && editingKpiIndex >= 0) list[editingKpiIndex] = payload;
+    else list.push(payload);
+    try {
+      await patchKpis(list);
+      toast.success(editingKpiIndex != null ? 'Indicateur mis à jour.' : 'Indicateur ajouté.');
+      setKpiOpen(false);
+    } catch (e) {
+      const msg =
+        typeof e === 'object' && e && 'message' in e && typeof (e as { message: unknown }).message === 'string'
+          ? (e as { message: string }).message
+          : 'Enregistrement impossible.';
+      toast.error(msg);
+    }
+  };
+
+  const deleteKpi = async () => {
+    if (!schema || editingKpiIndex == null) return;
+    const list = schema.kpis.filter((_, i) => i !== editingKpiIndex);
+    try {
+      await patchKpis(list);
+      toast.success('Indicateur supprimé.');
+      setKpiOpen(false);
+    } catch (e) {
+      const msg =
+        typeof e === 'object' && e && 'message' in e && typeof (e as { message: unknown }).message === 'string'
+          ? (e as { message: string }).message
+          : 'Suppression impossible.';
+      toast.error(msg);
+    }
+  };
+
+  const allowPickValidator =
+    workflowQ.data?.resolved.allowSubmitterToSelectValidator === true;
+
+  const handleSubmitReview = async () => {
+    if (!strategy) return;
+    if (strategy.status === 'DRAFT' || strategy.status === 'REJECTED') {
+      if (allowPickValidator && !submitValidatorUserId) {
+        toast.error('Sélectionnez un validateur.');
+        return;
+      }
+      try {
+        await submitMutation.mutateAsync({
+          strategyId: strategy.id,
+          alignedVisionId: strategy.alignedVisionId,
+          validatorUserId: allowPickValidator ? submitValidatorUserId : undefined,
+        });
+        toast.success('Stratégie soumise pour validation.');
+        setReviewOpen(false);
+      } catch (e) {
+        const msg =
+          typeof e === 'object' && e && 'message' in e && typeof (e as { message: unknown }).message === 'string'
+            ? (e as { message: string }).message
+            : 'Soumission impossible.';
+        toast.error(msg);
+      }
+      return;
+    }
+  };
+
+  const handleApprove = async () => {
+    if (!strategy) return;
+    try {
+      await reviewMutation.mutateAsync({
+        strategyId: strategy.id,
+        body: {
+          decision: 'APPROVED',
+          decisionNote: decisionNote.trim() || undefined,
+          reviewInstanceLabel: reviewInstanceLabel.trim() || 'CODIR',
+        },
+      });
+      toast.success('Schéma validé.');
+      setReviewOpen(false);
+      setDecisionNote('');
+    } catch (e) {
+      const msg =
+        typeof e === 'object' && e && 'message' in e && typeof (e as { message: unknown }).message === 'string'
+          ? (e as { message: string }).message
+          : 'Validation impossible.';
+      toast.error(msg);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!strategy) return;
+    if (!rejectReason.trim()) {
+      toast.error('Motif de refus requis.');
+      return;
+    }
+    try {
+      await reviewMutation.mutateAsync({
+        strategyId: strategy.id,
+        body: {
+          decision: 'REJECTED',
+          rejectionReason: rejectReason.trim(),
+          decisionNote: decisionNote.trim() || rejectReason.trim(),
+          reviewInstanceLabel: reviewInstanceLabel.trim() || 'CODIR',
+        },
+      });
+      toast.success('Schéma refusé.');
+      setReviewOpen(false);
+      setRejectReason('');
+      setDecisionNote('');
+    } catch (e) {
+      const msg =
+        typeof e === 'object' && e && 'message' in e && typeof (e as { message: unknown }).message === 'string'
+          ? (e as { message: string }).message
+          : 'Refus impossible.';
+      toast.error(msg);
+    }
+  };
+
+  const handlePrint = useCallback(() => {
+    window.print();
+  }, []);
+
+  const alerts = metrics?.alerts ?? [];
+  const criticalCount = alerts.filter((a) => a.level === 'danger').length;
+
+  const axisNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const a of linksQ.data?.axes ?? []) map.set(a.id, a.name);
+    return map;
+  }, [linksQ.data?.axes]);
+
+  if (detailQ.isLoading) {
+    return (
+      <PageContainer>
+        <LoadingState />
+      </PageContainer>
+    );
+  }
+  if (detailQ.isError || !strategy) {
+    return (
+      <PageContainer>
+        <ErrorState
+          message="Impossible de charger le schéma"
+          onRetry={() => void detailQ.refetch()}
+        />
+      </PageContainer>
+    );
+  }
+
+  const code = displayLabel(strategy.direction?.code, 'Direction');
+  const name = displayLabel(strategy.direction?.name, 'Direction');
+  const directionFromList = (directionsQ.data ?? []).find((d) => d.id === strategy.directionId);
+  const directionForEdit: StrategicDirectionDto | null = directionFromList
+    ? directionFromList
+    : strategy.direction
+      ? {
+          id: strategy.direction.id,
+          clientId: strategy.clientId,
+          code: strategy.direction.code,
+          name: strategy.direction.name,
+          description: strategy.direction.description ?? null,
+          accentTone: strategy.direction.accentTone ?? null,
+          parentLabel: strategy.direction.parentLabel ?? null,
+          sponsorResourceId: strategy.direction.sponsorResourceId ?? null,
+          sponsorLabel: strategy.direction.sponsorLabel ?? null,
+          fteCount: strategy.direction.fteCount ?? null,
+          operatingBudgetCents: strategy.direction.operatingBudgetCents ?? null,
+          sortOrder: 0,
+          isActive: true,
+          createdAt: strategy.createdAt,
+          updatedAt: strategy.updatedAt,
+        }
+      : null;
+  const startYear = schema?.horizonStartYear ?? new Date().getFullYear();
+  const yearCount = schema?.horizonYearCount ?? 3;
+  const totalMonths = Math.max(1, yearCount * 12);
+  const nowMonthOffset =
+    (new Date().getFullYear() - startYear) * 12 + new Date().getMonth();
+  const years = Array.from({ length: yearCount }, (_, i) => startYear + i);
+  const ownAxes = schema?.ownAxes ?? [];
+  const initiatives = schema?.majorInitiatives ?? [];
+  const outcomes = schema?.expectedOutcomes ?? [];
+  const kpis = schema?.kpis ?? [];
+  const risks = schema?.risks ?? [];
+  const blocks = schema?.contentBlocks ?? [];
+  const budgetsByYear = schema?.budgetsByYear ?? {};
+  const contributions = schema?.axisContributions ?? {};
+
+  const alertLevelLabel = (lvl: string) =>
+    lvl === 'danger' ? 'Critique' : lvl === 'warning' ? 'À surveiller' : 'Information';
+  const alertBadge = (lvl: string) =>
+    lvl === 'danger' ? 'bdg-danger' : lvl === 'warning' ? 'bdg-warn' : 'bdg-info';
+
+  return (
+    <PageContainer>
+      <div id="view-dirstrat" className="stg-root">
+      <PageHeader
+        title={`${code} — Schéma directeur`}
+        description={`${name} · ${displayLabel(strategy.horizonLabel, 'Horizon non renseigné')} · ${displayLabel(versionsQ.data?.versions.find((v) => v.isCurrent)?.versionLabel, 'v1')}`}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/strategic-direction-strategy"
+              className={cn(buttonVariants({ variant: 'outline' }), 'min-h-11')}
+            >
+              <ArrowLeft className="size-4" aria-hidden />
+              Toutes les directions
+            </Link>
+            <Button type="button" variant="outline" className="min-h-11" onClick={handlePrint}>
+              <Printer className="size-4" aria-hidden />
+              Export PDF 1 page
+            </Button>
+            {(canUpdate || canReview) && strategy.status !== 'ARCHIVED' ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="min-h-11"
+                onClick={() => setReviewOpen(true)}
+              >
+                <ClipboardCheck className="size-4" aria-hidden />
+                Nouvelle revue
+              </Button>
+            ) : null}
+            {canManageDirection ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="min-h-11"
+                onClick={() => setDirectionEditOpen(true)}
+              >
+                <Pencil className="size-4" aria-hidden />
+                Modifier la direction
+              </Button>
+            ) : null}
+          </div>
+        }
+      />
+
+      <div className="card stg-hero">
+        <div className="stg-hero-sigle" style={{ background: T.bg, color: T.c }}>
+          {code}
+        </div>
+        <div className="stg-hero-id">
+          <h2>{name}</h2>
+          <div className="stg-hero-meta">
+            <span className={cn('stg-badge', strategyStatusBadgeClass(strategy.status))}>
+              {getStrategicDirectionStrategyStatusLabel(strategy.status)}
+            </span>
+            <span className="stg-hero-sep" aria-hidden />
+            <span className="stg-meta">
+              {displayLabel(strategy.ownerLabel ?? strategy.direction?.sponsorLabel, 'Sponsor non renseigné')}{' '}
+              · directeur·rice
+            </span>
+            <span className="stg-hero-sep" aria-hidden />
+            <span className="stg-meta">
+              Rattachée à{' '}
+              {displayLabel(strategy.direction?.parentLabel, 'Direction générale')}
+            </span>
+            <span className="stg-hero-sep" aria-hidden />
+            <span className="stg-meta">
+              {strategy.direction?.fteCount != null
+                ? `${strategy.direction.fteCount} ETP`
+                : '—'}{' '}
+              · {formatEurCents(strategy.direction?.operatingBudgetCents)}
+            </span>
+            <span className="stg-hero-sep" aria-hidden />
+            <span className="stg-meta">
+              Dernière revue {formatReviewDate(strategy.approvedAt ?? strategy.updatedAt)}
+            </span>
+          </div>
+          <p
+            className={cn(
+              'stg-ambition',
+              canUpdate &&
+                strategy.status !== 'ARCHIVED' &&
+                strategy.status !== 'SUBMITTED' &&
+                'cursor-pointer',
+            )}
+            style={{ marginTop: 16 }}
+            onClick={() => {
+              if (
+                canUpdate &&
+                strategy.status !== 'ARCHIVED' &&
+                strategy.status !== 'SUBMITTED'
+              ) {
+                openEdit();
+              }
+            }}
+            onKeyDown={(e) => {
+              if (e.key !== 'Enter' && e.key !== ' ') return;
+              if (
+                canUpdate &&
+                strategy.status !== 'ARCHIVED' &&
+                strategy.status !== 'SUBMITTED'
+              ) {
+                e.preventDefault();
+                openEdit();
+              }
+            }}
+            role={
+              canUpdate &&
+              strategy.status !== 'ARCHIVED' &&
+              strategy.status !== 'SUBMITTED'
+                ? 'button'
+                : undefined
+            }
+            tabIndex={
+              canUpdate &&
+              strategy.status !== 'ARCHIVED' &&
+              strategy.status !== 'SUBMITTED'
+                ? 0
+                : undefined
+            }
+            aria-label={
+              canUpdate ? 'Modifier l’ambition et le périmètre du schéma' : undefined
+            }
+          >
+            {displayLabel(strategy.ambition, 'Ambition à formuler.')}
+          </p>
+          <p className="stg-sec-sub" style={{ marginTop: 10 }}>
+            {displayLabel(strategy.context, 'Périmètre à préciser')}
+          </p>
+        </div>
+        <ScoreRingLarge score={metricsQ.isSuccess ? score : 0} color={T.c} />
+      </div>
+
+      {kpis.length === 0 ? (
+        <div className="card mb-4">
+          <div className="stg-empty">
+            Aucun indicateur.
+            {canUpdate && strategy.status !== 'ARCHIVED' && strategy.status !== 'SUBMITTED' ? (
+              <>
+                {' '}
+                <button
+                  type="button"
+                  className="font-bold text-[color:var(--brand-gold-700)] underline-offset-2 hover:underline"
+                  onClick={() => openKpi()}
+                >
+                  Ajouter un indicateur
+                </button>
+              </>
+            ) : null}
+          </div>
+        </div>
+      ) : (
+        <div className="stg-kpis">
+          {kpis.map((k, i) => (
+            <button
+              key={`${k.label}-${i}`}
+              type="button"
+              className={cn(
+                'stg-kpi w-full text-left',
+                canUpdate &&
+                  strategy.status !== 'ARCHIVED' &&
+                  strategy.status !== 'SUBMITTED' &&
+                  'cursor-pointer',
+              )}
+              onClick={() => {
+                if (
+                  canUpdate &&
+                  strategy.status !== 'ARCHIVED' &&
+                  strategy.status !== 'SUBMITTED'
+                ) {
+                  openKpi(k, i);
+                }
+              }}
+              aria-label={
+                canUpdate
+                  ? `Modifier l’indicateur ${displayLabel(k.label, 'Indicateur')}`
+                  : undefined
+              }
+            >
+              <div className="l">{displayLabel(k.label, 'Indicateur')}</div>
+              <div className="v">{displayLabel(k.value, '—')}</div>
+              <div className="d">{displayLabel(k.detail, '')}</div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div
+        className="bud-subtabs"
+        id="ds-subtabs"
+        role="tablist"
+        aria-label="Onglets schéma directeur"
+      >
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            aria-selected={tab === t.id}
+            className={cn('bud-subtab', tab === t.id && 'active')}
+            onClick={() => setTab(t.id)}
+          >
+            {t.label}
+            {t.id === 'alertes' && alerts.length > 0 ? (
+              <span className={cn('stg-tabn', criticalCount > 0 && 'crit')}>{alerts.length}</span>
+            ) : null}
+            {t.id === 'objectifs' && outcomes.length > 0 ? (
+              <span className="stg-tabn">{outcomes.length}</span>
+            ) : null}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'axes' ? (
+        <div className="space-y-4">
+          <section className="stg-sec">
+            <div className="stg-sec-head">
+              <div>
+                <div className="stg-sec-t">
+                  <LayoutGrid className="size-[17px]" aria-hidden />
+                  Schéma directeur{' '}
+                  {displayLabel(
+                    strategy.horizonLabel,
+                    `${startYear} → ${startYear + yearCount - 1}`,
+                  )}
+                </div>
+                <div className="stg-sec-sub">
+                  {initiatives.length} chantier{initiatives.length > 1 ? 's' : ''} ·{' '}
+                  {formatEurCents(
+                    initiatives.reduce((s, c) => s + (c.budgetCents || 0), 0),
+                  )}{' '}
+                  de charge projet · jalons structurants en losange
+                </div>
+              </div>
+              {canUpdate && strategy.status !== 'ARCHIVED' && strategy.status !== 'SUBMITTED' ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="min-h-11"
+                  onClick={() => openInitiative()}
+                >
+                  <Plus className="size-4" aria-hidden />
+                  Ajouter un chantier
+                </Button>
+              ) : null}
+            </div>
+            {!schema || initiatives.length === 0 ? (
+              <EmptyState
+                title="Aucun chantier"
+                description="Ajoutez des chantiers pour construire le schéma directeur."
+              />
+            ) : (
+              <div className="card stg-tl">
+                <div className="stg-tl-row" style={{ ['--stg-ny' as string]: yearCount }}>
+                  <div />
+                  <div className="stg-tl-years" style={{ ['--stg-ny' as string]: yearCount }}>
+                    {years.map((y) => (
+                      <div key={y} className="stg-tl-year">
+                        {y}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {(ownAxes.length > 0 ? ownAxes : [{ id: 'default', name: 'Chantiers', tone: 'info' }]).map(
+                  (axis, laneIdx) => {
+                    const laneInits = ownAxes.length
+                      ? initiatives.filter((c) => c.lane === laneIdx)
+                      : initiatives;
+                    if (laneInits.length === 0) return null;
+                    const t = stgTone(axis.tone);
+                    return (
+                      <div key={axis.id}>
+                        <div className="stg-tl-lane-h">
+                          <i style={{ background: t.c }} aria-hidden />
+                          {displayLabel(axis.name, 'Axe')}
+                        </div>
+                        {[...laneInits]
+                          .sort((a, b) => a.startMonthOffset - b.startMonthOffset)
+                          .map((init) => (
+                            <div key={init.id} className="stg-tl-row stg-tl-lane">
+                              <div>
+                                <button
+                                  type="button"
+                                  className="stg-tl-name text-left"
+                                  onClick={() => canUpdate && openInitiative(init)}
+                                >
+                                  {displayLabel(init.title, 'Chantier')}
+                                </button>
+                                <div className="stg-tl-nsub">
+                                  {displayLabel(init.ownerLabel, 'Pilote non renseigné')} ·{' '}
+                                  {formatEurCents(init.budgetCents)}
+                                </div>
+                              </div>
+                              <div
+                                className="stg-tl-track"
+                                style={{ ['--stg-nq' as string]: 12 }}
+                              >
+                                <div
+                                  className="stg-tl-bar"
+                                  style={{
+                                    left: `${stgBarPct(init.startMonthOffset, totalMonths).toFixed(2)}%`,
+                                    width: `${stgBarPct(Math.max(1, init.endMonthOffset - init.startMonthOffset), totalMonths).toFixed(2)}%`,
+                                    background: t.c,
+                                  }}
+                                  title={`${displayLabel(init.title, 'Chantier')} · ${init.progressPct}%`}
+                                  onClick={() => canUpdate && openInitiative(init)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                      e.preventDefault();
+                                      if (canUpdate) openInitiative(init);
+                                    }
+                                  }}
+                                  role={canUpdate ? 'button' : undefined}
+                                  tabIndex={canUpdate ? 0 : undefined}
+                                >
+                                  <i style={{ width: `${init.progressPct}%` }} aria-hidden />
+                                  <span>{init.progressPct}%</span>
+                                </div>
+                                {(init.milestones ?? []).map((m, mi) => (
+                                  <div
+                                    key={`${init.id}-ms-${mi}`}
+                                    className="stg-tl-ms"
+                                    style={{
+                                      left: `${stgBarPct(m.monthOffset, totalMonths).toFixed(2)}%`,
+                                    }}
+                                    title={displayLabel(m.label, 'Jalon')}
+                                  />
+                                ))}
+                                <div
+                                  className="stg-tl-now"
+                                  style={{
+                                    left: `${stgBarPct(nowMonthOffset, totalMonths).toFixed(2)}%`,
+                                  }}
+                                  aria-hidden
+                                />
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    );
+                  },
+                )}
+                <div className="stg-tl-legend">
+                  {ownAxes.map((a) => (
+                    <span key={a.id} className="k">
+                      <i style={{ background: stgTone(a.tone).c }} aria-hidden />
+                      {displayLabel(a.name, 'Axe')}
+                    </span>
+                  ))}
+                  <span className="k">
+                    <span className="dia" aria-hidden />
+                    Jalon structurant
+                  </span>
+                  <span className="k">
+                    <i
+                      style={{
+                        background: 'var(--state-danger)',
+                        width: 2,
+                        height: 12,
+                        borderRadius: 0,
+                      }}
+                      aria-hidden
+                    />
+                    Aujourd&apos;hui
+                  </span>
+                </div>
+              </div>
+            )}
+          </section>
+
+          <section className="stg-sec">
+            <div className="stg-sec-head">
+              <div className="stg-sec-t">Axes propres de la direction</div>
+              {canUpdate && strategy.status !== 'ARCHIVED' && strategy.status !== 'SUBMITTED' ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="min-h-11 sm:min-h-9"
+                  onClick={() => openAxis()}
+                >
+                  <Plus className="mr-1 size-4" aria-hidden />
+                  Ajouter un axe
+                </Button>
+              ) : null}
+            </div>
+            {ownAxes.length === 0 ? (
+              <div className="card">
+                <div className="stg-empty">
+                  Aucun axe propre. Ajoutez des lanes pour organiser la timeline.
+                </div>
+              </div>
+            ) : (
+              <div className="card stg-contrib">
+                {ownAxes.map((a, i) => {
+                  const laneInits = initiatives.filter((c) => c.lane === i);
+                  const n = laneInits.length;
+                  const pct =
+                    n > 0
+                      ? Math.round(
+                          laneInits.reduce((s, c) => s + (c.progressPct || 0), 0) / n,
+                        )
+                      : 0;
+                  return (
+                    <div key={a.id}>
+                      <button
+                        type="button"
+                        className={cn(
+                          'stg-contrib-row w-full text-left',
+                          canUpdate &&
+                            strategy.status !== 'ARCHIVED' &&
+                            strategy.status !== 'SUBMITTED' &&
+                            'cursor-pointer',
+                        )}
+                        onClick={() => {
+                          if (
+                            canUpdate &&
+                            strategy.status !== 'ARCHIVED' &&
+                            strategy.status !== 'SUBMITTED'
+                          ) {
+                            openAxis(a, i);
+                          }
+                        }}
+                        aria-label={
+                          canUpdate
+                            ? `Modifier l’axe ${displayLabel(a.name, 'Axe')}`
+                            : undefined
+                        }
+                      >
+                        <div className="l">{displayLabel(a.name, 'Axe')}</div>
+                        <div className="t">
+                          <i
+                            style={{
+                              width: `${pct}%`,
+                              background: stgTone(a.tone).c,
+                            }}
+                          />
+                        </div>
+                        <div className="p">{pct}%</div>
+                      </button>
+                      <div
+                        style={{
+                          fontSize: 11,
+                          color: 'var(--neutral-500)',
+                          fontWeight: 600,
+                          margin: '-6px 0 2px',
+                        }}
+                      >
+                        {n
+                          ? `${n} chantier${n > 1 ? 's' : ''}`
+                          : 'aucun chantier'}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
+          <section className="stg-sec">
+            <div className="stg-sec-head">
+              <div>
+                <div className="stg-sec-t">
+                  <FileText className="size-[17px]" aria-hidden />
+                  Notes &amp; pièces du schéma directeur
+                </div>
+                <div className="stg-sec-sub">
+                  Textes de cadrage, principes, schémas d’architecture — libre à la direction.
+                </div>
+              </div>
+              {canUpdate && strategy.status !== 'ARCHIVED' && strategy.status !== 'SUBMITTED' ? (
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="min-h-11"
+                    onClick={() => openBlock({ kind: 'text', title: '', body: '', documentId: null })}
+                  >
+                    Ajouter un texte
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="min-h-11"
+                    onClick={() => openBlock({ kind: 'image', title: '', body: '', documentId: null })}
+                  >
+                    Ajouter une image
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+            {blocks.length === 0 ? (
+              <div className="card">
+                <div className="stg-empty">
+                  Aucune note. Ajoutez un texte de cadrage ou un schéma.
+                </div>
+              </div>
+            ) : (
+              <div className="stg-blocks">
+                {blocks.map((b, i) => (
+                  <button
+                    key={`${b.title}-${i}`}
+                    type="button"
+                    className="card stg-block w-full text-left"
+                    onClick={() =>
+                      canUpdate &&
+                      strategy.status !== 'ARCHIVED' &&
+                      strategy.status !== 'SUBMITTED' &&
+                      openBlock(b, i)
+                    }
+                  >
+                    <div className="stg-block-t">{displayLabel(b.title, 'Bloc')}</div>
+                    {b.kind === 'image' ? (
+                      b.documentId ? (
+                        <StrategyBlockImagePreview
+                          strategyId={strategyId}
+                          documentId={b.documentId}
+                          alt={b.title}
+                        />
+                      ) : (
+                        <div className="stg-drop">
+                          <span>{displayLabel(b.body, 'Déposer une image')}</span>
+                          <span style={{ fontWeight: 600, color: 'var(--neutral-400)' }}>
+                            Glisser-déposer ou cliquer
+                          </span>
+                        </div>
+                      )
+                    ) : (
+                      <div className="stg-block-b">{displayLabel(b.body, '')}</div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
+      ) : null}
+
+      {tab === 'objectifs' ? (
+        <div className="space-y-4">
+          <section className="stg-sec">
+            <div className="stg-sec-head">
+              <div>
+                <div className="stg-sec-t">
+                  <Target className="size-[17px]" aria-hidden />
+                  Objectifs &amp; résultats mesurables
+                </div>
+                <div className="stg-sec-sub">
+                  {outcomes.length === 0
+                    ? 'Aucun objectif suivi par la direction.'
+                    : `${outcomes.length} objectif${outcomes.length > 1 ? 's' : ''} suivi${outcomes.length > 1 ? 's' : ''} par la direction`}
+                </div>
+              </div>
+              {canUpdate && strategy.status !== 'ARCHIVED' && strategy.status !== 'SUBMITTED' ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="min-h-11"
+                  onClick={() => openOkr()}
+                >
+                  <Plus className="size-4" aria-hidden />
+                  Ajouter un objectif
+                </Button>
+              ) : null}
+            </div>
+            {outcomes.length === 0 ? (
+              <EmptyState
+                title="Aucun objectif renseigné"
+                description="Déclarez des OKR pour piloter l’avancement de la direction."
+              />
+            ) : (
+              <>
+                <div className="card tablecard stg-okr-table">
+                  <div className="overflow-x-auto">
+                    <table className="dt">
+                      <thead>
+                        <tr>
+                          <th>Objectif</th>
+                          <th>Responsable</th>
+                          <th>Indicateur cible</th>
+                          <th>Actuel</th>
+                          <th>Avancement</th>
+                          {canUpdate &&
+                          strategy.status !== 'ARCHIVED' &&
+                          strategy.status !== 'SUBMITTED' ? (
+                            <th className="right">
+                              <span className="sr-only">Actions</span>
+                            </th>
+                          ) : null}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {outcomes.map((o, i) => {
+                          const editable =
+                            canUpdate &&
+                            strategy.status !== 'ARCHIVED' &&
+                            strategy.status !== 'SUBMITTED';
+                          return (
+                            <tr
+                              key={`${o.title}-${i}`}
+                              className={editable ? 'cursor-pointer' : undefined}
+                              onClick={() => editable && openOkr(o, i)}
+                              onKeyDown={(e) => {
+                                if (!editable) return;
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault();
+                                  openOkr(o, i);
+                                }
+                              }}
+                              tabIndex={editable ? 0 : undefined}
+                              aria-label={
+                                editable
+                                  ? `Modifier l’objectif ${displayLabel(o.title, 'Objectif')}`
+                                  : undefined
+                              }
+                            >
+                              <td className="cell-strong">
+                                {displayLabel(o.title, 'Objectif')}
+                              </td>
+                              <td>
+                                {displayLabel(o.ownerLabel, 'Responsable non renseigné')}
+                              </td>
+                              <td>{displayLabel(o.target, 'Cible non renseignée')}</td>
+                              <td className="tabular-nums font-bold">
+                                {displayLabel(o.current, 'Non mesuré')}
+                              </td>
+                              <td>
+                                <div className="prog" aria-label={`Avancement ${o.progressPct} %`}>
+                                  <div className="prog-track">
+                                    <div
+                                      className="prog-fill"
+                                      style={{
+                                        width: `${Math.min(100, Math.max(0, o.progressPct))}%`,
+                                        background: progressFillColor(o.progressPct),
+                                      }}
+                                    />
+                                  </div>
+                                  <span className="prog-pct">{o.progressPct}%</span>
+                                </div>
+                              </td>
+                              {editable ? (
+                                <td className="right">
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="min-h-11 min-w-11"
+                                    aria-label={`Supprimer l’objectif ${displayLabel(o.title, 'Objectif')}`}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      void deleteOkrAt(i);
+                                    }}
+                                  >
+                                    <Trash2 className="size-4" aria-hidden />
+                                  </Button>
+                                </td>
+                              ) : null}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="stg-okr-cards" aria-label="Objectifs (vue mobile)">
+                  {outcomes.map((o, i) => {
+                    const editable =
+                      canUpdate &&
+                      strategy.status !== 'ARCHIVED' &&
+                      strategy.status !== 'SUBMITTED';
+                    return (
+                      <div key={`okr-m-${o.title}-${i}`} className="card stg-okr-card">
+                        <div className="stg-okr-card-top">
+                          {editable ? (
+                            <button
+                              type="button"
+                              className="cell-strong min-h-11 flex-1 text-left"
+                              onClick={() => openOkr(o, i)}
+                            >
+                              {displayLabel(o.title, 'Objectif')}
+                            </button>
+                          ) : (
+                            <div className="cell-strong flex-1">
+                              {displayLabel(o.title, 'Objectif')}
+                            </div>
+                          )}
+                          {editable ? (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="min-h-11 min-w-11 shrink-0"
+                              aria-label={`Supprimer l’objectif ${displayLabel(o.title, 'Objectif')}`}
+                              onClick={() => void deleteOkrAt(i)}
+                            >
+                              <Trash2 className="size-4" aria-hidden />
+                            </Button>
+                          ) : null}
+                        </div>
+                        <div className="stg-okr-card-meta">
+                          <div>
+                            <div className="k">Responsable</div>
+                            <div className="v">
+                              {displayLabel(o.ownerLabel, 'Non renseigné')}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="k">Cible</div>
+                            <div className="v">
+                              {displayLabel(o.target, 'Non renseignée')}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="k">Actuel</div>
+                            <div className="v">
+                              {displayLabel(o.current, 'Non mesuré')}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="k">Avancement</div>
+                            <div className="prog mt-1" aria-label={`Avancement ${o.progressPct} %`}>
+                              <div className="prog-track">
+                                <div
+                                  className="prog-fill"
+                                  style={{
+                                    width: `${Math.min(100, Math.max(0, o.progressPct))}%`,
+                                    background: progressFillColor(o.progressPct),
+                                  }}
+                                />
+                              </div>
+                              <span className="prog-pct">{o.progressPct}%</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </section>
+
+          <section className="stg-sec">
+            <div className="stg-sec-head">
+              <div className="stg-sec-t">Budget prévisionnel par horizon</div>
+              {canUpdate ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="min-h-11 sm:min-h-9"
+                  disabled={updateMutation.isPending}
+                  onClick={() => void saveBudgets()}
+                >
+                  Enregistrer les budgets
+                </Button>
+              ) : null}
+            </div>
+            {Object.keys(budgetDraft).length === 0 && Object.keys(budgetsByYear).length === 0 ? (
+              <EmptyState title="Aucun budget" description="Les montants par année n’ont pas été renseignés." />
+            ) : (
+              <div className="card stg-contrib">
+                {Object.keys(budgetDraft)
+                  .sort()
+                  .map((y) => {
+                    const cents = canUpdate
+                      ? (parseFloat(String(budgetDraft[y]).replace(',', '.')) || 0) * 100_000
+                      : (budgetsByYear[y] ?? 0);
+                    const vals = Object.keys(budgetDraft).map((yy) =>
+                      canUpdate
+                        ? (parseFloat(String(budgetDraft[yy]).replace(',', '.')) || 0) * 100_000
+                        : (budgetsByYear[yy] ?? 0),
+                    );
+                    const max = Math.max(...vals, 1);
+                    const pct = Math.round((cents / max) * 100);
+                    return (
+                      <div key={y} className="stg-contrib-row">
+                        <div className="l">{y}</div>
+                        {canUpdate ? (
+                          <div className="flex min-w-0 items-center gap-2">
+                            <Input
+                              type="number"
+                              min={0}
+                              className="min-h-11"
+                              aria-label={`Budget ${y} en k€`}
+                              value={budgetDraft[y] ?? ''}
+                              onChange={(e) =>
+                                setBudgetDraft((d) => ({ ...d, [y]: e.target.value }))
+                              }
+                            />
+                            <span className="text-sm text-muted-foreground shrink-0">k€</span>
+                          </div>
+                        ) : (
+                          <div className="t">
+                            <i
+                              style={{
+                                width: `${pct}%`,
+                                background: 'var(--brand-gold)',
+                              }}
+                            />
+                          </div>
+                        )}
+                        <div className="p">{formatEurCents(cents)}</div>
+                      </div>
+                    );
+                  })}
+                <div
+                  className="stg-contrib-row"
+                  style={{ borderTop: '1px solid var(--neutral-100)', paddingTop: 10 }}
+                >
+                  <div className="l">Total horizon</div>
+                  <div className="t" />
+                  <div className="p">
+                    {formatEurCents(
+                      Object.keys(budgetDraft).reduce((s, y) => {
+                        const k = parseFloat(String(budgetDraft[y]).replace(',', '.')) || 0;
+                        return s + k * 100_000;
+                      }, 0),
+                    )}
+                  </div>
+                </div>
+                <div className="stg-contrib-row">
+                  <div className="l">Charge chantiers</div>
+                  <div className="t" />
+                  <div className="p">
+                    {formatEurCents(
+                      initiatives.reduce((s, c) => s + (c.budgetCents || 0), 0),
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
+        </div>
+      ) : null}
+
+      {tab === 'alignement' ? (
+        <div className="space-y-4">
+          <section className="stg-sec">
+            <div className="stg-sec-head">
+              <div>
+                <div className="stg-sec-t">Contribution aux axes du groupe</div>
+                <div className="stg-sec-sub">
+                  Score global d’alignement : {score} %. La contribution déclarée est
+                  confrontée aux chantiers réellement rattachés.
+                </div>
+              </div>
+              {canUpdate && (linksQ.data?.axes.length ?? 0) > 0 ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="min-h-11 sm:min-h-9"
+                  disabled={updateMutation.isPending}
+                  onClick={() => void saveContributions()}
+                >
+                  Enregistrer les contributions
+                </Button>
+              ) : null}
+            </div>
+            {(linksQ.data?.axes.length ?? 0) === 0 && Object.keys(contributions).length === 0 ? (
+              <EmptyState
+                title="Aucun axe lié"
+                description="Liez la stratégie aux axes de la vision pour afficher l’alignement."
+              />
+            ) : (
+              <div className="card stg-contrib">
+                {(linksQ.data?.axes ?? []).map((a) => {
+                  const v = canUpdate
+                    ? (contribDraft[a.id] ?? contributions[a.id] ?? 0)
+                    : (contributions[a.id] ?? 0);
+                  const linked = initiatives.filter((c) => c.strategicAxisIds.includes(a.id));
+                  return (
+                    <div key={a.id}>
+                      <div className="stg-contrib-row">
+                        <div className="l" title={displayLabel(a.name, 'Axe')}>
+                          {displayLabel(a.name, 'Axe')}
+                        </div>
+                        <div className="t">
+                          {canUpdate ? (
+                            <input
+                              type="range"
+                              min={0}
+                              max={100}
+                              step={5}
+                              className="w-full min-h-11"
+                              aria-label={`Contribution ${displayLabel(a.name, 'Axe')}`}
+                              value={v}
+                              onChange={(e) =>
+                                setContribDraft((d) => ({
+                                  ...d,
+                                  [a.id]: parseInt(e.target.value, 10) || 0,
+                                }))
+                              }
+                            />
+                          ) : (
+                            <i style={{ width: `${v}%`, background: contribFillColor(v) }} />
+                          )}
+                        </div>
+                        <div className="p">{v}%</div>
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 11,
+                          color: 'var(--neutral-500)',
+                          fontWeight: 600,
+                          margin: '-6px 0 8px',
+                        }}
+                      >
+                        {linked.length
+                          ? linked.map((c) => displayLabel(c.title, 'Chantier')).join(' · ')
+                          : 'aucun chantier rattaché'}
+                      </div>
+                    </div>
+                  );
+                })}
+                {(linksQ.data?.axes.length ?? 0) === 0
+                  ? Object.entries(contributions).map(([axisId, v]) => (
+                      <div key={axisId} className="stg-contrib-row">
+                        <div className="l">
+                          {displayLabel(axisNameById.get(axisId), 'Axe du groupe')}
+                        </div>
+                        <div className="t">
+                          <i style={{ width: `${v}%`, background: contribFillColor(v) }} />
+                        </div>
+                        <div className="p">{v}%</div>
+                      </div>
+                    ))
+                  : null}
+              </div>
+            )}
+          </section>
+
+          <section className="stg-sec">
+            <div className="stg-sec-t" style={{ marginBottom: 12 }}>
+              Maturité du schéma directeur
+            </div>
+            {metricsQ.isLoading ? (
+              <LoadingState />
+            ) : metricsQ.isError ? (
+              <ErrorState message="Maturité indisponible" onRetry={() => void metricsQ.refetch()} />
+            ) : metrics ? (
+              <div className="card stg-contrib">
+                {MATURITY_DIMS.map((dim) => {
+                  const v = metrics.maturity[dim];
+                  return (
+                    <div key={dim} className="stg-contrib-row">
+                      <div className="l">{dim}</div>
+                      <div className="t">
+                        <i
+                          style={{
+                            width: `${v}%`,
+                            background: contribFillColor(v),
+                          }}
+                        />
+                      </div>
+                      <div className="p">{v}%</div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <EmptyState title="Pas de métriques" />
+            )}
+          </section>
+        </div>
+      ) : null}
+
+      {tab === 'alertes' ? (
+        <div className="space-y-4">
+          <section className="stg-sec">
+            <div className="stg-sec-t">Alertes de désalignement &amp; d’exécution</div>
+            <div className="stg-sec-sub" style={{ marginBottom: 12 }}>
+              {alerts.length
+                ? `${alerts.length} alerte${alerts.length > 1 ? 's' : ''} dont ${criticalCount} critique${criticalCount > 1 ? 's' : ''} — calculées à partir des chantiers, du budget et des revues.`
+                : 'Aucune alerte : le schéma directeur est complet et à jour.'}
+            </div>
+            <div className="card tablecard overflow-x-auto">
+              <table className="dt">
+                <thead>
+                  <tr>
+                    <th style={{ width: 130 }}>Niveau</th>
+                    <th>Alerte</th>
+                    <th>Détail</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {alerts.length === 0 ? (
+                    <tr>
+                      <td colSpan={3}>
+                        <div className="stg-empty">Aucune alerte détectée sur ce schéma directeur.</div>
+                      </td>
+                    </tr>
+                  ) : (
+                    alerts.map((a, i) => (
+                      <tr key={`${a.title}-${i}`}>
+                        <td>
+                          <span className={cn('stg-badge', alertBadge(a.level))}>
+                            {alertLevelLabel(a.level)}
+                          </span>
+                        </td>
+                        <td className="cell-strong">{displayLabel(a.title, 'Alerte')}</td>
+                        <td className="text-muted-foreground">
+                          {displayLabel(a.detail, '')}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section className="stg-sec">
+            <div className="stg-sec-head">
+              <div>
+                <div className="stg-sec-t">Risques stratégiques déclarés</div>
+              </div>
+              {canUpdate ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="min-h-11 sm:min-h-9"
+                  onClick={() => openRisk()}
+                >
+                  <Plus className="mr-2 size-4" aria-hidden />
+                  Ajouter un risque
+                </Button>
+              ) : null}
+            </div>
+            <div className="card tablecard overflow-x-auto">
+              <table className="dt">
+                <thead>
+                  <tr>
+                    <th>Risque</th>
+                    <th>Prob.</th>
+                    <th>Impact</th>
+                    <th className="right">Propriétaire</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {risks.length === 0 ? (
+                    <tr>
+                      <td colSpan={4}>
+                        <div className="stg-empty">Aucun risque stratégique déclaré.</div>
+                      </td>
+                    </tr>
+                  ) : (
+                    risks.map((r, i) => (
+                      <tr
+                        key={`${r.name}-${i}`}
+                        className={cn(canUpdate && 'cursor-pointer')}
+                        onClick={() => {
+                          if (canUpdate) openRisk(r, i);
+                        }}
+                        onKeyDown={(e) => {
+                          if (canUpdate && (e.key === 'Enter' || e.key === ' ')) {
+                            e.preventDefault();
+                            openRisk(r, i);
+                          }
+                        }}
+                        tabIndex={canUpdate ? 0 : undefined}
+                        aria-label={
+                          canUpdate
+                            ? `Modifier le risque ${displayLabel(r.name, 'Risque')}`
+                            : undefined
+                        }
+                      >
+                        <td>
+                          <span className={cn('stg-badge', alertBadge(r.level))}>
+                            {displayLabel(r.name, 'Risque')}
+                          </span>
+                        </td>
+                        <td>{displayLabel(r.probability, '—')}</td>
+                        <td>{displayLabel(r.impact, '—')}</td>
+                        <td className="right">
+                          <span className="stg-chip">
+                            {displayLabel(r.ownerLabel, 'Propriétaire non renseigné')}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {tab === 'historique' ? (
+        <div className="space-y-4">
+          <section className="stg-sec">
+            <div className="stg-sec-head">
+              <div>
+                <div className="stg-sec-t">Revues stratégiques &amp; versions</div>
+                <div className="stg-sec-sub">
+                  {(versionsQ.data?.versions.length ?? 0)} version
+                  {(versionsQ.data?.versions.length ?? 0) > 1 ? 's' : ''} · version courante{' '}
+                  {displayLabel(
+                    versionsQ.data?.versions.find((v) => v.isCurrent)?.versionLabel,
+                    'v1',
+                  )}{' '}
+                  ({getStrategicDirectionStrategyStatusLabel(strategy.status).toLowerCase()})
+                </div>
+              </div>
+              {(canUpdate || canReview) && strategy.status !== 'ARCHIVED' ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="min-h-11"
+                  onClick={() => setReviewOpen(true)}
+                >
+                  Nouvelle revue
+                </Button>
+              ) : null}
+            </div>
+            {versionsQ.isLoading ? (
+              <LoadingState />
+            ) : versionsQ.isError ? (
+              <ErrorState
+                message="Historique indisponible"
+                onRetry={() => void versionsQ.refetch()}
+              />
+            ) : (versionsQ.data?.versions.length ?? 0) === 0 ? (
+              <EmptyState title="Aucune version" />
+            ) : (
+              <div className="card stg-rev">
+                {versionsQ.data!.versions.map((v) => (
+                  <div key={v.id} className="stg-rev-item">
+                    <div>
+                      <div className="stg-rev-v">{displayLabel(v.versionLabel, 'Version')}</div>
+                      <div className="stg-rev-d">
+                        {formatReviewDate(v.approvedAt ?? v.archivedAt ?? v.updatedAt)}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="stg-rev-n">
+                        {displayLabel(
+                          v.reviewNote || v.rejectionReason || v.title,
+                          'Revue stratégique',
+                        )}
+                      </div>
+                      <div className="stg-rev-w">
+                        {displayLabel(v.reviewInstanceLabel, v.isCurrent ? 'Version courante' : 'Version archivée')}
+                      </div>
+                    </div>
+                    <span className={cn('stg-badge', strategyStatusBadgeClass(v.status))}>
+                      {getStrategicDirectionStrategyStatusLabel(v.status)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
+      ) : null}
+
+      {/* Print block — visible only via print CSS */}
+      <div id="stg-print" aria-hidden>
+        <div className="stg-p-h">
+          <div
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: 6,
+              background: T.bg,
+              color: T.c,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: 800,
+              fontSize: '11pt',
+            }}
+          >
+            {code}
+          </div>
+          <div style={{ flex: 1 }}>
+            <h1>
+              {name} — schéma directeur {displayLabel(strategy.horizonLabel, '')}
+            </h1>
+            <div className="s">
+              {displayLabel(strategy.ownerLabel, 'Sponsor non renseigné')} ·{' '}
+              {getStrategicDirectionStrategyStatusLabel(strategy.status)} · alignement {score}%
+            </div>
+          </div>
+        </div>
+        <div className="stg-p-amb">{displayLabel(strategy.ambition, '')}</div>
+        <div className="stg-p-cols">
+          <div>
+            <div className="stg-p-t">Chantiers majeurs</div>
+            <div className="stg-p-l">
+              {initiatives.map((c) => (
+                <div key={c.id}>
+                  <span>{displayLabel(c.title, 'Chantier')}</span>
+                  <b>{c.progressPct}%</b>
+                </div>
+              ))}
+            </div>
+            <div className="stg-p-t" style={{ marginTop: 9 }}>
+              Objectifs mesurables
+            </div>
+            <div className="stg-p-l">
+              {outcomes.map((o, i) => (
+                <div key={i}>
+                  <span>{displayLabel(o.title, 'Objectif')}</span>
+                  <b>{o.progressPct}%</b>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div className="stg-p-t">Budget par horizon</div>
+            <div className="stg-p-l">
+              {Object.keys(budgetsByYear)
+                .sort()
+                .map((y) => (
+                  <div key={y}>
+                    <span>{y}</span>
+                    <b>{formatEurCents(budgetsByYear[y])}</b>
+                  </div>
+                ))}
+            </div>
+            <div className="stg-p-t" style={{ marginTop: 9 }}>
+              Indicateurs
+            </div>
+            <div className="stg-p-l">
+              {kpis.map((k, i) => (
+                <div key={i}>
+                  <span>{displayLabel(k.label, 'KPI')}</span>
+                  <b>{displayLabel(k.value, '—')}</b>
+                </div>
+              ))}
+            </div>
+            <div className="stg-p-t" style={{ marginTop: 9 }}>
+              Risques
+            </div>
+            <div className="stg-p-l">
+              {risks.map((r, i) => (
+                <div key={i}>
+                  <span>{displayLabel(r.name, 'Risque')}</span>
+                  <b>
+                    {displayLabel(
+                      r.level === 'danger'
+                        ? 'Critique'
+                        : r.level === 'warning'
+                          ? 'Attention'
+                          : 'Info',
+                      '—',
+                    )}
+                  </b>
+                </div>
+              ))}
+            </div>
+            <div className="stg-p-t" style={{ marginTop: 9 }}>
+              Axes propres
+            </div>
+            <div className="stg-p-l">
+              {ownAxes.map((a) => (
+                <div key={a.id}>
+                  <span>{displayLabel(a.name, 'Axe')}</span>
+                  <b>{displayLabel(a.tone, '—')}</b>
+                </div>
+              ))}
+            </div>
+            <div className="stg-p-t" style={{ marginTop: 9 }}>
+              Contributions axes groupe
+            </div>
+            <div className="stg-p-l">
+              {(linksQ.data?.axes ?? []).map((a) => (
+                <div key={a.id}>
+                  <span>{displayLabel(a.name, 'Axe')}</span>
+                  <b>{contributions[a.id] ?? 0}%</b>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <StariumModal
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        title="Modifier le schéma"
+        description={`${code} — ${name}`}
+        icon={Pencil}
+        size="lg"
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11"
+              onClick={() => setEditOpen(false)}
+            >
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              className="min-h-11"
+              disabled={updateMutation.isPending}
+              onClick={() => void saveEdit()}
+            >
+              Enregistrer
+            </Button>
+          </>
+        }
+      >
+        <div className="starium-form space-y-4">
+          <div className="starium-form-field">
+            <label className="starium-form-label" htmlFor="stg-edit-ambition">
+              Ambition stratégique
+            </label>
+            <Textarea
+              id="stg-edit-ambition"
+              className="min-h-24"
+              value={ambitionDraft}
+              onChange={(e) => setAmbitionDraft(e.target.value)}
+            />
+          </div>
+          <div className="starium-form-field">
+            <label className="starium-form-label" htmlFor="stg-edit-context">
+              Périmètre &amp; contexte
+            </label>
+            <Textarea
+              id="stg-edit-context"
+              className="min-h-20"
+              value={contextDraft}
+              onChange={(e) => setContextDraft(e.target.value)}
+            />
+          </div>
+          <div className="starium-form-field">
+            <label className="starium-form-label" htmlFor="stg-edit-horizon">
+              Horizon
+            </label>
+            <Input
+              id="stg-edit-horizon"
+              className="min-h-11"
+              value={horizonDraft}
+              onChange={(e) => setHorizonDraft(e.target.value)}
+              placeholder="2026 → 2028"
+            />
+          </div>
+          <div className="starium-form-field">
+            <label className="starium-form-label" htmlFor="stg-edit-owner">
+              Sponsor / directeur·rice
+            </label>
+            <Input
+              id="stg-edit-owner"
+              className="min-h-11"
+              value={ownerDraft}
+              onChange={(e) => setOwnerDraft(e.target.value)}
+              placeholder="Nom affiché"
+            />
+          </div>
+        </div>
+      </StariumModal>
+
+      <StariumModal
+        open={initiativeOpen}
+        onOpenChange={setInitiativeOpen}
+        title={editingInitiativeId ? 'Modifier le chantier' : 'Nouveau chantier'}
+        description="Fenêtre, axes du groupe, jalons et avancement"
+        icon={Target}
+        size="lg"
+        footer={
+          <>
+            {editingInitiativeId && canUpdate ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="min-h-11 text-destructive border-destructive/40"
+                disabled={updateMutation.isPending}
+                onClick={() => void deleteInitiative()}
+              >
+                <Trash2 className="mr-2 size-4" aria-hidden />
+                Supprimer
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11"
+              onClick={() => setInitiativeOpen(false)}
+            >
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              className="min-h-11"
+              disabled={updateMutation.isPending}
+              onClick={() => void saveInitiative()}
+            >
+              Enregistrer
+            </Button>
+          </>
+        }
+      >
+        <div className="starium-form space-y-4">
+          <div className="starium-form-field">
+            <label className="starium-form-label" htmlFor="stg-init-title">
+              Intitulé <span className="text-destructive">*</span>
+            </label>
+            <Input
+              id="stg-init-title"
+              className="min-h-11"
+              value={initiativeDraft.title}
+              onChange={(e) =>
+                setInitiativeDraft((d) => ({ ...d, title: e.target.value }))
+              }
+            />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="starium-form-field">
+              <label className="starium-form-label" htmlFor="stg-init-owner">
+                Pilote
+              </label>
+              <Input
+                id="stg-init-owner"
+                className="min-h-11"
+                value={initiativeDraft.ownerLabel}
+                onChange={(e) =>
+                  setInitiativeDraft((d) => ({ ...d, ownerLabel: e.target.value }))
+                }
+              />
+            </div>
+            <div className="starium-form-field">
+              <label className="starium-form-label" htmlFor="stg-init-bud">
+                Budget (k€)
+              </label>
+              <Input
+                id="stg-init-bud"
+                type="number"
+                min={0}
+                className="min-h-11"
+                value={Math.round(initiativeDraft.budgetCents / 100_000) || ''}
+                onChange={(e) =>
+                  setInitiativeDraft((d) => ({
+                    ...d,
+                    budgetCents: (parseInt(e.target.value, 10) || 0) * 100_000,
+                  }))
+                }
+              />
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="starium-form-field">
+              <label className="starium-form-label" htmlFor="stg-init-lane">
+                Axe propre (lane)
+              </label>
+              <Select
+                value={String(initiativeDraft.lane)}
+                onValueChange={(v) =>
+                  setInitiativeDraft((d) => ({ ...d, lane: parseInt(v ?? '0', 10) || 0 }))
+                }
+              >
+                <SelectTrigger id="stg-init-lane" className="min-h-11 w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(ownAxes.length > 0 ? ownAxes : [{ id: '0', name: 'Chantiers', tone: 'info' }]).map(
+                    (a, i) => (
+                      <SelectItem key={a.id} value={String(i)}>
+                        {displayLabel(a.name, 'Axe')}
+                      </SelectItem>
+                    ),
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="starium-form-field">
+              <label className="starium-form-label" htmlFor="stg-init-s">
+                Début
+              </label>
+              <Select
+                value={String(snapToQuarter(initiativeDraft.startMonthOffset))}
+                onValueChange={(v) =>
+                  setInitiativeDraft((d) => ({
+                    ...d,
+                    startMonthOffset: parseInt(v ?? '0', 10) || 0,
+                  }))
+                }
+              >
+                <SelectTrigger id="stg-init-s" className="min-h-11 w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {qOpts.map((o) => (
+                    <SelectItem key={`s-${o.value}`} value={String(o.value)}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="starium-form-field">
+              <label className="starium-form-label" htmlFor="stg-init-e">
+                Fin
+              </label>
+              <Select
+                value={String(snapToQuarter(initiativeDraft.endMonthOffset))}
+                onValueChange={(v) =>
+                  setInitiativeDraft((d) => ({
+                    ...d,
+                    endMonthOffset: parseInt(v ?? '0', 10) || 0,
+                  }))
+                }
+              >
+                <SelectTrigger id="stg-init-e" className="min-h-11 w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {qOpts.map((o) => (
+                    <SelectItem key={`e-${o.value}`} value={String(o.value)}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <fieldset className="starium-form-field">
+            <legend className="starium-form-label">Axes du groupe</legend>
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Axes du groupe">
+              {(linksQ.data?.axes ?? []).length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Aucun axe vision lié — rattachez la stratégie aux axes du groupe.
+                </p>
+              ) : (
+                (linksQ.data?.axes ?? []).map((a) => {
+                  const selected = initiativeDraft.strategicAxisIds.includes(a.id);
+                  return (
+                    <button
+                      key={a.id}
+                      type="button"
+                      className={cn(
+                        'min-h-11 rounded-full border px-3 text-sm font-semibold',
+                        selected
+                          ? 'border-[color:var(--brand-gold)] bg-[color:var(--brand-gold-050)] text-[color:var(--brand-gold-700)]'
+                          : 'border-border bg-card text-foreground',
+                      )}
+                      aria-pressed={selected}
+                      onClick={() =>
+                        setInitiativeDraft((d) => ({
+                          ...d,
+                          strategicAxisIds: selected
+                            ? d.strategicAxisIds.filter((id) => id !== a.id)
+                            : [...d.strategicAxisIds, a.id],
+                        }))
+                      }
+                    >
+                      {displayLabel(a.name, 'Axe')}
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </fieldset>
+
+          <div className="starium-form-field space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="starium-form-label mb-0">Jalons</span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="min-h-11 sm:min-h-9"
+                onClick={() =>
+                  setInitiativeDraft((d) => ({
+                    ...d,
+                    milestones: [
+                      ...d.milestones,
+                      { monthOffset: d.startMonthOffset, label: '' },
+                    ],
+                  }))
+                }
+              >
+                <Plus className="mr-1 size-4" aria-hidden />
+                Ajouter un jalon
+              </Button>
+            </div>
+            {(initiativeDraft.milestones ?? []).length === 0 ? (
+              <p className="text-sm text-muted-foreground">Aucun jalon.</p>
+            ) : (
+              initiativeDraft.milestones.map((m, idx) => (
+                <div key={`ms-${idx}`} className="grid gap-2 sm:grid-cols-[140px_1fr_auto]">
+                  <Select
+                    value={String(snapToQuarter(m.monthOffset))}
+                    onValueChange={(v) =>
+                      setInitiativeDraft((d) => {
+                        const milestones = [...d.milestones];
+                        milestones[idx] = {
+                          ...milestones[idx],
+                          monthOffset: parseInt(v ?? '0', 10) || 0,
+                        };
+                        return { ...d, milestones };
+                      })
+                    }
+                  >
+                    <SelectTrigger
+                      className="min-h-11 w-full"
+                      aria-label={`Trimestre jalon ${idx + 1}`}
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {qOpts.map((o) => (
+                        <SelectItem key={`ms-${idx}-${o.value}`} value={String(o.value)}>
+                          {o.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    className="min-h-11"
+                    value={m.label}
+                    placeholder="Libellé du jalon"
+                    aria-label={`Libellé jalon ${idx + 1}`}
+                    onChange={(e) =>
+                      setInitiativeDraft((d) => {
+                        const milestones = [...d.milestones];
+                        milestones[idx] = { ...milestones[idx], label: e.target.value };
+                        return { ...d, milestones };
+                      })
+                    }
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="min-h-11 min-w-11"
+                    aria-label={`Retirer le jalon ${idx + 1}`}
+                    onClick={() =>
+                      setInitiativeDraft((d) => ({
+                        ...d,
+                        milestones: d.milestones.filter((_, i) => i !== idx),
+                      }))
+                    }
+                  >
+                    <Trash2 className="size-4" aria-hidden />
+                  </Button>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="starium-form-field">
+            <label className="starium-form-label" htmlFor="stg-init-pct">
+              Avancement — {initiativeDraft.progressPct}%
+            </label>
+            <Input
+              id="stg-init-pct"
+              type="range"
+              min={0}
+              max={100}
+              step={5}
+              value={initiativeDraft.progressPct}
+              onChange={(e) =>
+                setInitiativeDraft((d) => ({
+                  ...d,
+                  progressPct: parseInt(e.target.value, 10) || 0,
+                }))
+              }
+            />
+          </div>
+        </div>
+      </StariumModal>
+
+      <StariumModal
+        open={okrOpen}
+        onOpenChange={setOkrOpen}
+        title={editingOkrIndex != null ? 'Modifier l’objectif' : 'Nouvel objectif mesurable'}
+        description="Résultat attendu et indicateur de suivi"
+        icon={CheckCircle2}
+        size="lg"
+        footer={
+          <>
+            {editingOkrIndex != null && canUpdate ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="min-h-11 text-destructive border-destructive/40"
+                disabled={updateMutation.isPending}
+                onClick={() => void deleteOkr()}
+              >
+                <Trash2 className="mr-2 size-4" aria-hidden />
+                Supprimer
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11"
+              onClick={() => setOkrOpen(false)}
+            >
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              className="min-h-11"
+              disabled={updateMutation.isPending}
+              onClick={() => void saveOkr()}
+            >
+              Enregistrer
+            </Button>
+          </>
+        }
+      >
+        <div className="starium-form space-y-4">
+          <div className="starium-form-field">
+            <label className="starium-form-label" htmlFor="stg-okr-t">
+              Objectif <span className="text-destructive">*</span>
+            </label>
+            <Input
+              id="stg-okr-t"
+              className="min-h-11"
+              value={okrDraft.title}
+              onChange={(e) => setOkrDraft((d) => ({ ...d, title: e.target.value }))}
+            />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="starium-form-field">
+              <label className="starium-form-label" htmlFor="stg-okr-who">
+                Responsable
+              </label>
+              <Input
+                id="stg-okr-who"
+                className="min-h-11"
+                value={okrDraft.ownerLabel}
+                onChange={(e) => setOkrDraft((d) => ({ ...d, ownerLabel: e.target.value }))}
+              />
+            </div>
+            <div className="starium-form-field">
+              <label className="starium-form-label" htmlFor="stg-okr-tgt">
+                Indicateur cible
+              </label>
+              <Input
+                id="stg-okr-tgt"
+                className="min-h-11"
+                value={okrDraft.target}
+                onChange={(e) => setOkrDraft((d) => ({ ...d, target: e.target.value }))}
+              />
+            </div>
+          </div>
+          <div className="starium-form-field">
+            <label className="starium-form-label" htmlFor="stg-okr-cur">
+              Valeur actuelle
+            </label>
+            <Input
+              id="stg-okr-cur"
+              className="min-h-11"
+              value={okrDraft.current}
+              onChange={(e) => setOkrDraft((d) => ({ ...d, current: e.target.value }))}
+            />
+          </div>
+          <div className="starium-form-field">
+            <label className="starium-form-label" htmlFor="stg-okr-pct">
+              Avancement — {okrDraft.progressPct}%
+            </label>
+            <Input
+              id="stg-okr-pct"
+              type="range"
+              min={0}
+              max={100}
+              step={5}
+              value={okrDraft.progressPct}
+              onChange={(e) =>
+                setOkrDraft((d) => ({
+                  ...d,
+                  progressPct: parseInt(e.target.value, 10) || 0,
+                }))
+              }
+            />
+          </div>
+        </div>
+      </StariumModal>
+
+      <StariumModal
+        open={blockOpen}
+        onOpenChange={setBlockOpen}
+        title={editingBlockIndex != null ? 'Modifier le bloc' : 'Nouveau bloc'}
+        description="Note ou pièce du schéma directeur"
+        icon={FileText}
+        size="lg"
+        footer={
+          <>
+            {editingBlockIndex != null && canUpdate ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="min-h-11 text-destructive border-destructive/40"
+                disabled={updateMutation.isPending}
+                onClick={() => void deleteBlock()}
+              >
+                <Trash2 className="mr-2 size-4" aria-hidden />
+                Supprimer
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11"
+              onClick={() => setBlockOpen(false)}
+            >
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              className="min-h-11"
+              disabled={updateMutation.isPending}
+              onClick={() => void saveBlock()}
+            >
+              Enregistrer
+            </Button>
+          </>
+        }
+      >
+        <div className="starium-form space-y-4">
+          <div className="starium-form-field">
+            <label className="starium-form-label" htmlFor="stg-block-kind">
+              Type
+            </label>
+            <Select
+              value={blockDraft.kind}
+              onValueChange={(v) =>
+                setBlockDraft((d) => ({
+                  ...d,
+                  kind: v === 'image' ? 'image' : 'text',
+                }))
+              }
+            >
+              <SelectTrigger id="stg-block-kind" className="min-h-11">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="text">Texte</SelectItem>
+                <SelectItem value="image">Image / schéma (Documents)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="starium-form-field">
+            <label className="starium-form-label" htmlFor="stg-block-title">
+              Titre <span className="text-destructive">*</span>
+            </label>
+            <Input
+              id="stg-block-title"
+              className="min-h-11"
+              value={blockDraft.title}
+              onChange={(e) => setBlockDraft((d) => ({ ...d, title: e.target.value }))}
+            />
+          </div>
+          <div className="starium-form-field">
+            <label className="starium-form-label" htmlFor="stg-block-body">
+              {blockDraft.kind === 'image' ? 'Légende / consigne' : 'Contenu'}
+            </label>
+            <Textarea
+              id="stg-block-body"
+              className="min-h-24"
+              value={blockDraft.body}
+              onChange={(e) => setBlockDraft((d) => ({ ...d, body: e.target.value }))}
+              placeholder={
+                blockDraft.kind === 'image'
+                  ? 'Légende affichée sous le schéma.'
+                  : undefined
+              }
+            />
+          </div>
+          {blockDraft.kind === 'image' ? (
+            <StrategyDocumentPicker
+              strategyId={strategyId}
+              value={blockDraft.documentId}
+              onLinkDocument={(documentId) =>
+                setBlockDraft((d) => ({ ...d, documentId }))
+              }
+              label="Image / schéma (Documents)"
+            />
+          ) : null}
+        </div>
+      </StariumModal>
+
+      <StariumModal
+        open={riskOpen}
+        onOpenChange={setRiskOpen}
+        title={editingRiskIndex != null ? 'Modifier le risque' : 'Nouveau risque stratégique'}
+        description="Probabilité, impact et propriétaire"
+        icon={AlertTriangle}
+        size="lg"
+        footer={
+          <>
+            {editingRiskIndex != null && canUpdate ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="min-h-11 text-destructive border-destructive/40"
+                disabled={updateMutation.isPending}
+                onClick={() => void deleteRisk()}
+              >
+                <Trash2 className="mr-2 size-4" aria-hidden />
+                Supprimer
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11"
+              onClick={() => setRiskOpen(false)}
+            >
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              className="min-h-11"
+              disabled={updateMutation.isPending}
+              onClick={() => void saveRisk()}
+            >
+              Enregistrer
+            </Button>
+          </>
+        }
+      >
+        <div className="starium-form space-y-4">
+          <div className="starium-form-field">
+            <label className="starium-form-label" htmlFor="stg-risk-name">
+              Risque <span className="text-destructive">*</span>
+            </label>
+            <Input
+              id="stg-risk-name"
+              className="min-h-11"
+              value={riskDraft.name}
+              onChange={(e) => setRiskDraft((d) => ({ ...d, name: e.target.value }))}
+            />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="starium-form-field">
+              <label className="starium-form-label" htmlFor="stg-risk-lvl">
+                Niveau
+              </label>
+              <Select
+                value={riskDraft.level}
+                onValueChange={(v) =>
+                  setRiskDraft((d) => ({
+                    ...d,
+                    level: v === 'danger' || v === 'info' ? v : 'warning',
+                  }))
+                }
+              >
+                <SelectTrigger id="stg-risk-lvl" className="min-h-11 w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="danger">Critique</SelectItem>
+                  <SelectItem value="warning">Attention</SelectItem>
+                  <SelectItem value="info">Info</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="starium-form-field">
+              <label className="starium-form-label" htmlFor="stg-risk-p">
+                Probabilité
+              </label>
+              <Input
+                id="stg-risk-p"
+                className="min-h-11"
+                value={riskDraft.probability}
+                onChange={(e) => setRiskDraft((d) => ({ ...d, probability: e.target.value }))}
+              />
+            </div>
+            <div className="starium-form-field">
+              <label className="starium-form-label" htmlFor="stg-risk-i">
+                Impact
+              </label>
+              <Input
+                id="stg-risk-i"
+                className="min-h-11"
+                value={riskDraft.impact}
+                onChange={(e) => setRiskDraft((d) => ({ ...d, impact: e.target.value }))}
+              />
+            </div>
+          </div>
+          <div className="starium-form-field">
+            <label className="starium-form-label" htmlFor="stg-risk-own">
+              Propriétaire
+            </label>
+            <Input
+              id="stg-risk-own"
+              className="min-h-11"
+              value={riskDraft.ownerLabel}
+              onChange={(e) => setRiskDraft((d) => ({ ...d, ownerLabel: e.target.value }))}
+            />
+          </div>
+          <div className="starium-form-field">
+            <label className="starium-form-label" htmlFor="stg-risk-mit">
+              Mitigation
+            </label>
+            <Textarea
+              id="stg-risk-mit"
+              className="min-h-20"
+              value={riskDraft.mitigation}
+              onChange={(e) => setRiskDraft((d) => ({ ...d, mitigation: e.target.value }))}
+            />
+          </div>
+        </div>
+      </StariumModal>
+
+      <StariumModal
+        open={axisOpen}
+        onOpenChange={setAxisOpen}
+        title={editingAxisIndex != null ? 'Modifier l’axe propre' : 'Nouvel axe propre'}
+        description="Lane de la timeline des chantiers"
+        icon={Target}
+        size="md"
+        footer={
+          <>
+            {editingAxisIndex != null && canUpdate ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="min-h-11 text-destructive border-destructive/40"
+                disabled={updateMutation.isPending}
+                onClick={() => void deleteAxis()}
+              >
+                <Trash2 className="mr-2 size-4" aria-hidden />
+                Supprimer
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11"
+              onClick={() => setAxisOpen(false)}
+            >
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              className="min-h-11"
+              disabled={updateMutation.isPending}
+              onClick={() => void saveAxis()}
+            >
+              Enregistrer
+            </Button>
+          </>
+        }
+      >
+        <div className="starium-form space-y-4">
+          <div className="starium-form-field">
+            <label className="starium-form-label" htmlFor="stg-axis-name">
+              Nom <span className="text-destructive">*</span>
+            </label>
+            <Input
+              id="stg-axis-name"
+              className="min-h-11"
+              value={axisDraft.name}
+              onChange={(e) => setAxisDraft((d) => ({ ...d, name: e.target.value }))}
+            />
+          </div>
+          <fieldset className="starium-form-field">
+            <legend className="starium-form-label">Teinte</legend>
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Teinte de l’axe">
+              {AXIS_TONES.map((t) => {
+                const selected = axisDraft.tone === t.value;
+                const tone = stgTone(t.value);
+                return (
+                  <button
+                    key={t.value}
+                    type="button"
+                    className={cn(
+                      'min-h-11 rounded-full border px-3 text-sm font-semibold',
+                      selected ? 'border-[color:var(--brand-gold)]' : 'border-border',
+                    )}
+                    style={{ background: tone.bg, color: tone.c }}
+                    aria-pressed={selected}
+                    onClick={() => setAxisDraft((d) => ({ ...d, tone: t.value }))}
+                  >
+                    {t.label}
+                  </button>
+                );
+              })}
+            </div>
+          </fieldset>
+        </div>
+      </StariumModal>
+
+      <StariumModal
+        open={kpiOpen}
+        onOpenChange={setKpiOpen}
+        title={editingKpiIndex != null ? 'Modifier l’indicateur' : 'Nouvel indicateur'}
+        description="KPI affiché en tête du schéma directeur"
+        icon={CheckCircle2}
+        size="md"
+        footer={
+          <>
+            {editingKpiIndex != null && canUpdate ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="min-h-11 text-destructive border-destructive/40"
+                disabled={updateMutation.isPending}
+                onClick={() => void deleteKpi()}
+              >
+                <Trash2 className="mr-2 size-4" aria-hidden />
+                Supprimer
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11"
+              onClick={() => setKpiOpen(false)}
+            >
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              className="min-h-11"
+              disabled={updateMutation.isPending}
+              onClick={() => void saveKpi()}
+            >
+              Enregistrer
+            </Button>
+          </>
+        }
+      >
+        <div className="starium-form space-y-4">
+          <div className="starium-form-field">
+            <label className="starium-form-label" htmlFor="stg-kpi-l">
+              Libellé <span className="text-destructive">*</span>
+            </label>
+            <Input
+              id="stg-kpi-l"
+              className="min-h-11"
+              value={kpiDraft.label}
+              onChange={(e) => setKpiDraft((d) => ({ ...d, label: e.target.value }))}
+            />
+          </div>
+          <div className="starium-form-field">
+            <label className="starium-form-label" htmlFor="stg-kpi-v">
+              Valeur
+            </label>
+            <Input
+              id="stg-kpi-v"
+              className="min-h-11"
+              value={kpiDraft.value}
+              onChange={(e) => setKpiDraft((d) => ({ ...d, value: e.target.value }))}
+            />
+          </div>
+          <div className="starium-form-field">
+            <label className="starium-form-label" htmlFor="stg-kpi-d">
+              Détail / cible
+            </label>
+            <Input
+              id="stg-kpi-d"
+              className="min-h-11"
+              value={kpiDraft.detail}
+              onChange={(e) => setKpiDraft((d) => ({ ...d, detail: e.target.value }))}
+            />
+          </div>
+        </div>
+      </StariumModal>
+
+      <StariumModal
+        open={reviewOpen}
+        onOpenChange={setReviewOpen}
+        title="Nouvelle revue stratégique"
+        description="Soumettre ou valider le schéma directeur"
+        icon={ClipboardCheck}
+        size="lg"
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11"
+              onClick={() => setReviewOpen(false)}
+            >
+              Annuler
+            </Button>
+            {(strategy.status === 'DRAFT' || strategy.status === 'REJECTED') && canUpdate ? (
+              <Button
+                type="button"
+                className="min-h-11"
+                disabled={submitMutation.isPending}
+                onClick={() => void handleSubmitReview()}
+              >
+                {STRATEGIC_DIRECTION_STRATEGY_SUBMIT_LABEL}
+              </Button>
+            ) : null}
+            {strategy.status === 'SUBMITTED' && canReview ? (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="min-h-11"
+                  disabled={reviewMutation.isPending}
+                  onClick={() => void handleReject()}
+                >
+                  {STRATEGIC_DIRECTION_STRATEGY_REJECT_LABEL}
+                </Button>
+                <Button
+                  type="button"
+                  className="min-h-11"
+                  disabled={reviewMutation.isPending}
+                  onClick={() => void handleApprove()}
+                >
+                  {STRATEGIC_DIRECTION_STRATEGY_APPROVE_LABEL}
+                </Button>
+              </>
+            ) : null}
+          </>
+        }
+      >
+        <div className="starium-form space-y-4">
+          {(strategy.status === 'DRAFT' || strategy.status === 'REJECTED') && allowPickValidator ? (
+            <div className="starium-form-field">
+              <label className="starium-form-label" htmlFor="stg-rev-validator">
+                Validateur
+              </label>
+              <Select
+                value={submitValidatorUserId || undefined}
+                onValueChange={(v) => setSubmitValidatorUserId(v ?? '')}
+              >
+                <SelectTrigger id="stg-rev-validator" className="min-h-11 w-full">
+                  <SelectValue placeholder="Choisir un validateur" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(validatorsQ.data ?? []).map((u) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      {firstDisplayLabel([u.displayName, u.email], 'Validateur')}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
+          {(strategy.status === 'DRAFT' ||
+            strategy.status === 'REJECTED' ||
+            strategy.status === 'SUBMITTED') && (
+            <>
+              <div className="starium-form-field">
+                <label className="starium-form-label" htmlFor="stg-rev-instance">
+                  Instance
+                </label>
+                <Input
+                  id="stg-rev-instance"
+                  className="min-h-11"
+                  value={reviewInstanceLabel}
+                  onChange={(e) => setReviewInstanceLabel(e.target.value)}
+                  placeholder="CODIR"
+                />
+              </div>
+              <div className="starium-form-field">
+                <label className="starium-form-label" htmlFor="stg-rev-note">
+                  Note de décisions
+                </label>
+                <Textarea
+                  id="stg-rev-note"
+                  className="min-h-20"
+                  value={decisionNote}
+                  onChange={(e) => setDecisionNote(e.target.value)}
+                  placeholder="Synthèse de la revue"
+                />
+              </div>
+            </>
+          )}
+          {strategy.status === 'SUBMITTED' && canReview ? (
+            <div className="starium-form-field">
+              <label className="starium-form-label" htmlFor="stg-rev-reject">
+                Motif de refus (si refus)
+              </label>
+              <Textarea
+                id="stg-rev-reject"
+                className="min-h-20"
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+              />
+            </div>
+          ) : null}
+          {strategy.status === 'APPROVED' ? (
+            <p className="text-sm text-muted-foreground">
+              Ce schéma est déjà validé. Utilisez l’adaptation via le formulaire complet si une
+              nouvelle version est nécessaire.
+            </p>
+          ) : null}
+        </div>
+      </StariumModal>
+
+      <StrategicDirectionCreateEditDialog
+        mode="edit"
+        open={directionEditOpen}
+        onOpenChange={setDirectionEditOpen}
+        direction={directionForEdit}
+        onSuccess={() => {
+          void detailQ.refetch();
+          void directionsQ.refetch();
+        }}
+      />
+      </div>
+    </PageContainer>
+  );
+}

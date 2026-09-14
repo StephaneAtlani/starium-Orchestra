@@ -4,6 +4,8 @@
 
 ✅ **Implémentée (MVP)** — alignée avec [RFC Liste — Strategic Vision](./_RFC%20Liste.md) (entrée Strategy Board). Le corps ci-dessous reste la spécification produit ; le code fait foi pour détails DTO et champs V1.
 
+**UX / fidélité mock (cible active)** : [RFC-STRAT-011 — CDC Stratégie de direction et Consolidé groupe](./RFC-STRAT-011%20%E2%80%94%20CDC%20Strat%C3%A9gie%20de%20direction%20et%20Consolid%C3%A9%20groupe%20(fid%C3%A9lit%C3%A9%20mock).md) (portefeuille cartes, schéma directeur timeline, consolidé groupe). Cette RFC-006 reste la source de vérité **workflow CODIR / API métier** ; STRAT-011 ne remplace pas le workflow.
+
 ## Date
 
 2026-05-05 (RFC) ; mise à jour documentaire **2026-05-06**.

@@ -8,9 +8,11 @@ import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
+  IsBoolean,
   IsDateString,
   IsEnum,
   IsNumber,
+  IsObject,
   IsOptional,
   IsString,
   MaxLength,
@@ -31,6 +33,11 @@ export class CreateProjectRequestDto {
   @IsOptional()
   @IsEnum(ProjectRequestType)
   type?: ProjectRequestType;
+
+  /** Sous-catégorie portefeuille (niveau 2), même référentiel que les projets. */
+  @IsOptional()
+  @IsString()
+  portfolioCategoryId?: string;
 
   @IsOptional()
   @IsString()
@@ -92,4 +99,65 @@ export class CreateProjectRequestDto {
   @IsString()
   @MaxLength(10000)
   riskIfNotDone?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(10000)
+  expectedOutcome?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(10000)
+  affectedScope?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  affectedUsersCount?: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  deadlineRationale?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(10000)
+  knownConstraints?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(10000)
+  solutionsTried?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  strategicObjectiveLabel?: string;
+
+  @IsOptional()
+  @IsObject()
+  swot?: {
+    strengths?: string;
+    weaknesses?: string;
+    opportunities?: string;
+    threats?: string;
+  };
+
+  @IsOptional()
+  @IsObject()
+  tows?: {
+    so?: string;
+    wo?: string;
+    st?: string;
+    wt?: string;
+  };
+
+  @IsOptional()
+  @IsBoolean()
+  budgetUnknown?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  effortUnknown?: boolean;
 }

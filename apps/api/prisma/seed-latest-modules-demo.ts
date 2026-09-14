@@ -4,6 +4,7 @@ import { ensureDemoContracts } from "./seed-contracts-demo";
 import { ensureDemoTeamsAndSkills } from "./seed-teams-skills-demo";
 import { ensureDemoCapacity } from "./seed-capacity-demo";
 import { ensureDemoStrategicVision } from "./seed-strategic-vision-demo";
+import { ensureDemoStrategicDirectionStrategies } from "./seed-strategic-direction-strategy-demo";
 import { ensureDemoMeetings } from "./seed-meetings-demo";
 import { ensureDemoAlertsAndNotifications } from "./seed-alerts-notifications-demo";
 import { ensureDemoSubscription } from "./seed-subscriptions-demo";
@@ -67,6 +68,13 @@ export async function ensureLatestModulesDemoForAllClients(
         c.slug,
         c.id,
         org.directionItId,
+        actorUserId,
+      );
+
+      await ensureDemoStrategicDirectionStrategies(
+        prisma,
+        c.slug,
+        c.id,
         actorUserId,
       );
 

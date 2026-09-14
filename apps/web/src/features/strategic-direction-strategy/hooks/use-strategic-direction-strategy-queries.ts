@@ -12,6 +12,9 @@ import {
   type CreateStrategicDirectionStrategyInput,
   getStrategicDirectionStrategy,
   getStrategicDirectionStrategyLinks,
+  getStrategicDirectionStrategyPortfolio,
+  getStrategicDirectionStrategySchemaMetrics,
+  getStrategicDirectionStrategyConsolidation,
   archiveStrategicDirectionStrategy,
   compareStrategicDirectionStrategyVersions,
   listStrategicDirectionStrategies,
@@ -24,6 +27,9 @@ import {
   patchStrategicDirectionStrategyWorkflowSettings,
   submitStrategicDirectionStrategy,
   updateStrategicDirectionStrategy,
+  listStrategicDirectionStrategyDocuments,
+  uploadStrategicDirectionStrategyDocument,
+  downloadStrategicDirectionStrategyDocument,
   type UpdateStrategicDirectionStrategyInput,
 } from '../api/strategic-direction-strategy.api';
 import { strategicDirectionStrategyKeys } from '../lib/strategic-direction-strategy-query-keys';
@@ -272,7 +278,12 @@ export function useReviewStrategicDirectionStrategyMutation() {
       body,
     }: {
       strategyId: string;
-      body: { decision: 'APPROVED' | 'REJECTED'; rejectionReason?: string };
+      body: {
+        decision: 'APPROVED' | 'REJECTED';
+        rejectionReason?: string;
+        decisionNote?: string;
+        reviewInstanceLabel?: string;
+      };
     }) => reviewStrategicDirectionStrategy(authFetch, strategyId, body),
     onSuccess: async () => {
       await invalidateStrategicDirectionStrategyScope(queryClient, clientId);
@@ -332,5 +343,123 @@ export function useReplaceStrategicDirectionStrategyObjectivesMutation() {
     onSuccess: async () => {
       await invalidateStrategicDirectionStrategyScope(queryClient, clientId);
     },
+  });
+}
+
+export function useStrategicDirectionStrategyPortfolioQuery(
+  filters: { alignedVisionId?: string | null; search?: string | null },
+  options?: { enabled?: boolean },
+) {
+  const authFetch = useAuthenticatedFetch();
+  const { activeClient } = useActiveClient();
+  const clientId = activeClient?.id ?? '';
+  const enabled = options?.enabled !== false;
+
+  return useQuery({
+    queryKey: strategicDirectionStrategyKeys.portfolio(clientId, {
+      alignedVisionId: filters.alignedVisionId ?? undefined,
+      search: filters.search?.trim() ? filters.search.trim() : undefined,
+    }),
+    queryFn: () =>
+      getStrategicDirectionStrategyPortfolio(authFetch, {
+        alignedVisionId: filters.alignedVisionId ?? undefined,
+        search: filters.search?.trim() ? filters.search.trim() : undefined,
+      }),
+    enabled: Boolean(clientId) && enabled,
+  });
+}
+
+export function useStrategicDirectionStrategySchemaMetricsQuery(
+  strategyId: string | null,
+  options?: { enabled?: boolean },
+) {
+  const authFetch = useAuthenticatedFetch();
+  const { activeClient } = useActiveClient();
+  const clientId = activeClient?.id ?? '';
+  const enabled = options?.enabled !== false;
+
+  return useQuery({
+    queryKey: strategicDirectionStrategyKeys.schemaMetrics(clientId, strategyId),
+    queryFn: () => getStrategicDirectionStrategySchemaMetrics(authFetch, strategyId!),
+    enabled: Boolean(clientId) && Boolean(strategyId) && enabled,
+  });
+}
+
+export function useStrategicDirectionStrategyConsolidationQuery(
+  filters: { alignedVisionId?: string | null },
+  options?: { enabled?: boolean },
+) {
+  const authFetch = useAuthenticatedFetch();
+  const { activeClient } = useActiveClient();
+  const clientId = activeClient?.id ?? '';
+  const enabled = options?.enabled !== false;
+
+  return useQuery({
+    queryKey: strategicDirectionStrategyKeys.consolidation(
+      clientId,
+      filters.alignedVisionId ?? undefined,
+    ),
+    queryFn: () =>
+      getStrategicDirectionStrategyConsolidation(authFetch, {
+        alignedVisionId: filters.alignedVisionId ?? undefined,
+      }),
+    enabled: Boolean(clientId) && enabled,
+  });
+}
+
+export function useStrategicDirectionStrategyDocumentsQuery(
+  strategyId: string | null,
+  options?: { enabled?: boolean },
+) {
+  const authFetch = useAuthenticatedFetch();
+  const { activeClient } = useActiveClient();
+  const clientId = activeClient?.id ?? '';
+  const enabled = options?.enabled !== false;
+  return useQuery({
+    queryKey: strategicDirectionStrategyKeys.documents(clientId, strategyId),
+    queryFn: () => listStrategicDirectionStrategyDocuments(authFetch, strategyId!),
+    enabled: Boolean(clientId && strategyId) && enabled,
+  });
+}
+
+export function useUploadStrategicDirectionStrategyDocumentMutation(strategyId: string) {
+  const authFetch = useAuthenticatedFetch();
+  const { activeClient } = useActiveClient();
+  const clientId = activeClient?.id ?? '';
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (file: File) =>
+      uploadStrategicDirectionStrategyDocument(authFetch, strategyId, file),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: strategicDirectionStrategyKeys.documents(clientId, strategyId),
+      });
+    },
+  });
+}
+
+export function useStrategicDirectionStrategyDocumentPreview(
+  strategyId: string | null,
+  documentId: string | null,
+) {
+  const authFetch = useAuthenticatedFetch();
+  const { activeClient } = useActiveClient();
+  const clientId = activeClient?.id ?? '';
+  return useQuery({
+    queryKey: [
+      ...strategicDirectionStrategyKeys.documents(clientId, strategyId),
+      'preview',
+      documentId,
+    ],
+    queryFn: async () => {
+      const blob = await downloadStrategicDirectionStrategyDocument(
+        authFetch,
+        strategyId!,
+        documentId!,
+      );
+      return URL.createObjectURL(blob);
+    },
+    enabled: Boolean(clientId && strategyId && documentId),
+    staleTime: 60_000,
   });
 }

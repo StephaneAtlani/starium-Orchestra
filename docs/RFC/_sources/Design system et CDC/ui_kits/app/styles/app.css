@@ -172,6 +172,17 @@ html,body{height:100%;font-family:var(--font-sans);background:var(--neutral-50);
 .ov-update-text{font-size:12.5px;color:var(--neutral-600);line-height:1.5;margin-bottom:16px}
 .ov-update-text b{color:var(--brand-ink);font-weight:700}
 
+/* ─── AVATARS : badge rond, initiales ou photo ─── */
+.av{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;width:30px;height:30px;border-radius:999px;overflow:hidden;background:var(--neutral-100);color:var(--neutral-600);font-size:10.5px;font-weight:800;line-height:1;letter-spacing:.02em;text-transform:uppercase;user-select:none}
+.av img{width:100%;height:100%;object-fit:cover;display:block;border-radius:inherit}
+.av-xs{width:22px;height:22px;font-size:8.5px}.av-sm{width:26px;height:26px;font-size:9.5px}.av-md{width:32px;height:32px;font-size:11px}.av-lg{width:40px;height:40px;font-size:13.5px}
+.av-p{display:inline-flex;align-items:center;gap:9px;min-width:0}
+.av-p .av-n{font-size:12.5px;font-weight:600;color:var(--neutral-700);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.av-p .av-r{font-size:11px;color:var(--neutral-500);margin-top:1px}
+.av-stack{display:flex}
+.av-stack .av{border:2px solid var(--neutral-0);margin-left:-7px}
+.av-stack .av:first-child{margin-left:0}
+
 /* ─── AVATARS palette ─── */
 .av-1{background:#D7E3F6;color:#2A52A0} .av-2{background:#F6E0D7;color:#A0532A}
 .av-3{background:#D7F0E3;color:#1F7A52} .av-4{background:#EFE0F6;color:#6B2FB2}
@@ -334,6 +345,17 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
 .doc-ico{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:8px;font-weight:800;letter-spacing:.02em}
 .di-pdf{background:#FBE8E6;color:#B42318} .di-xls{background:#E6F4ED;color:#1F8A5B}
 .di-doc{background:#E3EEFB;color:#2A6FDB} .di-fig{background:#EFE4FD;color:#6B2FB2} .di-folder{background:var(--brand-gold-050);color:var(--brand-gold-700)}
+.doc-act{display:flex;justify-content:flex-end}
+.doc-empty{padding:34px 18px;text-align:center;font-size:13px;font-weight:600;color:var(--neutral-500);display:flex;flex-direction:column;align-items:center;gap:12px}
+.doc-pop{position:fixed;z-index:900;min-width:186px;padding:6px;background:var(--neutral-0);border:1.5px solid var(--neutral-200);border-radius:var(--radius-md);box-shadow:var(--shadow-3)}
+.doc-pop-i{display:flex;align-items:center;gap:8px;width:100%;padding:8px 10px;border:none;border-radius:8px;background:none;font-family:var(--font-sans);font-size:12.5px;font-weight:650;color:var(--brand-ink);text-align:left;cursor:pointer}
+.doc-pop-i:hover{background:var(--neutral-50)}
+.doc-pop-i.on{background:var(--brand-gold-050);color:var(--brand-gold-700)}
+.doc-pop-i.danger{color:var(--state-danger)}
+.doc-pop-i.danger:hover{background:var(--state-danger-bg)}
+.doc-pop-sep{height:1px;margin:5px 4px;background:var(--neutral-200)}
+.doc-actonly{grid-template-columns:1fr}
+.doc-actonly>div:first-child{display:none}
 .activity-card{padding:18px;display:flex;flex-direction:column;height:100%}
 .act-timeline{display:flex;flex-direction:column}
 .act-item{display:flex;gap:12px;padding-bottom:18px;position:relative}
@@ -2489,3 +2511,18 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
 .cvc-s.no{background:var(--state-danger-bg);color:var(--state-danger)}
 .cvc-s.wait{background:var(--neutral-100);color:var(--neutral-500)}
 .cvc-act{display:flex;gap:8px;margin-top:12px}
+
+/* ─── SCROLLBARS RÉVÉLÉES AU SURVOL ─── */
+.page-content,.modal-body,.dw-body,.mtg-drawer,.cap-drawer,.rv-scope,.prep-scroll,.pw-body,.tbl-wrap{scrollbar-width:thin;scrollbar-color:transparent transparent;transition:scrollbar-color .18s ease}
+.page-content:hover,.modal-body:hover,.dw-body:hover,.mtg-drawer:hover,.cap-drawer:hover,.rv-scope:hover,.prep-scroll:hover,.pw-body:hover,.tbl-wrap:hover{scrollbar-color:var(--neutral-300) transparent}
+.page-content::-webkit-scrollbar,.modal-body::-webkit-scrollbar,.dw-body::-webkit-scrollbar,.mtg-drawer::-webkit-scrollbar,.cap-drawer::-webkit-scrollbar,.rv-scope::-webkit-scrollbar,.prep-scroll::-webkit-scrollbar,.pw-body::-webkit-scrollbar,.tbl-wrap::-webkit-scrollbar{width:10px;height:10px}
+.page-content::-webkit-scrollbar-thumb,.modal-body::-webkit-scrollbar-thumb,.dw-body::-webkit-scrollbar-thumb,.mtg-drawer::-webkit-scrollbar-thumb,.cap-drawer::-webkit-scrollbar-thumb,.rv-scope::-webkit-scrollbar-thumb,.prep-scroll::-webkit-scrollbar-thumb,.pw-body::-webkit-scrollbar-thumb,.tbl-wrap::-webkit-scrollbar-thumb{background:transparent;border-radius:999px;border:3px solid transparent;background-clip:content-box;transition:background-color .18s ease}
+.page-content:hover::-webkit-scrollbar-thumb,.modal-body:hover::-webkit-scrollbar-thumb,.dw-body:hover::-webkit-scrollbar-thumb,.mtg-drawer:hover::-webkit-scrollbar-thumb,.cap-drawer:hover::-webkit-scrollbar-thumb,.rv-scope:hover::-webkit-scrollbar-thumb,.prep-scroll:hover::-webkit-scrollbar-thumb,.pw-body:hover::-webkit-scrollbar-thumb,.tbl-wrap:hover::-webkit-scrollbar-thumb{background:var(--neutral-300)}
+.page-content:hover::-webkit-scrollbar-thumb:hover,.modal-body:hover::-webkit-scrollbar-thumb:hover,.dw-body:hover::-webkit-scrollbar-thumb:hover,.mtg-drawer:hover::-webkit-scrollbar-thumb:hover,.cap-drawer:hover::-webkit-scrollbar-thumb:hover,.prep-scroll:hover::-webkit-scrollbar-thumb:hover,.pw-body:hover::-webkit-scrollbar-thumb:hover,.tbl-wrap:hover::-webkit-scrollbar-thumb:hover{background:var(--neutral-400)}
+.page-content::-webkit-scrollbar-track,.modal-body::-webkit-scrollbar-track,.dw-body::-webkit-scrollbar-track,.mtg-drawer::-webkit-scrollbar-track,.cap-drawer::-webkit-scrollbar-track,.rv-scope::-webkit-scrollbar-track,.prep-scroll::-webkit-scrollbar-track,.pw-body::-webkit-scrollbar-track,.tbl-wrap::-webkit-scrollbar-track{background:transparent}
+/* la sidebar garde son défilement masqué, mais le révèle au survol */
+.sidebar{scrollbar-color:transparent transparent}
+.sidebar:hover{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.22) transparent}
+.sidebar::-webkit-scrollbar{display:block;width:10px}
+.sidebar::-webkit-scrollbar-thumb{background:transparent;border-radius:999px;border:3px solid transparent;background-clip:content-box}
+.sidebar:hover::-webkit-scrollbar-thumb{background:rgba(255,255,255,.22);background-clip:content-box}

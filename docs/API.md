@@ -607,6 +607,9 @@ Propriétés inconnues dans le body → **400** (`forbidNonWhitelisted`).
 | /api/strategic-direction-strategies/:id/submit | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.update`) |
 | /api/strategic-direction-strategies/:id/archive | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.update`) |
 | /api/strategic-direction-strategies/:id/review | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.review`) |
+| /api/strategic-direction-strategies/:strategyId/documents (GET) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.read`) |
+| /api/strategic-direction-strategies/:strategyId/documents/upload (POST) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.update`) |
+| /api/strategic-direction-strategies/:strategyId/documents/:documentId/download (GET) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.read`) |
 | /api/governance-cycles (GET, POST) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`governance_cycles.read` / `governance_cycles.create`) — module `governance_cycles` |
 | /api/governance-cycles/calendar-events (GET) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | `governance_cycles.read` — agrégat calendrier points projet + instances (RFC-PROJ-013-9 C1) ; `from`/`to` ISO ; isolation client + projets autorisés |
 | /api/governance-cycles/by-project/:projectId (GET) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`governance_cycles.read`) — présence projet dans les cycles (RFC-PROJ-CYCLE-002) ; **404** si projet hors client |
@@ -650,7 +653,9 @@ Module catalogue **`project_requests`** (distinct de `projects`). ACL ressource 
 | `POST /api/project-requests/:id/route` | `route` — **legacy MVP** routage cible fixe |
 | `POST /api/project-requests/:id/cancel` | `create` **ou** `update` |
 
-Réponses list/detail : `referenceCode`, `requesterSummary`, `convertedProjectSummary`, `computedCircuit`, `journal` (libellés métier). Circuit **jamais stocké** — recalcul serveur.
+Réponses list/detail : `referenceCode`, `requesterSummary`, `convertedProjectSummary`, `portfolioCategory` (libellés), `computedCircuit`, `journal` (libellés métier). Circuit **jamais stocké** — recalcul serveur.
+
+**Body create/update (A2 étendu)** — champs principaux : `title`, `type` (`ProjectRequestType`), `portfolioCategoryId?` (sous-catégorie portefeuille L2 du client), `requestingDirection`, `sponsorLabel`, `businessContext`, `expectedOutcome`, `expectedBenefits`, `riskIfNotDone`, `objectives[]`, `affectedScope`, `affectedUsersCount`, `estimatedBudget` / `budgetUnknown`, `estimatedEffortDays` / `effortUnknown`, `desiredDeadline`, `deadlineRationale`, `knownConstraints`, `solutionsTried`, `priorityRequested`, `strategicObjectiveLabel`, `swot` / `tows` (JSON). Isolation : `clientId` jamais pris du payload.
 
 Audit (sensible) : transitions CDC (`submit`, `n1`, `instruct`, `agenda`, `committee`, `convert`, `reopen`) + legacy ; settings : `project_request.workflow_settings.updated`.
 
@@ -661,8 +666,7 @@ Audit (sensible) : transitions CDC (`submit`, `n1`, `instruct`, `agenda`, `commi
 | Route | Permissions |
 |-------|-------------|
 | `GET /api/clients/active/project-request-workflow-settings` | `project_requests.settings.manage` **ou** `project_requests.read` — `{ stored, resolved, options }` |
-| `PATCH /api/clients/active/project-request-workflow-settings` | **CLIENT_ADMIN** / **PLATFORM_ADMIN** **ou** profil avec `settings.manage` — body CDC : `copilThresholdAmount`, `codirThresholdAmount` (doit être `>` copil), `instructionSlaBusinessDays`, `requireN1Validation`, `requirePmoInstruction`, `autoCreateProjectOnApproval`, `exemptRequestTypes` (+ champs MVP legacy) |
-
+| `PATCH /api/clients/active/project-request-workflow-settings` | **CLIENT_ADMIN** ou **PLATFORM_ADMIN** uniquement (`ClientAdminOrPlatformAdminGuard`) — body CDC : `copilThresholdAmount`, `codirThresholdAmount` (doit être `>` copil), `instructionSlaBusinessDays`, `requireN1Validation`, `requirePmoInstruction`, `autoCreateProjectOnApproval`, `exemptRequestTypes` (+ champs MVP legacy). La permission `settings.manage` seule **ne suffit pas** à écrire. |
 ---
 
 ## 5.0 ACL ressources — `/api/resource-acl` (RFC-ACL-005, RFC-ACL-014, **RFC-ACL-017**)
@@ -974,7 +978,7 @@ Référentiel direction métier client-scopé (RFC-STRAT-005), orthogonal aux ax
 
 ## 5.7 Strategic direction strategy workflow — `/api/strategic-direction-strategies`
 
-Workflow RFC-STRAT-006 (phase 2) client-scopé, sans duplication d’axes/objectifs.
+Workflow RFC-STRAT-006 (phase 2) client-scopé, sans duplication d’axes/objectifs. Extension **RFC-STRAT-011** : portefeuille cartes, métriques schéma directeur, consolidé groupe (score / maturité / alertes / recouvrements calculés côté API).
 
 - **Alignement cockpit** — une stratégie porte déjà une `alignedVisionId` obligatoire. Les liaisons **`StrategicDirectionStrategyAxisLink`** et **`StrategicDirectionStrategyObjectiveLink`** matérialisent un sous-ensemble d’axes / objectifs de cette vision utilisé pour le pilotage CODIR :
 
@@ -982,13 +986,29 @@ Workflow RFC-STRAT-006 (phase 2) client-scopé, sans duplication d’axes/object
   - **`PUT …/objectives`** : body `{ strategicObjectiveIds: string[] }` ; chaque objectif doit être sous un axe dont la vision est la vision alignée ; **si au moins un axe est encore lié à la stratégie**, l’objectif doit être sous l’un de ces axes ; sinon, tout objectif de la vision est éligible.
   - Réponses métier lisibles dans **`GET …/links`** (noms d’axes, titres et statuts d’objectifs, axe parent pour chaque objectif).
 
+- **GET /api/strategic-direction-strategies/portfolio** (STRAT-011)
+  - Permission : `strategic_direction_strategy.read`
+  - Query : `alignedVisionId?`, `search?`
+  - Réponse `{ items: PortfolioCard[] }` : direction (code, name, accentTone, sponsorLabel, parentLabel, fteCount, operatingBudgetCents) + stratégie courante (id, status, versionLabel, horizon, score, chantiers, revue). Carte sans stratégie → `strategyId: null`, badge « À créer ». Score / anneau uniquement si calculable (pas de faux graphique).
+- **GET /api/strategic-direction-strategies/consolidation** (STRAT-011)
+  - Permission : `strategic_direction_strategy.read`
+  - Query : `alignedVisionId?` (défaut = vision active du client)
+  - Payload consolidé groupe : KPI, matrice directions×axes, heatmap maturité 6 dims, timeline, `portfolioInitiatives`, `overlaps` (recouvrements tokenisés soft).
+- **GET /api/strategic-direction-strategies/:id/schema-metrics** (STRAT-011)
+- **GET /api/strategic-direction-strategies/:strategyId/documents** (STRAT-011) — liste documents du schéma (`strategic_direction_strategy.read`)
+- **POST /api/strategic-direction-strategies/:strategyId/documents/upload** (STRAT-011) — upload image/PDF (`strategic_direction_strategy.update`)
+- **GET /api/strategic-direction-strategies/:strategyId/documents/:documentId/download** (STRAT-011) — téléchargement / preview (`strategic_direction_strategy.read`)
+- **POST /api/strategic-direction-strategies/:id/review** — body : `decision`, `rejectionReason?`, `decisionNote?`, `reviewInstanceLabel?` (défaut CODIR)
+  - Permission : `strategic_direction_strategy.read`
+  - `{ score, maturity{Ambition,Objectifs,Chantiers,Budget,Risques,Revue}, alerts[] }` — formules portées du mock (`stgScore` / `stgMaturity` / `stgAlerts`), JSON stratégie normalisé (legacy → contrat mock).
+
 - **GET /api/strategic-direction-strategies**
   - Permission : `strategic_direction_strategy.read`
   - Query optionnelle : `directionId=<strategicDirectionId>`, `alignedVisionId=<visionId>`, `status=<DRAFT|SUBMITTED|APPROVED|REJECTED|ARCHIVED>`, `search=<titre|ambition|direction>`, `includeArchived=true` (liste par défaut : **sans** les entrées `ARCHIVED`, sauf filtre explicite `status=ARCHIVED` qui les inclut).
 - **POST /api/strategic-direction-strategies**
   - Permission : `strategic_direction_strategy.create`
   - Crée un brouillon (`DRAFT`) ; `directionId` est porté par le body, `clientId` vient du contexte actif.
-  - Champs V1 : `directionId`, `alignedVisionId`, `title`, `ambition`, `context`, `horizonLabel`, `ownerLabel?`, `statement?`, `strategicPriorities?`, `expectedOutcomes?`, `kpis?`, `majorInitiatives?`, `risks?`.
+  - Champs V1 + schéma 011 : `directionId`, `alignedVisionId`, `title`, `ambition`, `context`, `horizonLabel`, `ownerLabel?`, `statement?`, `strategicPriorities?`, `expectedOutcomes?`, `kpis?`, `majorInitiatives?`, `risks?`, `ownAxes?`, `horizonStartYear?`, `horizonYearCount?`, `budgetsByYear?`, `axisContributions?`, `contentBlocks?`.
   - Retourne `409 Conflict` s’il existe déjà une stratégie **active** `(clientId, directionId, alignedVisionId)` (statut différent de `ARCHIVED`).
 - **GET /api/strategic-direction-strategies/:id/links**
   - Permission : `strategic_direction_strategy.read`
@@ -1018,6 +1038,7 @@ Workflow RFC-STRAT-006 (phase 2) client-scopé, sans duplication d’axes/object
   - Body : `{ "strategicObjectiveIds": ["…"] }` ; règle de périmètre axes décrite ci-dessus. Réponse 200 : `GET …/links`.
 - **GET /api/strategic-direction-strategies/:id**
   - Permission : `strategic_direction_strategy.read`
+  - Réponse enrichie STRAT-011 : `schema` (payload JSON normalisé mock : `ownAxes`, chantiers structurés, OKR, blocs, budgets, contributions) + relation `direction` (tone, sponsorLabel, parentLabel, ETP, budget fonctionnement).
 - **GET /api/strategic-direction-strategies/:id/versions**
   - Permission : `strategic_direction_strategy.read`
   - Liste les versions de la **famille** `(clientId, directionId, alignedVisionId)` : snapshots `ARCHIVED` ordonnés chronologiquement + version courante ; chaque entrée expose `versionNumber`, `versionLabel` (libellé FR lisible, ex. `v2 · archivée 06/07/26`), `status`, `title`, `isCurrent`, horodatages.
@@ -1029,7 +1050,8 @@ Workflow RFC-STRAT-006 (phase 2) client-scopé, sans duplication d’axes/object
   - Permission : `strategic_direction_strategy.update`
   - Autorisé en `DRAFT`, `REJECTED` et `APPROVED` (interdit en `SUBMITTED` et `ARCHIVED`).
   - Règle d’adaptation d’une stratégie `APPROVED` : le body doit inclure `archiveReason` (motif obligatoire). Le backend archive automatiquement un **snapshot** de la version approuvée précédente (`status=ARCHIVED`, `archivedReason`, `archivedAt`, liens axes/objectifs clonés), puis met à jour l’enregistrement courant en `DRAFT` avec reset des champs de review (`submitted*`, `approved*`, `rejectionReason`).
-  - Champs modifiables V1 : `alignedVisionId`, `title`, `ambition`, `context`, `horizonLabel`, `ownerLabel`, `statement`, `strategicPriorities`, `expectedOutcomes`, `kpis`, `majorInitiatives`, `risks`, `archiveReason?` (requis seulement si statut courant = `APPROVED`).
+  - Champs modifiables V1 + schéma 011 : `alignedVisionId`, `title`, `ambition`, `context`, `horizonLabel`, `ownerLabel`, `statement`, `strategicPriorities`, `expectedOutcomes`, `kpis`, `majorInitiatives`, `risks`, `ownAxes`, `horizonStartYear`, `horizonYearCount`, `budgetsByYear`, `axisContributions`, `contentBlocks`, `archiveReason?` (requis seulement si statut courant = `APPROVED`).
+- Directions (`StrategicDirection`, via module vision) : champs additifs STRAT-011 `accentTone`, `parentLabel`, `sponsorResourceId` (Resource HUMAN → `sponsorLabel`), `fteCount`, `operatingBudgetCents`.
 - **POST /api/strategic-direction-strategies/:id/submit**
   - Permission : `strategic_direction_strategy.update`
   - Autorisé depuis `DRAFT` ou `REJECTED` uniquement.

@@ -855,9 +855,9 @@ export function StariumChatDrawer() {
             'absolute z-[500] hidden h-14 w-14 items-center justify-center rounded-full md:flex',
             'bg-transparent transition-transform hover:scale-[1.04] active:scale-95',
             'focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring focus-visible:ring-offset-2',
-            'bottom-[max(1rem,env(safe-area-inset-bottom))] right-[max(1rem,env(safe-area-inset-right))] sm:bottom-6 sm:right-6',
+            'bottom-[max(0.5rem,env(safe-area-inset-bottom))] right-[max(0.5rem,env(safe-area-inset-right))] sm:bottom-3 sm:right-3',
             'motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95',
-            'motion-safe:slide-in-from-bottom-6 motion-safe:slide-in-from-right-6 motion-safe:duration-500 motion-safe:fill-mode-both',
+            'motion-safe:slide-in-from-bottom-4 motion-safe:slide-in-from-right-4 motion-safe:duration-500 motion-safe:fill-mode-both',
           )}
         >
           <span

@@ -17,7 +17,6 @@ import {
 import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PermissionGate } from '@/components/PermissionGate';
 import { PageContainer } from '@/components/layout/page-container';
-import { PageHeader } from '@/components/layout/page-header';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { ErrorState } from '@/components/feedback/error-state';
 import { EmptyState } from '@/components/feedback/empty-state';
@@ -41,12 +40,14 @@ import {
   circuitBadge,
   formatBudgetKEuro,
   formatProjectRequestDate,
+  natureShortLabel,
   personInitials,
   statusBadgeClass,
   statusLabel,
   typeLabel,
   PROJECT_REQUEST_TYPE_META,
 } from '../lib/project-request-display';
+import { resolvePortfolioCategoryColor } from '@/features/projects/lib/project-portfolio-category-icons';
 import { ProjectRequestCircuitConfigDialog } from './project-request-circuit-config-dialog';
 import '../styles/demandes.css';
 
@@ -65,7 +66,8 @@ function matchesSearch(row: ProjectRequestDto, q: string): boolean {
     row.title,
     row.requestingDirection,
     row.requesterSummary?.displayName,
-    typeLabel(row.type),
+    natureShortLabel(row),
+    row.portfolioCategory?.parentName,
   ]
     .filter(Boolean)
     .join(' ')
@@ -73,8 +75,30 @@ function matchesSearch(row: ProjectRequestDto, q: string): boolean {
   return hay.includes(q);
 }
 
-function RequestRowCells({ row }: { row: ProjectRequestDto }) {
+function categoryTone(row: ProjectRequestDto): { bg: string; fg: string } {
+  if (row.portfolioCategory) {
+    const accent =
+      resolvePortfolioCategoryColor({
+        color: row.portfolioCategory.color,
+        icon: row.portfolioCategory.icon,
+        categoryName: row.portfolioCategory.name,
+        parentName: row.portfolioCategory.parentName,
+        projectKind: 'PROJECT',
+      }) ?? 'var(--brand-gold)';
+    return {
+      bg: `color-mix(in srgb, ${accent} 14%, transparent)`,
+      fg: accent,
+    };
+  }
   const typeMeta = row.type ? PROJECT_REQUEST_TYPE_META[row.type] : undefined;
+  return {
+    bg: typeMeta?.iconBg ?? 'bg-muted',
+    fg: typeMeta?.iconFg ?? 'text-foreground',
+  };
+}
+
+function RequestRowCells({ row }: { row: ProjectRequestDto }) {
+  const tone = categoryTone(row);
   const circuit = circuitBadge(row);
   const requester = displayLabel(
     row.requesterSummary?.displayName,
@@ -102,11 +126,16 @@ function RequestRowCells({ row }: { row: ProjectRequestDto }) {
         <span
           className={cn(
             'dem-route',
-            typeMeta?.iconBg ?? 'bg-muted',
-            typeMeta?.iconFg ?? 'text-foreground',
+            !row.portfolioCategory && tone.bg,
+            !row.portfolioCategory && tone.fg,
           )}
+          style={
+            row.portfolioCategory
+              ? { background: tone.bg, color: tone.fg }
+              : undefined
+          }
         >
-          {typeLabel(row.type)}
+          {natureShortLabel(row)}
         </span>
       </td>
       <td>
@@ -218,11 +247,18 @@ export function ProjectRequestsListPage() {
   return (
     <RequireActiveClient>
       <PageContainer>
-        <PageHeader
-          title="Demandes de projet"
-          description="Point d'entrée unique des besoins métiers. Chaque demande suit le circuit défini dans la configuration, passe en cycle de pilotage lorsque les seuils l'exigent, et devient un projet du portefeuille une fois validée."
-          actions={
-            <div className="flex flex-wrap items-center gap-2">
+        <div className="dem-root">
+          <div className="dem-pg-head">
+            <div>
+              <h1>Demandes de projet</h1>
+              <p className="dem-np-sub">
+                Point d&apos;entrée unique des besoins métiers. Chaque demande
+                suit le circuit défini dans la configuration, passe en cycle de
+                pilotage lorsque les seuils l&apos;exigent, et devient un projet
+                du portefeuille une fois validée.
+              </p>
+            </div>
+            <div className="dem-head-actions">
               <PermissionGate permission="project_requests.settings.manage">
                 <Button
                   type="button"
@@ -248,15 +284,13 @@ export function ProjectRequestsListPage() {
                 </Link>
               </PermissionGate>
             </div>
-          }
-        />
+          </div>
 
         <ProjectRequestCircuitConfigDialog
           open={configOpen}
           onOpenChange={setConfigOpen}
         />
 
-        <div className="dem-root">
           {permsLoading || (!clientId && !permsSuccess) ? (
             <LoadingState rows={6} />
           ) : permsSuccess && !canReadProjectRequests ? (
@@ -399,9 +433,7 @@ export function ProjectRequestsListPage() {
                   <>
                     <ul className="dem-mobile-list" aria-label="Demandes">
                       {filtered.map((row) => {
-                        const typeMeta = row.type
-                          ? PROJECT_REQUEST_TYPE_META[row.type]
-                          : undefined;
+                        const tone = categoryTone(row);
                         return (
                           <li key={row.id}>
                             <button
@@ -429,11 +461,19 @@ export function ProjectRequestsListPage() {
                                 <span
                                   className={cn(
                                     'dem-route',
-                                    typeMeta?.iconBg,
-                                    typeMeta?.iconFg,
+                                    !row.portfolioCategory && tone.bg,
+                                    !row.portfolioCategory && tone.fg,
                                   )}
+                                  style={
+                                    row.portfolioCategory
+                                      ? {
+                                          background: tone.bg,
+                                          color: tone.fg,
+                                        }
+                                      : undefined
+                                  }
                                 >
-                                  {typeLabel(row.type)}
+                                  {natureShortLabel(row)}
                                 </span>
                                 <span className="dem-num">
                                   {formatBudgetKEuro(row.estimatedBudget)}

@@ -39,6 +39,15 @@ export type ProjectRequestDto = {
   title: string;
   description: string | null;
   type: string | null;
+  portfolioCategoryId?: string | null;
+  portfolioCategory?: {
+    id: string;
+    name: string;
+    parentId: string | null;
+    parentName: string | null;
+    color: string | null;
+    icon: string | null;
+  } | null;
   requestingDirection: string | null;
   sponsorLabel: string | null;
   status: string;
@@ -53,6 +62,27 @@ export type ProjectRequestDto = {
   expectedBenefits: string | null;
   businessContext: string | null;
   riskIfNotDone: string | null;
+  expectedOutcome?: string | null;
+  affectedScope?: string | null;
+  affectedUsersCount?: number | null;
+  deadlineRationale?: string | null;
+  knownConstraints?: string | null;
+  solutionsTried?: string | null;
+  strategicObjectiveLabel?: string | null;
+  swot?: {
+    strengths?: string;
+    weaknesses?: string;
+    opportunities?: string;
+    threats?: string;
+  } | null;
+  tows?: {
+    so?: string;
+    wo?: string;
+    st?: string;
+    wt?: string;
+  } | null;
+  budgetUnknown?: boolean;
+  effortUnknown?: boolean;
   instructionOpinion: string | null;
   instructionSummary: string | null;
   failedAtStep: string | null;

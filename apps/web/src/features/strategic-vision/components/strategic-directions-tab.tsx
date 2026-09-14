@@ -1,34 +1,42 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { DataTable, type DataTableColumn } from '@/components/data-table/data-table';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Pencil, Trash2 } from 'lucide-react';
+import { LoadingState } from '@/components/feedback/loading-state';
+import { EmptyState } from '@/components/feedback/empty-state';
+import { ErrorState } from '@/components/feedback/error-state';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { displayLabel, firstDisplayLabel } from '@/lib/display-label';
+import { toast } from '@/lib/toast';
+import { cn } from '@/lib/utils';
+import {
+  formatEurCents,
+  formatReviewDate,
+  stgTone,
+} from '@/features/strategic-direction-strategy/lib/strategie-ui';
+import '@/features/strategic-direction-strategy/styles/strategie.css';
 import { useDeleteStrategicDirectionMutation } from '../hooks/use-strategic-vision-queries';
 import type { StrategicDirectionDto } from '../types/strategic-vision.types';
 import { StrategicDirectionCreateEditDialog } from './strategic-direction-create-edit-dialog';
-import { toast } from '@/lib/toast';
 
 export function StrategicDirectionsTab({
   directions,
   directionsQueryState,
   canManageDirections,
   embedded = false,
+  onRetry,
 }: {
   directions: StrategicDirectionDto[];
   directionsQueryState: { isLoading: boolean; isError: boolean };
   canManageDirections: boolean;
   embedded?: boolean;
+  onRetry?: () => void;
 }) {
   const deleteDirection = useDeleteStrategicDirectionMutation();
   const [createOpen, setCreateOpen] = useState(false);
@@ -37,169 +45,49 @@ export function StrategicDirectionsTab({
   const sorted = useMemo(
     () =>
       [...directions].sort(
-        (a, b) => a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' }) || a.code.localeCompare(b.code),
+        (a, b) =>
+          a.sortOrder - b.sortOrder ||
+          a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' }) ||
+          a.code.localeCompare(b.code),
       ),
     [directions],
   );
 
-  const columns = useMemo<DataTableColumn<StrategicDirectionDto>[]>(
-    () => [
-      {
-        key: 'code',
-        header: 'Code',
-        mobilePriority: 'secondary',
-        cell: (row) => <span className="font-mono text-xs">{row.code}</span>,
-      },
-      {
-        key: 'name',
-        header: 'Nom',
-        mobilePriority: 'primary',
-        cell: (row) => <span className="font-medium">{row.name}</span>,
-      },
-      {
-        key: 'status',
-        header: 'Statut',
-        mobilePriority: 'secondary',
-        cell: (row) => (
-          <Badge variant={row.isActive ? 'secondary' : 'outline'} className="text-xs">
-            {row.isActive ? 'Active' : 'Inactive'}
-          </Badge>
-        ),
-      },
-      {
-        key: 'sortOrder',
-        header: 'Ordre',
-        mobilePriority: 'hidden-mobile',
-        className: 'text-right tabular-nums',
-        cell: (row) => row.sortOrder,
-      },
-      {
-        key: 'updatedAt',
-        header: 'MAJ',
-        mobilePriority: 'hidden-mobile',
-        className: 'text-right text-muted-foreground tabular-nums',
-        cell: (row) => new Date(row.updatedAt).toLocaleDateString('fr-FR'),
-      },
-      {
-        key: 'actions',
-        header: 'Actions',
-        mobilePriority: 'actions',
-        cell: (row) => (
-          <div className="flex justify-end gap-1">
-            <Tooltip>
-              <TooltipTrigger render={<span className="inline-flex" />}>
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  className="size-8"
-                  disabled={!canManageDirections}
-                  onClick={() => setEditing(row)}
-                  aria-label={`Modifier ${row.name}`}
-                >
-                  <Pencil className="size-4" />
-                </Button>
-              </TooltipTrigger>
-              {!canManageDirections ? (
-                <TooltipContent>
-                  Permission strategic_vision.update ou strategic_vision.manage_directions requise
-                </TooltipContent>
-              ) : (
-                <TooltipContent>Modifier</TooltipContent>
-              )}
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger render={<span className="inline-flex" />}>
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  className="size-8 text-destructive hover:text-destructive"
-                  disabled={!canManageDirections || deleteDirection.isPending}
-                  onClick={() => {
-                    const ok = window.confirm(
-                      `Supprimer la direction « ${row.name} » (${row.code}) ? Les objectifs rattachés redeviendront « non affectés ». Impossible si des stratégies de direction existent encore.`,
-                    );
-                    if (!ok) return;
-                    deleteDirection.mutate(row.id, {
-                      onSuccess: () => toast.success('Direction supprimée.'),
-                      onError: (error) =>
-                        toast.error(error instanceof Error ? error.message : 'Suppression impossible.'),
-                    });
-                  }}
-                  aria-label={`Supprimer ${row.name}`}
-                >
-                  <Trash2 className="size-4" />
-                </Button>
-              </TooltipTrigger>
-              {!canManageDirections ? (
-                <TooltipContent>
-                  Permission strategic_vision.update ou strategic_vision.manage_directions requise
-                </TooltipContent>
-              ) : (
-                <TooltipContent>Supprimer</TooltipContent>
-              )}
-            </Tooltip>
-          </div>
-        ),
-      },
-    ],
-    [canManageDirections, deleteDirection],
-  );
-
   if (directionsQueryState.isLoading) {
-    return (
-      <section className="space-y-3">
-        <Skeleton className="h-36 w-full" />
-      </section>
-    );
+    return <LoadingState rows={4} />;
   }
 
   if (directionsQueryState.isError) {
     return (
-      <Alert variant="destructive">
-        <AlertDescription>Impossible de charger les directions stratégiques.</AlertDescription>
-      </Alert>
+      <ErrorState
+        message="Impossible de charger les directions stratégiques."
+        onRetry={onRetry}
+      />
     );
   }
 
   return (
     <TooltipProvider>
-      <section className="space-y-4">
-        <Card size="sm" className="shadow-sm">
-          {!embedded ? (
-            <CardHeader className="border-b border-border/60 pb-3">
-              <CardTitle className="text-sm font-semibold">Référentiel directions</CardTitle>
-              <CardDescription>
-                Utilisé dans Vision stratégique, objectifs et module Stratégie de direction. La
-                suppression est refusée tant qu&apos;une stratégie de direction existe encore pour
-                cette ligne.
-              </CardDescription>
-            </CardHeader>
-          ) : null}
-          <CardContent className="p-0">
-            <DataTable
-              columns={columns}
-              data={sorted}
-              getRowId={(row) => row.id}
-              mobileCardsAriaLabel="Référentiel des directions stratégiques"
-              emptyTitle="Aucune direction"
-              emptyDescription="Crée-en une avec le bouton ci-dessous."
-            />
-          </CardContent>
-          <CardFooter className="flex flex-col gap-3 border-t border-border/60 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-[11px] text-muted-foreground">
-              {sorted.length} direction(s) · valeurs affichées = code et nom métier (pas les identifiants
-              techniques).
-            </p>
+      <div className={cn('stg-root', embedded ? 'space-y-4' : 'space-y-4')}>
+        {!embedded ? (
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 className="text-base font-bold tracking-tight text-foreground">
+                Référentiel directions
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Utilisé dans Vision stratégique, objectifs et schémas directeurs.
+              </p>
+            </div>
             <Tooltip>
-              <TooltipTrigger render={<span className="inline-flex w-full justify-end sm:w-auto" />}>
+              <TooltipTrigger render={<span className="inline-flex w-full sm:w-auto" />}>
                 <Button
                   type="button"
+                  className="min-h-11 w-full sm:w-auto"
                   disabled={!canManageDirections}
-                  className="w-full sm:w-auto"
                   onClick={() => setCreateOpen(true)}
                 >
+                  <Plus className="size-4" aria-hidden />
                   Nouvelle direction
                 </Button>
               </TooltipTrigger>
@@ -209,8 +97,183 @@ export function StrategicDirectionsTab({
                 </TooltipContent>
               ) : null}
             </Tooltip>
-          </CardFooter>
-        </Card>
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center justify-between gap-3 px-1">
+            <p className="text-[12.5px] font-semibold text-muted-foreground">
+              {sorted.length} direction{sorted.length > 1 ? 's' : ''}
+            </p>
+            <Tooltip>
+              <TooltipTrigger render={<span className="inline-flex" />}>
+                <Button
+                  type="button"
+                  className="min-h-11"
+                  disabled={!canManageDirections}
+                  onClick={() => setCreateOpen(true)}
+                >
+                  <Plus className="size-4" aria-hidden />
+                  Nouvelle direction
+                </Button>
+              </TooltipTrigger>
+              {!canManageDirections ? (
+                <TooltipContent>
+                  Permission strategic_vision.update ou strategic_vision.manage_directions requise
+                </TooltipContent>
+              ) : null}
+            </Tooltip>
+          </div>
+        )}
+
+        {sorted.length === 0 ? (
+          <EmptyState
+            title="Aucune direction"
+            description="Créez une direction pour l’affecter aux objectifs et schémas directeurs."
+            action={
+              canManageDirections ? (
+                <Button type="button" className="min-h-11" onClick={() => setCreateOpen(true)}>
+                  <Plus className="size-4" aria-hidden />
+                  Nouvelle direction
+                </Button>
+              ) : undefined
+            }
+          />
+        ) : (
+          <div className="stg-grid">
+            {sorted.map((row) => {
+              const T = stgTone(row.accentTone);
+              return (
+                <article key={row.id} className="card stg-card !cursor-default hover:!transform-none">
+                  <div className="stg-card-head">
+                    <div
+                      className="stg-sigle"
+                      style={{ background: T.bg, color: T.c }}
+                      aria-hidden
+                    >
+                      {displayLabel(row.code, 'Dir.')}
+                    </div>
+                    <div className="stg-card-id">
+                      <div className="stg-card-name">
+                        {displayLabel(row.name, 'Direction')}
+                      </div>
+                      <div className="stg-card-sub">
+                        {firstDisplayLabel(
+                          [row.sponsorLabel, row.parentLabel],
+                          'Rattachement non renseigné',
+                        )}
+                      </div>
+                    </div>
+                    <span
+                      className={cn(
+                        'stg-badge',
+                        row.isActive ? 'bdg-success' : 'bdg-neutral',
+                      )}
+                    >
+                      {row.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+
+                  <p className="stg-card-scope">
+                    {displayLabel(row.description, 'Périmètre à préciser')}
+                  </p>
+
+                  <div className="stg-mgrid">
+                    <div className="stg-mcell">
+                      <div className="l">Effectif</div>
+                      <div className="v">
+                        {row.fteCount != null ? `${row.fteCount} ETP` : '—'}
+                      </div>
+                    </div>
+                    <div className="stg-mcell">
+                      <div className="l">Budget</div>
+                      <div className="v">
+                        {formatEurCents(row.operatingBudgetCents)}
+                      </div>
+                    </div>
+                    <div className="stg-mcell">
+                      <div className="l">Ordre</div>
+                      <div className="v">{row.sortOrder}</div>
+                    </div>
+                    <div className="stg-mcell">
+                      <div className="l">MAJ</div>
+                      <div className="v">{formatReviewDate(row.updatedAt)}</div>
+                    </div>
+                  </div>
+
+                  <div className="stg-card-foot">
+                    <span className="stg-meta">{displayLabel(row.code, 'Code')}</span>
+                    <div className="flex items-center gap-1">
+                      <Tooltip>
+                        <TooltipTrigger render={<span className="inline-flex" />}>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className="min-h-11 min-w-11"
+                            disabled={!canManageDirections}
+                            onClick={() => setEditing(row)}
+                            aria-label={`Modifier ${displayLabel(row.name, 'la direction')}`}
+                          >
+                            <Pencil className="size-4" aria-hidden />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {canManageDirections
+                            ? 'Modifier'
+                            : 'Permission strategic_vision requise'}
+                        </TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger render={<span className="inline-flex" />}>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className="min-h-11 min-w-11 text-destructive hover:text-destructive"
+                            disabled={!canManageDirections || deleteDirection.isPending}
+                            onClick={() => {
+                              const ok = window.confirm(
+                                `Supprimer la direction « ${displayLabel(row.name, 'Direction')} » (${displayLabel(row.code, 'code')}) ? Les objectifs rattachés redeviendront « non affectés ». Impossible si des stratégies de direction existent encore.`,
+                              );
+                              if (!ok) return;
+                              deleteDirection.mutate(row.id, {
+                                onSuccess: () => toast.success('Direction supprimée.'),
+                                onError: (error) =>
+                                  toast.error(
+                                    error instanceof Error
+                                      ? error.message
+                                      : 'Suppression impossible.',
+                                  ),
+                              });
+                            }}
+                            aria-label={`Supprimer ${displayLabel(row.name, 'la direction')}`}
+                          >
+                            <Trash2 className="size-4" aria-hidden />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {canManageDirections
+                            ? 'Supprimer'
+                            : 'Permission strategic_vision requise'}
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+
+            {canManageDirections ? (
+              <button
+                type="button"
+                className="stg-add min-h-[220px]"
+                onClick={() => setCreateOpen(true)}
+              >
+                <Plus aria-hidden />
+                Ajouter une direction
+              </button>
+            ) : null}
+          </div>
+        )}
 
         <StrategicDirectionCreateEditDialog
           mode="create"
@@ -226,7 +289,7 @@ export function StrategicDirectionsTab({
           }}
           direction={editing}
         />
-      </section>
+      </div>
     </TooltipProvider>
   );
 }

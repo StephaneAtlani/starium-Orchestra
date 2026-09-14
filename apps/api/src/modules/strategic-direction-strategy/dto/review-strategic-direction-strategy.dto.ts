@@ -9,4 +9,14 @@ export class ReviewStrategicDirectionStrategyDto {
   @IsString()
   @MaxLength(4000)
   rejectionReason?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(4000)
+  decisionNote?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  reviewInstanceLabel?: string;
 }

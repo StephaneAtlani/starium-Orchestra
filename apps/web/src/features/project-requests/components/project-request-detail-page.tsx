@@ -8,13 +8,8 @@ import {
   ArrowLeft,
   Check,
   ClipboardList,
-  Cloud,
   FileCheck2,
   Info,
-  Layers,
-  Lightbulb,
-  RefreshCw,
-  Shield,
   X,
 } from 'lucide-react';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
@@ -55,21 +50,18 @@ import {
   formatBudgetKEuro,
   formatProjectRequestDate,
   isCommitteeAuthor,
+  natureLabel,
+  natureShortLabel,
   personInitials,
   PROJECT_REQUEST_TYPE_META,
   statusBadgeClass,
   statusLabel,
-  typeLabel,
 } from '../lib/project-request-display';
+import {
+  resolvePortfolioCategoryColor,
+  resolvePortfolioCategoryLucideIcon,
+} from '@/features/projects/lib/project-portfolio-category-icons';
 import '../styles/demandes.css';
-
-const TYPE_ICONS = {
-  TRANSFORMATION: Layers,
-  INFRASTRUCTURE: Cloud,
-  REGULATORY: Shield,
-  PRODUCT: Lightbulb,
-  EVOLUTION: RefreshCw,
-} as const;
 
 type ModalKind = 'instruct' | 'agenda' | 'committee' | null;
 
@@ -267,11 +259,25 @@ export function ProjectRequestDetailPage() {
     );
   }
 
+  const cat = data.portfolioCategory;
   const typeMeta = data.type ? PROJECT_REQUEST_TYPE_META[data.type] : undefined;
-  const TypeIcon =
-    data.type && data.type in TYPE_ICONS
-      ? TYPE_ICONS[data.type as keyof typeof TYPE_ICONS]
-      : FileCheck2;
+  const accent = cat
+    ? resolvePortfolioCategoryColor({
+        color: cat.color,
+        icon: cat.icon,
+        categoryName: cat.name,
+        parentName: cat.parentName,
+        projectKind: 'PROJECT',
+      })
+    : null;
+  const TypeIcon = cat
+    ? resolvePortfolioCategoryLucideIcon({
+        icon: cat.icon,
+        categoryName: cat.name,
+        parentName: cat.parentName,
+        projectKind: 'PROJECT',
+      })
+    : FileCheck2;
   const circuit = data.computedCircuit;
   const steps = circuit?.steps ?? [];
   const requester = displayLabel(
@@ -307,9 +313,17 @@ export function ProjectRequestDetailPage() {
             <span
               className={cn(
                 'dem-hero-ico',
-                typeMeta?.iconBg ?? 'bg-muted',
-                typeMeta?.iconFg ?? 'text-foreground',
+                !accent && (typeMeta?.iconBg ?? 'bg-muted'),
+                !accent && (typeMeta?.iconFg ?? 'text-foreground'),
               )}
+              style={
+                accent
+                  ? {
+                      background: `color-mix(in srgb, ${accent} 16%, transparent)`,
+                      color: accent,
+                    }
+                  : undefined
+              }
             >
               <TypeIcon aria-hidden />
             </span>
@@ -324,11 +338,20 @@ export function ProjectRequestDetailPage() {
                 <span
                   className={cn(
                     'dem-route',
-                    typeMeta?.iconBg,
-                    typeMeta?.iconFg,
+                    !accent && typeMeta?.iconBg,
+                    !accent && typeMeta?.iconFg,
                   )}
+                  style={
+                    accent
+                      ? {
+                          background: `color-mix(in srgb, ${accent} 14%, transparent)`,
+                          color: accent,
+                        }
+                      : undefined
+                  }
+                  title={natureLabel(data)}
                 >
-                  {typeLabel(data.type)}
+                  {natureShortLabel(data)}
                 </span>
                 <span>
                   {displayLabel(

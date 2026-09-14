@@ -47,4 +47,31 @@ describe('strategicDirectionStrategyKeys', () => {
       null,
     ]);
   });
+
+  it('compose portfolio / schema-metrics / consolidation', () => {
+    expect(
+      strategicDirectionStrategyKeys.portfolio('c1', {
+        alignedVisionId: 'v1',
+        search: 'dsi',
+      }),
+    ).toEqual(['strategic-direction-strategies', 'c1', 'portfolio', 'v1', 'dsi']);
+    expect(strategicDirectionStrategyKeys.schemaMetrics('c1', 's1')).toEqual([
+      'strategic-direction-strategies',
+      'c1',
+      'schema-metrics',
+      's1',
+    ]);
+    expect(strategicDirectionStrategyKeys.consolidation('c1', 'v1')).toEqual([
+      'strategic-direction-strategies',
+      'c1',
+      'consolidation',
+      'v1',
+    ]);
+    expect(strategicDirectionStrategyKeys.consolidation('c1')).toEqual([
+      'strategic-direction-strategies',
+      'c1',
+      'consolidation',
+      null,
+    ]);
+  });
 });

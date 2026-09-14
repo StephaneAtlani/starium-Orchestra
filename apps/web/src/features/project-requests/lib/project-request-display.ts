@@ -75,6 +75,58 @@ export function typeLabel(type: string | null | undefined): string {
   return displayLabel(PROJECT_REQUEST_TYPE_LABELS[type] ?? PROJECT_REQUEST_TYPE_META[type]?.label, 'Type non renseigné');
 }
 
+/** Libellé Nature : catégorie portefeuille si présente, sinon type CDC. */
+export function natureLabel(
+  row: {
+    type?: string | null;
+    portfolioCategory?: {
+      name: string;
+      parentName?: string | null;
+    } | null;
+  } | null | undefined,
+): string {
+  const cat = row?.portfolioCategory;
+  if (cat?.name?.trim()) {
+    if (cat.parentName?.trim()) {
+      return `${cat.parentName} / ${cat.name}`;
+    }
+    return cat.name;
+  }
+  return typeLabel(row?.type);
+}
+
+export function natureShortLabel(
+  row: {
+    type?: string | null;
+    portfolioCategory?: {
+      name: string;
+      parentName?: string | null;
+    } | null;
+  } | null | undefined,
+): string {
+  const cat = row?.portfolioCategory;
+  if (cat?.name?.trim()) return cat.name;
+  return typeLabel(row?.type);
+}
+
+/** Infère le type CDC (circuit / exempt) depuis les libellés catégorie. */
+export function inferRequestTypeFromCategoryNames(
+  categoryName: string,
+  parentName?: string | null,
+): string {
+  const haystack = `${parentName ?? ''} ${categoryName}`
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase();
+  if (/(reglement|conform|rgpd|dora|legal|jurid)/.test(haystack)) return 'REGULATORY';
+  if (/(infra|reseau|network|cloud|plateforme|ops)/.test(haystack)) {
+    return 'INFRASTRUCTURE';
+  }
+  if (/(transform|metier|business)/.test(haystack)) return 'TRANSFORMATION';
+  if (/(produit|innovation|offre|experiment)/.test(haystack)) return 'PRODUCT';
+  return 'EVOLUTION';
+}
+
 export function statusLabel(status: string | null | undefined): string {
   if (!status) return 'Statut inconnu';
   return displayLabel(PROJECT_REQUEST_STATUS_LABELS[status], 'Statut inconnu');

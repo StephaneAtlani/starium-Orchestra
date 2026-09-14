@@ -33,8 +33,30 @@ describe('strategic-direction-strategy-versioning', () => {
 
     expect(versions.map((v) => v.id)).toEqual(['v1', 'current']);
     expect(versions[0]?.versionNumber).toBe(1);
+    expect(versions[0]?.versionLabel).toMatch(/^v1 · archivée/);
     expect(versions[1]?.versionNumber).toBe(2);
     expect(versions[1]?.isCurrent).toBe(true);
+    expect(versions[1]?.versionLabel).toBe('v2');
+  });
+
+  it('n’expose jamais le statut technique brut dans le libellé de version', () => {
+    const [version] = buildStrategyVersionSummaries(
+      [
+        {
+          id: 'current',
+          status: 'SUBMITTED',
+          title: 'En revue',
+          archivedAt: null,
+          archivedReason: null,
+          approvedAt: null,
+          updatedAt: new Date('2026-03-01'),
+          createdAt: new Date('2026-01-01'),
+        },
+      ],
+      'current',
+    );
+    expect(version?.versionLabel).toBe('v1');
+    expect(version?.versionLabel).not.toMatch(/SUBMITTED|APPROVED|DRAFT|REJECTED|ARCHIVED/);
   });
 
   it('calcule un diff champ à champ et sur les liens', () => {

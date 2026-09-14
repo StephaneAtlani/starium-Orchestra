@@ -1,4 +1,3 @@
-
 /* =========================================================
    Starium — Foundations
    Tokens for color, type, spacing, radius, shadow, motion.
@@ -180,4 +179,3 @@ a { color: var(--brand-gold-700); text-decoration: none; }
 a:hover { color: var(--brand-gold-600); }
 
 ::selection { background: var(--brand-gold-100); color: var(--brand-ink); }
-

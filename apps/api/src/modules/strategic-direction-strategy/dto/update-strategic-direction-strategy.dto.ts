@@ -1,4 +1,26 @@
-import { IsArray, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  ArrayMaxSize,
+  IsArray,
+  IsInt,
+  IsObject,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+  MinLength,
+  ValidateNested,
+} from 'class-validator';
+import {
+  StrategyContentBlockDto,
+  StrategyInitiativeDto,
+  StrategyKpiDto,
+  StrategyOutcomeDto,
+  StrategyOwnAxisDto,
+  StrategyPriorityDto,
+  StrategyRiskDto,
+} from './strategy-schema-items.dto';
 
 export class UpdateStrategicDirectionStrategyDto {
   @IsOptional()
@@ -38,6 +60,20 @@ export class UpdateStrategicDirectionStrategyDto {
   horizonLabel?: string;
 
   @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(2000)
+  @Max(2100)
+  horizonStartYear?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(10)
+  horizonYearCount?: number;
+
+  @IsOptional()
   @IsString()
   @MinLength(1)
   @MaxLength(255)
@@ -50,21 +86,58 @@ export class UpdateStrategicDirectionStrategyDto {
 
   @IsOptional()
   @IsArray()
-  strategicPriorities?: Array<Record<string, unknown>>;
+  @ValidateNested({ each: true })
+  @Type(() => StrategyPriorityDto)
+  @ArrayMaxSize(40)
+  strategicPriorities?: StrategyPriorityDto[];
 
   @IsOptional()
   @IsArray()
-  expectedOutcomes?: Array<Record<string, unknown>>;
+  @ValidateNested({ each: true })
+  @Type(() => StrategyOutcomeDto)
+  @ArrayMaxSize(40)
+  expectedOutcomes?: StrategyOutcomeDto[];
 
   @IsOptional()
   @IsArray()
-  kpis?: Array<Record<string, unknown>>;
+  @ValidateNested({ each: true })
+  @Type(() => StrategyKpiDto)
+  @ArrayMaxSize(40)
+  kpis?: StrategyKpiDto[];
 
   @IsOptional()
   @IsArray()
-  majorInitiatives?: Array<Record<string, unknown>>;
+  @ValidateNested({ each: true })
+  @Type(() => StrategyInitiativeDto)
+  @ArrayMaxSize(80)
+  majorInitiatives?: StrategyInitiativeDto[];
 
   @IsOptional()
   @IsArray()
-  risks?: Array<Record<string, unknown>>;
+  @ValidateNested({ each: true })
+  @Type(() => StrategyRiskDto)
+  @ArrayMaxSize(40)
+  risks?: StrategyRiskDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => StrategyOwnAxisDto)
+  @ArrayMaxSize(20)
+  ownAxes?: StrategyOwnAxisDto[];
+
+  @IsOptional()
+  @IsObject()
+  budgetsByYear?: Record<string, number>;
+
+  @IsOptional()
+  @IsObject()
+  axisContributions?: Record<string, number>;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => StrategyContentBlockDto)
+  @ArrayMaxSize(40)
+  contentBlocks?: StrategyContentBlockDto[];
 }

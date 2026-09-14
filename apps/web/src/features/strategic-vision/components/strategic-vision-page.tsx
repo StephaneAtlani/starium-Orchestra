@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { Building2, Signpost } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
 import { usePermissions } from '@/hooks/use-permissions';
@@ -18,7 +20,6 @@ import {
 import { getActiveVision, getAxesFromVision } from '../lib/strategic-vision-tabs-view';
 import { hasVisionWorkflowContent } from '../lib/strategic-vision-workflow';
 import { StrategicDirectionsDialog } from './strategic-directions-dialog';
-import { StrategicVisionCockpitFilterBar } from './strategic-vision-cockpit-filter-bar';
 import { StrategicVisionTabs } from './strategic-vision-tabs';
 import { StrategicVisionWorkflowDialog } from './strategic-vision-workflow-dialog';
 
@@ -29,8 +30,8 @@ export function StrategicVisionPage() {
   const canUpdate = has('strategic_vision.update');
   const canCreate = has('strategic_vision.create');
   const canManageLinks = has('strategic_vision.manage_links');
-  const canManageDirections = has('strategic_vision.update') || has('strategic_vision.manage_directions');
-  const [directionFilter, setDirectionFilter] = useState<string>('ALL');
+  const canManageDirections =
+    has('strategic_vision.update') || has('strategic_vision.manage_directions');
   const [visionWorkflowDialogOpen, setVisionWorkflowDialogOpen] = useState(false);
   const [directionsDialogOpen, setDirectionsDialogOpen] = useState(false);
 
@@ -42,8 +43,6 @@ export function StrategicVisionPage() {
   const kpisByDirectionQ = useStrategicKpisByDirectionQuery({ enabled: canRead });
   const alertsQ = useStrategicAlertsQuery({
     enabled: canRead,
-    directionId: directionFilter !== 'ALL' && directionFilter !== 'UNASSIGNED' ? directionFilter : undefined,
-    unassigned: directionFilter === 'UNASSIGNED',
   });
 
   useEffect(() => {
@@ -78,12 +77,7 @@ export function StrategicVisionPage() {
   const directions = directionsQ.data ?? [];
   const visions = visionsQ.data ?? [];
   const showVisionWorkflowActions = hasVisionWorkflowContent(visions, canUpdate, canCreate);
-  const directionFilterLabel =
-    directionFilter === 'ALL'
-      ? 'Toutes les directions'
-      : directionFilter === 'UNASSIGNED'
-        ? 'Non affectés'
-        : directions.find((d) => d.id === directionFilter)?.name ?? 'Direction';
+  const directionFilter = 'ALL';
   const pageTitle = activeVision?.title?.trim() || 'Vision stratégique 2026';
   const pageSubtitle =
     activeVision?.statement?.trim() ||
@@ -107,16 +101,32 @@ export function StrategicVisionPage() {
           </span>
         }
         description={pageSubtitle}
-      />
-
-      <StrategicVisionCockpitFilterBar
-        directionFilter={directionFilter}
-        directionFilterLabel={directionFilterLabel}
-        directions={directions}
-        onDirectionFilterChange={setDirectionFilter}
-        onManageVisions={() => setVisionWorkflowDialogOpen(true)}
-        onManageDirections={() => setDirectionsDialogOpen(true)}
-        showVisionActions={showVisionWorkflowActions}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            {showVisionWorkflowActions ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="min-h-11"
+                onClick={() => setVisionWorkflowDialogOpen(true)}
+                aria-haspopup="dialog"
+              >
+                <Building2 className="size-4" aria-hidden />
+                Gérer les visions
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11"
+              onClick={() => setDirectionsDialogOpen(true)}
+              aria-haspopup="dialog"
+            >
+              <Signpost className="size-4" aria-hidden />
+              Gérer les directions
+            </Button>
+          </div>
+        }
       />
 
       <StrategicVisionTabs
@@ -166,6 +176,7 @@ export function StrategicVisionPage() {
           isError: directionsQ.isError,
         }}
         canManageDirections={canManageDirections}
+        onRetry={() => void directionsQ.refetch()}
       />
     </PageContainer>
   );

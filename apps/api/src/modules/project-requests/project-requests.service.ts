@@ -12,6 +12,7 @@ import {
   ProjectRequest,
   ProjectRequestRoutingTarget,
   ProjectRequestStatus,
+  ProjectRequestType,
   ProjectRequestValidatorSelectionMode,
   ProjectRequestWorkflowSettings,
   RoleScope,
@@ -51,6 +52,7 @@ import { ProjectRequestToProjectConverter } from './project-request-to-project.c
 import { ProjectRequestPilotingCycleRoutingService } from './project-request-piloting-cycle-routing.service';
 import { ProjectRequestCdcWorkflowService } from './project-request-cdc-workflow.service';
 import { computeCircuit } from './project-request-circuit';
+import { inferProjectRequestTypeFromCategoryNames } from './project-request-category-type';
 
 const userSelect = {
   select: { id: true, email: true, firstName: true, lastName: true },
@@ -61,6 +63,16 @@ const includeDetail = {
   validator: userSelect,
   decidedBy: userSelect,
   convertedProject: { select: { id: true, name: true, code: true } },
+  portfolioCategory: {
+    select: {
+      id: true,
+      name: true,
+      parentId: true,
+      color: true,
+      icon: true,
+      parent: { select: { id: true, name: true } },
+    },
+  },
   journalEntries: {
     orderBy: { at: 'desc' as const },
     take: 100,
@@ -157,6 +169,16 @@ export class ProjectRequestsService {
             code: row.convertedProject.code,
           }
         : null,
+      portfolioCategory: row.portfolioCategory
+        ? {
+            id: row.portfolioCategory.id,
+            name: row.portfolioCategory.name,
+            parentId: row.portfolioCategory.parentId,
+            parentName: row.portfolioCategory.parent?.name ?? null,
+            color: row.portfolioCategory.color,
+            icon: row.portfolioCategory.icon,
+          }
+        : null,
       journal: (row.journalEntries ?? []).map((j) => ({
         id: j.id,
         label: j.label,
@@ -192,6 +214,49 @@ export class ProjectRequestsService {
       throw new NotFoundException('Demande projet introuvable');
     }
     return row;
+  }
+
+  private async assertPortfolioSubCategory(
+    clientId: string,
+    categoryId: string | null | undefined,
+  ): Promise<{
+    id: string;
+    name: string;
+    parentName: string | null;
+  } | null> {
+    if (!categoryId) return null;
+    const category = await this.prisma.projectPortfolioCategory.findFirst({
+      where: { id: categoryId, clientId },
+      include: { parent: { select: { name: true } } },
+    });
+    if (!category) {
+      throw new BadRequestException('Catégorie portefeuille introuvable');
+    }
+    if (!category.isActive) {
+      throw new BadRequestException('Catégorie portefeuille inactive');
+    }
+    if (!category.parentId) {
+      throw new BadRequestException(
+        'Sélectionnez une sous-catégorie portefeuille (niveau 2)',
+      );
+    }
+    return {
+      id: category.id,
+      name: category.name,
+      parentName: category.parent?.name ?? null,
+    };
+  }
+
+  private resolveTypeForCategory(
+    dtoType: ProjectRequestType | null | undefined,
+    category: { name: string; parentName: string | null } | null,
+  ): ProjectRequestType | null {
+    if (dtoType) return dtoType;
+    if (!category) return null;
+    return inferProjectRequestTypeFromCategoryNames(
+      category.name,
+      category.parentName,
+    );
   }
 
   private async assertCanRead(
@@ -506,6 +571,12 @@ export class ProjectRequestsService {
       );
     }
 
+    const category = await this.assertPortfolioSubCategory(
+      clientId,
+      dto.portfolioCategoryId,
+    );
+    const resolvedType = this.resolveTypeForCategory(dto.type, category);
+
     const created = await this.prisma.$transaction(async (tx) => {
       const referenceCode = await this.cdc.nextReferenceCode(clientId);
       const request = await tx.projectRequest.create({
@@ -514,7 +585,8 @@ export class ProjectRequestsService {
           referenceCode,
           title: dto.title.trim(),
           description: dto.description?.trim() ?? null,
-          type: dto.type ?? null,
+          type: resolvedType,
+          portfolioCategoryId: category?.id ?? null,
           requestingDirection: dto.requestingDirection?.trim() ?? null,
           sponsorLabel: dto.sponsorLabel?.trim() ?? null,
           sponsorUserId: dto.sponsorUserId ?? null,
@@ -539,6 +611,17 @@ export class ProjectRequestsService {
           expectedBenefits: dto.expectedBenefits?.trim() ?? null,
           businessContext: dto.businessContext?.trim() ?? null,
           riskIfNotDone: dto.riskIfNotDone?.trim() ?? null,
+          expectedOutcome: dto.expectedOutcome?.trim() ?? null,
+          affectedScope: dto.affectedScope?.trim() ?? null,
+          affectedUsersCount: dto.affectedUsersCount ?? null,
+          deadlineRationale: dto.deadlineRationale?.trim() ?? null,
+          knownConstraints: dto.knownConstraints?.trim() ?? null,
+          solutionsTried: dto.solutionsTried?.trim() ?? null,
+          strategicObjectiveLabel: dto.strategicObjectiveLabel?.trim() ?? null,
+          swot: dto.swot ?? undefined,
+          tows: dto.tows ?? undefined,
+          budgetUnknown: dto.budgetUnknown ?? false,
+          effortUnknown: dto.effortUnknown ?? false,
         },
       });
 
@@ -577,13 +660,26 @@ export class ProjectRequestsService {
     return this.getById(clientId, actorUserId, created.id);
   }
 
-  private cdcUpdateData(dto: UpdateProjectRequestDto): Prisma.ProjectRequestUncheckedUpdateInput {
+  private cdcUpdateData(
+    dto: UpdateProjectRequestDto,
+    resolved?: {
+      portfolioCategoryId?: string | null;
+      type?: ProjectRequestType | null;
+    },
+  ): Prisma.ProjectRequestUncheckedUpdateInput {
     return {
       ...(dto.title !== undefined && { title: dto.title.trim() }),
       ...(dto.description !== undefined && {
         description: dto.description?.trim() ?? null,
       }),
-      ...(dto.type !== undefined && { type: dto.type }),
+      ...(resolved?.type !== undefined
+        ? { type: resolved.type }
+        : dto.type !== undefined
+          ? { type: dto.type }
+          : {}),
+      ...(resolved?.portfolioCategoryId !== undefined && {
+        portfolioCategoryId: resolved.portfolioCategoryId,
+      }),
       ...(dto.requestingDirection !== undefined && {
         requestingDirection: dto.requestingDirection?.trim() ?? null,
       }),
@@ -625,6 +721,35 @@ export class ProjectRequestsService {
       }),
       ...(dto.riskIfNotDone !== undefined && {
         riskIfNotDone: dto.riskIfNotDone?.trim() ?? null,
+      }),
+      ...(dto.expectedOutcome !== undefined && {
+        expectedOutcome: dto.expectedOutcome?.trim() ?? null,
+      }),
+      ...(dto.affectedScope !== undefined && {
+        affectedScope: dto.affectedScope?.trim() ?? null,
+      }),
+      ...(dto.affectedUsersCount !== undefined && {
+        affectedUsersCount: dto.affectedUsersCount,
+      }),
+      ...(dto.deadlineRationale !== undefined && {
+        deadlineRationale: dto.deadlineRationale?.trim() ?? null,
+      }),
+      ...(dto.knownConstraints !== undefined && {
+        knownConstraints: dto.knownConstraints?.trim() ?? null,
+      }),
+      ...(dto.solutionsTried !== undefined && {
+        solutionsTried: dto.solutionsTried?.trim() ?? null,
+      }),
+      ...(dto.strategicObjectiveLabel !== undefined && {
+        strategicObjectiveLabel: dto.strategicObjectiveLabel?.trim() ?? null,
+      }),
+      ...(dto.swot !== undefined && { swot: dto.swot ?? Prisma.JsonNull }),
+      ...(dto.tows !== undefined && { tows: dto.tows ?? Prisma.JsonNull }),
+      ...(dto.budgetUnknown !== undefined && {
+        budgetUnknown: dto.budgetUnknown,
+      }),
+      ...(dto.effortUnknown !== undefined && {
+        effortUnknown: dto.effortUnknown,
       }),
     };
   }
@@ -700,12 +825,34 @@ export class ProjectRequestsService {
       dto.validatorUserId !== undefined &&
       dto.validatorUserId !== existing.validatorUserId;
 
+    let categoryResolved: {
+      portfolioCategoryId?: string | null;
+      type?: ProjectRequestType | null;
+    } = {};
+    if (dto.portfolioCategoryId !== undefined) {
+      const category = await this.assertPortfolioSubCategory(
+        clientId,
+        dto.portfolioCategoryId,
+      );
+      categoryResolved = {
+        portfolioCategoryId: category?.id ?? null,
+        type:
+          dto.type !== undefined
+            ? dto.type
+            : this.resolveTypeForCategory(undefined, category),
+      };
+    } else if (dto.type !== undefined) {
+      categoryResolved = { type: dto.type };
+    }
+
+    const patch = this.cdcUpdateData(dto, categoryResolved);
+
     if (validatorChanging) {
       await this.prisma.$transaction(async (tx) => {
         await tx.projectRequest.update({
           where: { id },
           data: {
-            ...this.cdcUpdateData(dto),
+            ...patch,
             validatorUserId: dto.validatorUserId ?? null,
           },
         });
@@ -720,7 +867,7 @@ export class ProjectRequestsService {
       await this.prisma.projectRequest.update({
         where: { id },
         data: {
-          ...this.cdcUpdateData(dto),
+          ...patch,
           ...(dto.validatorUserId !== undefined && {
             validatorUserId: dto.validatorUserId,
           }),

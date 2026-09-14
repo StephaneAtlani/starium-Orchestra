@@ -37,4 +37,24 @@ export const strategicDirectionStrategyKeys = {
     [...strategicDirectionStrategyKeys.root(clientId), 'workflow-settings'] as const,
   validatorOptions: (clientId: string) =>
     [...strategicDirectionStrategyKeys.root(clientId), 'validator-options'] as const,
+  portfolio: (
+    clientId: string,
+    filters?: { alignedVisionId?: string; search?: string },
+  ) =>
+    [
+      ...strategicDirectionStrategyKeys.root(clientId),
+      'portfolio',
+      filters?.alignedVisionId ?? null,
+      filters?.search ?? null,
+    ] as const,
+  schemaMetrics: (clientId: string, strategyId: string | null) =>
+    [...strategicDirectionStrategyKeys.root(clientId), 'schema-metrics', strategyId] as const,
+  consolidation: (clientId: string, alignedVisionId?: string) =>
+    [
+      ...strategicDirectionStrategyKeys.root(clientId),
+      'consolidation',
+      alignedVisionId ?? null,
+    ] as const,
+  documents: (clientId: string, strategyId: string | null) =>
+    [...strategicDirectionStrategyKeys.root(clientId), 'documents', strategyId] as const,
 };

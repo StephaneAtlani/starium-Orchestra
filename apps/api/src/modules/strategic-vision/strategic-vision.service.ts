@@ -1027,7 +1027,7 @@ export class StrategicVisionService {
   }
 
   async listDirections(clientId: string, query: ListStrategicDirectionsQueryDto) {
-    return this.prisma.strategicDirection.findMany({
+    const rows = await this.prisma.strategicDirection.findMany({
       where: {
         clientId,
         ...(query.isActive !== undefined ? { isActive: query.isActive } : {}),
@@ -1040,8 +1040,22 @@ export class StrategicVisionService {
             }
           : {}),
       },
+      include: {
+        sponsorResource: {
+          select: { id: true, name: true, firstName: true },
+        },
+      },
       orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
     });
+    return rows.map(({ sponsorResource, operatingBudgetCents, ...rest }) => ({
+      ...rest,
+      operatingBudgetCents:
+        operatingBudgetCents == null ? null : Number(operatingBudgetCents),
+      sponsorLabel: sponsorResource
+        ? [sponsorResource.firstName, sponsorResource.name].filter(Boolean).join(' ').trim() ||
+          sponsorResource.name
+        : null,
+    }));
   }
 
   async createDirection(
@@ -1054,9 +1068,30 @@ export class StrategicVisionService {
       code: this.normalizeDirectionCode(dto.code),
       name: dto.name.trim(),
       description: dto.description?.trim() || null,
+      accentTone: dto.accentTone?.trim() || null,
+      parentLabel: dto.parentLabel?.trim() || null,
+      sponsorResourceId: dto.sponsorResourceId?.trim() || null,
+      fteCount: dto.fteCount ?? null,
+      operatingBudgetCents:
+        dto.operatingBudgetCents !== undefined
+          ? BigInt(dto.operatingBudgetCents)
+          : null,
       sortOrder: dto.sortOrder ?? 0,
       isActive: dto.isActive ?? true,
     };
+    if (payload.sponsorResourceId) {
+      const sponsor = await this.prisma.resource.findFirst({
+        where: {
+          id: payload.sponsorResourceId,
+          clientId,
+          type: 'HUMAN',
+        },
+        select: { id: true },
+      });
+      if (!sponsor) {
+        throw new BadRequestException('sponsor resource not found for active client');
+      }
+    }
     try {
       const created = await this.prisma.strategicDirection.create({ data: payload });
       await this.audit(
@@ -1097,6 +1132,26 @@ export class StrategicVisionService {
     if (dto.code !== undefined) data.code = this.normalizeDirectionCode(dto.code);
     if (dto.name !== undefined) data.name = dto.name.trim();
     if (dto.description !== undefined) data.description = dto.description?.trim() || null;
+    if (dto.accentTone !== undefined) data.accentTone = dto.accentTone?.trim() || null;
+    if (dto.parentLabel !== undefined) data.parentLabel = dto.parentLabel?.trim() || null;
+    if (dto.sponsorResourceId !== undefined) {
+      const sid = dto.sponsorResourceId?.trim() || null;
+      if (sid) {
+        const sponsor = await this.prisma.resource.findFirst({
+          where: { id: sid, clientId, type: 'HUMAN' },
+          select: { id: true },
+        });
+        if (!sponsor) {
+          throw new BadRequestException('sponsor resource not found for active client');
+        }
+      }
+      data.sponsorResourceId = sid;
+    }
+    if (dto.fteCount !== undefined) data.fteCount = dto.fteCount;
+    if (dto.operatingBudgetCents !== undefined) {
+      data.operatingBudgetCents =
+        dto.operatingBudgetCents === null ? null : BigInt(dto.operatingBudgetCents);
+    }
     if (dto.sortOrder !== undefined) data.sortOrder = dto.sortOrder;
     if (dto.isActive !== undefined) data.isActive = dto.isActive;
 

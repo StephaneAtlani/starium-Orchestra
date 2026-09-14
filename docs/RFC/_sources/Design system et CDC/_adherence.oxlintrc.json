@@ -25,6 +25,7 @@
               "components/Button/**",
               "components/Modal/**",
               "demo-cycles.jsx",
+              "design_handoff_demandes_projet/reference-code/**",
               "doc-page.js",
               "tweaks-panel.jsx",
               "ui_kits/app/**",

@@ -162,6 +162,9 @@ export class ProjectRequestToProjectConverter {
         status: ProjectStatus.DRAFT,
         priority: mapUrgencyToPriority(request.urgency),
         criticality: ProjectCriticality.LOW,
+        ...(request.portfolioCategoryId
+          ? { portfolioCategoryId: request.portfolioCategoryId }
+          : {}),
       };
 
       const project = await this.projects.create(clientId, dto, {

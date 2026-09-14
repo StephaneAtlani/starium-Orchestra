@@ -31,6 +31,12 @@ export type StrategicDirectionDto = {
   code: string;
   name: string;
   description: string | null;
+  accentTone?: string | null;
+  parentLabel?: string | null;
+  sponsorResourceId?: string | null;
+  sponsorLabel?: string | null;
+  fteCount?: number | null;
+  operatingBudgetCents?: number | null;
   sortOrder: number;
   isActive: boolean;
   createdAt: string;

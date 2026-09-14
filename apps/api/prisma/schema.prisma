@@ -337,6 +337,7 @@ model Client {
   strategicDirectionStrategies     StrategicDirectionStrategy[]
   strategicDirectionStrategyAxisLinks StrategicDirectionStrategyAxisLink[]
   strategicDirectionStrategyObjectiveLinks StrategicDirectionStrategyObjectiveLink[]
+  strategicDirectionStrategyDocuments StrategicDirectionStrategyDocument[]
   strategicObjectives              StrategicObjective[]
   strategicLinks                   StrategicLink[]
   governanceCycles                      GovernanceCycle[]
@@ -654,6 +655,7 @@ model User {
   approvedStrategicDirectionStrategies StrategicDirectionStrategy[]    @relation("StrategicDirectionStrategyApprovedBy")
   validatorStrategicDirectionStrategies StrategicDirectionStrategy[] @relation("StrategicDirectionStrategyValidator")
   defaultValidatorStrategicDirectionStrategySettings StrategicDirectionStrategyWorkflowSettings[] @relation("StrategicDirectionStrategyDefaultValidator")
+  uploadedStrategicDirectionStrategyDocuments StrategicDirectionStrategyDocument[] @relation("StrategicDirectionStrategyDocumentUploadedBy")
   ownedStrategicObjectives             StrategicObjective[]            @relation("StrategicObjectiveOwner")
   emailDeliveries                      EmailDelivery[]                 @relation("EmailDeliveryCreatedBy")
   chatbotKnowledgeEntriesCreated       ChatbotKnowledgeEntry[]         @relation("ChatbotEntryCreatedBy")
@@ -1170,6 +1172,7 @@ model Resource {
   stewardedSuppliers               Supplier[]                        @relation("SupplierStewardResource")
   stewardedSupplierContracts       SupplierContract[]                @relation("SupplierContractStewardResource")
   stewardedStrategicObjectives     StrategicObjective[]              @relation("StrategicObjectiveStewardResource")
+  sponsoredStrategicDirections     StrategicDirection[]              @relation("StrategicDirectionSponsorResource")
   projectTeamGovernanceMemberships ProjectTeamGovernanceMembership[]
 
   @@unique([clientId, id])
@@ -2026,6 +2029,8 @@ model ProjectRequest {
   description String?
 
   type                ProjectRequestType?
+  /// Sous-catégorie portefeuille (niveau 2) — même référentiel que les projets
+  portfolioCategoryId String?
   requestingDirection String?
   sponsorLabel        String?
   sponsorUserId       String?
@@ -2044,6 +2049,29 @@ model ProjectRequest {
   businessContext    String?
   riskIfNotDone      String?
   objectives         String[] @default([])
+
+  /// Handoff Demandes 2026-09-14 — résultat attendu (situation atteinte)
+  expectedOutcome    String?
+  /// Périmètre concerné (sites, services, processus)
+  affectedScope      String?
+  /// Nombre d’utilisateurs concernés (indicatif)
+  affectedUsersCount Int?
+  /// Justification de l’échéance souhaitée
+  deadlineRationale  String?
+  /// Contraintes connues
+  knownConstraints   String?
+  /// Solutions déjà envisagées / tentées
+  solutionsTried     String?
+  /// Libellé d’objectif stratégique (référentiel client — pas d’UUID en UI)
+  strategicObjectiveLabel String?
+  /// SWOT { strengths, weaknesses, opportunities, threats }
+  swot               Json?
+  /// TOWS { so, wo, st, wt }
+  tows               Json?
+  /// Budget non encore estimé
+  budgetUnknown      Boolean @default(false)
+  /// Charge non encore estimée
+  effortUnknown      Boolean @default(false)
 
   retainedBudget      Decimal? @db.Decimal(18, 2)
   retainedEffortDays  Decimal? @db.Decimal(10, 2)
@@ -2069,19 +2097,21 @@ model ProjectRequest {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  client           Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  requester        User      @relation("ProjectRequestRequester", fields: [requesterUserId], references: [id], onDelete: Restrict)
-  validator        User?     @relation("ProjectRequestValidator", fields: [validatorUserId], references: [id], onDelete: SetNull)
-  decidedBy        User?     @relation("ProjectRequestDecidedBy", fields: [decidedByUserId], references: [id], onDelete: SetNull)
-  sponsorUser      User?     @relation("ProjectRequestSponsor", fields: [sponsorUserId], references: [id], onDelete: SetNull)
-  convertedProject Project?  @relation("ProjectRequestConvertedProject", fields: [convertedProjectId], references: [id], onDelete: SetNull)
-  autoAclGrants    ProjectRequestAutoAclGrant[]
-  journalEntries   ProjectRequestJournalEntry[]
+  client            Client                    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  requester         User                      @relation("ProjectRequestRequester", fields: [requesterUserId], references: [id], onDelete: Restrict)
+  validator         User?                     @relation("ProjectRequestValidator", fields: [validatorUserId], references: [id], onDelete: SetNull)
+  decidedBy         User?                     @relation("ProjectRequestDecidedBy", fields: [decidedByUserId], references: [id], onDelete: SetNull)
+  sponsorUser       User?                     @relation("ProjectRequestSponsor", fields: [sponsorUserId], references: [id], onDelete: SetNull)
+  convertedProject  Project?                  @relation("ProjectRequestConvertedProject", fields: [convertedProjectId], references: [id], onDelete: SetNull)
+  portfolioCategory ProjectPortfolioCategory? @relation(fields: [portfolioCategoryId], references: [id], onDelete: SetNull)
+  autoAclGrants     ProjectRequestAutoAclGrant[]
+  journalEntries    ProjectRequestJournalEntry[]
 
   @@unique([clientId, referenceCode])
   @@index([clientId])
   @@index([clientId, status])
   @@index([clientId, type])
+  @@index([clientId, portfolioCategoryId])
   @@index([clientId, requesterUserId])
   @@index([clientId, validatorUserId])
   @@index([clientId, routingTarget])
@@ -2249,25 +2279,34 @@ model StrategicObjective {
 }
 
 model StrategicDirection {
-  id          String   @id @default(cuid())
-  clientId    String
-  code        String
-  name        String
-  description String?
-  sortOrder   Int      @default(0)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                   String   @id @default(cuid())
+  clientId             String
+  code                 String
+  name                 String
+  description          String?
+  /// Tone UI mock (info|gold|purple|teal|success|danger)
+  accentTone           String?
+  parentLabel          String?
+  /// Sponsor RH (Resource HUMAN) — RFC-STRAT-011
+  sponsorResourceId    String?
+  fteCount             Int?
+  operatingBudgetCents BigInt?
+  sortOrder            Int      @default(0)
+  isActive             Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
-  client     Client                      @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  objectives StrategicObjective[]
-  strategies StrategicDirectionStrategy[]
+  client          Client                       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  sponsorResource Resource?                    @relation("StrategicDirectionSponsorResource", fields: [sponsorResourceId], references: [id], onDelete: SetNull)
+  objectives      StrategicObjective[]
+  strategies      StrategicDirectionStrategy[]
   /// Équipes métier rattachées à cette direction stratégique
-  workTeams  WorkTeam[]
+  workTeams       WorkTeam[]
 
   @@unique([clientId, code])
   @@index([clientId])
   @@index([clientId, isActive])
+  @@index([sponsorResourceId])
 }
 
 model StrategicDirectionStrategy {
@@ -2284,6 +2323,16 @@ model StrategicDirectionStrategy {
   kpis             Json?
   majorInitiatives Json?
   risks            Json?
+  /// Axes propres (lanes Gantt) — [{ id, name, tone }]
+  ownAxes          Json?
+  horizonStartYear Int?
+  horizonYearCount Int?                             @default(3)
+  /// { "2026": cents, ... }
+  budgetsByYear    Json?
+  /// { [strategicAxisId]: 0..100 }
+  axisContributions Json?
+  /// [{ kind: text|image, title, body?, documentId? }]
+  contentBlocks    Json?
   horizonLabel     String
   ownerLabel       String?
   status           StrategicDirectionStrategyStatus @default(DRAFT)
@@ -2293,6 +2342,10 @@ model StrategicDirectionStrategy {
   approvedAt       DateTime?
   approvedByUserId String?
   rejectionReason  String?
+  /// Note de revue / décision (mock STG reviews[].n)
+  reviewNote       String?
+  /// Instance de revue (ex. CODIR)
+  reviewInstanceLabel String?
   archivedReason   String?
   archivedAt       DateTime?
   createdAt        DateTime                         @default(now())
@@ -2305,6 +2358,7 @@ model StrategicDirectionStrategy {
   validator     User?              @relation("StrategicDirectionStrategyValidator", fields: [validatorUserId], references: [id], onDelete: SetNull)
   axisLinks      StrategicDirectionStrategyAxisLink[]
   objectiveLinks StrategicDirectionStrategyObjectiveLink[]
+  documents      StrategicDirectionStrategyDocument[]
 
   /// Une seule stratégie **non archivée** par (client, direction, vision) — garanti par index partiel SQL (migration).
   @@index([clientId])
@@ -2361,6 +2415,40 @@ model StrategicDirectionStrategyObjectiveLink {
 
   @@unique([strategyId, strategicObjectiveId])
   @@index([clientId])
+}
+
+/// RFC-STRAT-011 — documents (images/schémas) rattachés à un schéma directeur.
+model StrategicDirectionStrategyDocument {
+  id        String @id @default(cuid())
+  clientId  String
+  strategyId String
+
+  name             String
+  originalFilename String?
+  mimeType         String?
+  extension        String?
+  sizeBytes        Int?
+
+  status      ProjectDocumentStatus      @default(ACTIVE)
+  storageType ProjectDocumentStorageType @default(STARIUM)
+
+  storageBucket String?
+  storageKey    String?
+
+  uploadedByUserId String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  archivedAt       DateTime?
+  deletedAt        DateTime?
+
+  client         Client                     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  strategy       StrategicDirectionStrategy @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+  uploadedByUser User?                      @relation("StrategicDirectionStrategyDocumentUploadedBy", fields: [uploadedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([clientId])
+  @@index([strategyId])
+  @@index([clientId, strategyId])
+  @@index([clientId, status])
 }
 
 model StrategicLink {
@@ -2604,10 +2692,11 @@ model ProjectPortfolioCategory {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  client   Client                     @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  parent   ProjectPortfolioCategory?  @relation("ProjectPortfolioCategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
-  children ProjectPortfolioCategory[] @relation("ProjectPortfolioCategoryTree")
-  projects Project[]
+  client          Client                     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  parent          ProjectPortfolioCategory?  @relation("ProjectPortfolioCategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children        ProjectPortfolioCategory[] @relation("ProjectPortfolioCategoryTree")
+  projects        Project[]
+  projectRequests ProjectRequest[]
 
   @@unique([clientId, parentId, normalizedName])
   @@index([clientId])

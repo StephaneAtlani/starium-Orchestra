@@ -4,6 +4,7 @@ export const CLIENT_DOCUMENT_STORAGE_DOMAINS = [
   'factures',
   'contrats',
   'projets',
+  'strategie',
 ] as const;
 
 export type ClientDocumentStorageDomain = (typeof CLIENT_DOCUMENT_STORAGE_DOMAINS)[number];
@@ -18,6 +19,8 @@ export function domainToPathSegment(domain: ClientDocumentStorageDomain): string
       return 'Contrats';
     case 'projets':
       return 'Projets';
+    case 'strategie':
+      return 'Strategie';
     default: {
       const _x: never = domain;
       return _x;

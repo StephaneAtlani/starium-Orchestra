@@ -24,6 +24,10 @@ import { ReviewStrategicDirectionStrategyDto } from './dto/review-strategic-dire
 import { SubmitStrategicDirectionStrategyDto } from './dto/submit-strategic-direction-strategy.dto';
 import { ReplaceStrategicDirectionStrategyAxesDto } from './dto/replace-strategic-direction-strategy-axes.dto';
 import { ReplaceStrategicDirectionStrategyObjectivesDto } from './dto/replace-strategic-direction-strategy-objectives.dto';
+import {
+  StrategicDirectionStrategyConsolidationQueryDto,
+  StrategicDirectionStrategyPortfolioQueryDto,
+} from './dto/strategy-schema-query.dto';
 import { UpdateStrategicDirectionStrategyDto } from './dto/update-strategic-direction-strategy.dto';
 import { StrategicDirectionStrategyService } from './strategic-direction-strategy.service';
 
@@ -39,6 +43,24 @@ export class StrategicDirectionStrategyController {
     @RequestUserId() actorUserId: string | undefined,
   ) {
     return this.service.validatorOptions(clientId!, actorUserId!);
+  }
+
+  @Get('portfolio')
+  @RequirePermissions('strategic_direction_strategy.read')
+  getPortfolio(
+    @ActiveClientId() clientId: string | undefined,
+    @Query() query: StrategicDirectionStrategyPortfolioQueryDto,
+  ) {
+    return this.service.getPortfolio(clientId!, query);
+  }
+
+  @Get('consolidation')
+  @RequirePermissions('strategic_direction_strategy.read')
+  getConsolidation(
+    @ActiveClientId() clientId: string | undefined,
+    @Query() query: StrategicDirectionStrategyConsolidationQueryDto,
+  ) {
+    return this.service.getConsolidation(clientId!, query);
   }
 
   @Get()
@@ -65,6 +87,12 @@ export class StrategicDirectionStrategyController {
   @RequirePermissions('strategic_direction_strategy.read')
   getLinks(@ActiveClientId() clientId: string | undefined, @Param('id') id: string) {
     return this.service.getLinks(clientId!, id);
+  }
+
+  @Get(':id/schema-metrics')
+  @RequirePermissions('strategic_direction_strategy.read')
+  getSchemaMetrics(@ActiveClientId() clientId: string | undefined, @Param('id') id: string) {
+    return this.service.getSchemaMetrics(clientId!, id);
   }
 
   @Put(':id/axes')

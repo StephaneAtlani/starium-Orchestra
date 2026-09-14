@@ -134,7 +134,7 @@ Statuts : **live** = code + usage ; **partial** = FK/socle sans tout le parcours
 
 | Id | De | Vers | Pont | Table / contrat | RFC |
 | --- | --- | --- | --- | --- | --- |
-| `intake-project` | Demandes | Projets | FK | `ProjectRequest.convertedProjectId` | RFC-PROJ-INTAKE-001 · [INTAKE-002](./RFC/RFC-PROJ-INTAKE-002%20—%20CDC%20Demandes%20de%20projet%20(circuit%20configurable%20et%20fidélité%20visuelle).md) |
+| `intake-project` | Demandes | Projets | FK | `ProjectRequest.convertedProjectId` (+ reprise `portfolioCategoryId` à la conversion) | RFC-PROJ-INTAKE-001 · [INTAKE-002](./RFC/RFC-PROJ-INTAKE-002%20—%20CDC%20Demandes%20de%20projet%20(circuit%20configurable%20et%20fidélité%20visuelle).md) |
 | `vision-project` | Vision | Projets | Poly | `StrategicLink (PROJECT)` — write V1 + UI panneau/Aligner ([RFC-STRAT-010](./RFC/RFC-STRAT-010%20—%20Vision%20stratégique%20V1%20—%20Plan%20de%20tests%20et%20trajectoire%20de%20delivery.md)) ; KPI/alertes comptent uniquement `PROJECT` | RFC-STRAT-001 / 010 |
 | `vision-budget` | Vision | Budgets | Poly | `StrategicLink (BUDGET \| BUDGET_LINE)` — **lecture / schéma** ; write rejeté en V1 | RFC-STRAT-001 |
 | `vision-cycle` | Vision | Cycles | Poly | `StrategicLink (GOVERNANCE_CYCLE)` — **lecture / schéma** ; write rejeté en V1 | RFC-STRAT-001 |

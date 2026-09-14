@@ -11,6 +11,9 @@ export type StrategyVersionSummary = {
   approvedAt: Date | null;
   updatedAt: Date;
   isCurrent: boolean;
+  reviewNote: string | null;
+  reviewInstanceLabel: string | null;
+  rejectionReason: string | null;
 };
 
 type StrategyRowForVersioning = {
@@ -22,6 +25,9 @@ type StrategyRowForVersioning = {
   approvedAt: Date | null;
   updatedAt: Date;
   createdAt: Date;
+  reviewNote?: string | null;
+  reviewInstanceLabel?: string | null;
+  rejectionReason?: string | null;
 };
 
 export function buildStrategyVersionSummaries(
@@ -53,8 +59,28 @@ export function buildStrategyVersionSummaries(
       approvedAt: row.approvedAt,
       updatedAt: row.updatedAt,
       isCurrent,
+      reviewNote: row.reviewNote ?? null,
+      reviewInstanceLabel: row.reviewInstanceLabel ?? null,
+      rejectionReason: row.rejectionReason ?? null,
     };
   });
+}
+
+function statusLabelFr(status: StrategicDirectionStrategyStatus): string {
+  switch (status) {
+    case 'DRAFT':
+      return 'Brouillon';
+    case 'SUBMITTED':
+      return 'En revue';
+    case 'APPROVED':
+      return 'Validé';
+    case 'REJECTED':
+      return 'Refusée';
+    case 'ARCHIVED':
+      return 'Archivée';
+    default:
+      return 'Brouillon';
+  }
 }
 
 function formatStrategyVersionLabel(
@@ -69,8 +95,9 @@ function formatStrategyVersionLabel(
       : null;
     return date ? `${base} · archivée ${date}` : `${base} · archivée`;
   }
-  if (isCurrent) return `${base} · version actuelle (${row.status})`;
-  return `${base} · ${row.status}`;
+  // Mock CODIR : sous-titre = « v3.1 » — le statut est porté par le badge, pas l’ID technique.
+  if (isCurrent) return base;
+  return `${base} · ${statusLabelFr(row.status)}`;
 }
 
 export type StrategyFieldDiff = {

@@ -21,17 +21,44 @@ import {
 } from './strategic-direction-strategy-versioning';
 import { ClientStrategicDirectionStrategyWorkflowSettingsService } from '../clients/client-strategic-direction-strategy-workflow-settings.service';
 import { toStrategicDirectionStrategyUserSummary } from './strategic-direction-strategy-user.util';
+import {
+  normalizeStrategySchemaPayload,
+  type NormalizedStrategySchema,
+} from './strategic-direction-strategy-schema-normalize';
+import {
+  computeAlignmentScore,
+  computeNowMonthOffset,
+  computeSchemaMetrics,
+  detectInitiativeOverlaps,
+  formatEur,
+  type VisionAxisRef,
+} from './strategic-direction-strategy-schema-metrics';
 
 type StrategicAuditContext = {
   actorUserId?: string;
   meta?: { ipAddress?: string; userAgent?: string; requestId?: string };
 };
 
-type JsonArrayInput = Array<Record<string, unknown>> | undefined;
+type JsonArrayInput = ReadonlyArray<object> | undefined;
+
+const directionSelect = {
+  id: true,
+  code: true,
+  name: true,
+  description: true,
+  accentTone: true,
+  parentLabel: true,
+  sponsorResourceId: true,
+  fteCount: true,
+  operatingBudgetCents: true,
+  sponsorResource: {
+    select: { id: true, name: true, firstName: true },
+  },
+} as const;
 
 const strategyInclude = {
   direction: {
-    select: { id: true, code: true, name: true },
+    select: directionSelect,
   },
   alignedVision: {
     select: { id: true, title: true, horizonLabel: true, isActive: true },
@@ -112,6 +139,87 @@ export class StrategicDirectionStrategyService {
     return value as Prisma.InputJsonValue;
   }
 
+  private asJsonValue(value: unknown): Prisma.InputJsonValue | undefined {
+    if (value === undefined) return undefined;
+    return value as Prisma.InputJsonValue;
+  }
+
+  private validateBudgetsByYear(
+    value: Record<string, number> | undefined,
+  ): Prisma.InputJsonValue | undefined {
+    if (value === undefined) return undefined;
+    const out: Record<string, number> = {};
+    for (const [key, raw] of Object.entries(value)) {
+      if (!/^\d{4}$/.test(key)) {
+        throw new BadRequestException(
+          `budgetsByYear key must be a 4-digit year (received "${key}")`,
+        );
+      }
+      const n = typeof raw === 'number' ? raw : Number(raw);
+      if (!Number.isFinite(n) || n < 0) {
+        throw new BadRequestException(
+          `budgetsByYear["${key}"] must be a non-negative number`,
+        );
+      }
+      out[key] = Math.round(n);
+    }
+    return out as Prisma.InputJsonValue;
+  }
+
+  private validateAxisContributions(
+    value: Record<string, number> | undefined,
+  ): Prisma.InputJsonValue | undefined {
+    if (value === undefined) return undefined;
+    const out: Record<string, number> = {};
+    for (const [key, raw] of Object.entries(value)) {
+      const id = key.trim();
+      if (!id) {
+        throw new BadRequestException('axisContributions keys must be non-empty');
+      }
+      const n = typeof raw === 'number' ? raw : Number(raw);
+      if (!Number.isFinite(n) || n < 0 || n > 100) {
+        throw new BadRequestException(
+          `axisContributions["${id}"] must be between 0 and 100`,
+        );
+      }
+      out[id] = Math.round(n);
+    }
+    return out as Prisma.InputJsonValue;
+  }
+
+  private mapSponsorLabel(
+    sponsorResource:
+      | { id: string; name: string; firstName: string | null }
+      | null
+      | undefined,
+  ): string | null {
+    if (!sponsorResource) return null;
+    const label = [sponsorResource.firstName, sponsorResource.name]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+    return label || sponsorResource.name || null;
+  }
+
+  private mapDirectionIdentity<
+    T extends {
+      operatingBudgetCents?: bigint | number | null;
+      sponsorResource?: {
+        id: string;
+        name: string;
+        firstName: string | null;
+      } | null;
+    },
+  >(direction: T) {
+    const { sponsorResource, operatingBudgetCents, ...rest } = direction;
+    return {
+      ...rest,
+      operatingBudgetCents:
+        operatingBudgetCents == null ? null : Number(operatingBudgetCents),
+      sponsorLabel: this.mapSponsorLabel(sponsorResource),
+    };
+  }
+
   private mapStrategy<
     T extends {
       validator?: {
@@ -120,14 +228,95 @@ export class StrategicDirectionStrategyService {
         firstName: string | null;
         lastName: string | null;
       } | null;
+      direction?: {
+        operatingBudgetCents?: bigint | number | null;
+        sponsorResource?: {
+          id: string;
+          name: string;
+          firstName: string | null;
+        } | null;
+      } | null;
+      ownAxes?: unknown;
+      majorInitiatives?: unknown;
+      expectedOutcomes?: unknown;
+      kpis?: unknown;
+      risks?: unknown;
+      contentBlocks?: unknown;
+      strategicPriorities?: unknown;
+      budgetsByYear?: unknown;
+      axisContributions?: unknown;
+      horizonStartYear?: number | null;
+      horizonYearCount?: number | null;
+      horizonLabel?: string | null;
     },
   >(strategy: T) {
-    const { validator, ...rest } = strategy;
+    const { validator, direction, ...rest } = strategy;
     return {
       ...rest,
+      direction: direction ? this.mapDirectionIdentity(direction) : direction,
       validatorSummary: validator
         ? toStrategicDirectionStrategyUserSummary(validator)
         : null,
+      schema: normalizeStrategySchemaPayload(strategy),
+    };
+  }
+
+  private pickLatestStrategy<
+    T extends { alignedVisionId: string; updatedAt: Date; createdAt: Date },
+  >(strategies: T[], preferredVisionId?: string): T | null {
+    if (strategies.length === 0) return null;
+    const preferred = preferredVisionId
+      ? strategies.filter((s) => s.alignedVisionId === preferredVisionId)
+      : [];
+    const pool = preferred.length > 0 ? preferred : strategies;
+    return [...pool].sort((a, b) => {
+      const byUpdated = b.updatedAt.getTime() - a.updatedAt.getTime();
+      if (byUpdated !== 0) return byUpdated;
+      return b.createdAt.getTime() - a.createdAt.getTime();
+    })[0]!;
+  }
+
+  private async loadVisionAxes(
+    clientId: string,
+    visionId: string,
+  ): Promise<VisionAxisRef[]> {
+    const axes = await this.prisma.strategicAxis.findMany({
+      where: { clientId, visionId },
+      select: { id: true, name: true, orderIndex: true },
+      orderBy: [{ orderIndex: 'asc' }, { name: 'asc' }],
+    });
+    return axes.map((a) => ({ id: a.id, name: a.name }));
+  }
+
+  private schemaMetricsInput(
+    strategy: {
+      ambition?: string | null;
+      approvedAt?: Date | null;
+      updatedAt: Date;
+      ownAxes?: unknown;
+      majorInitiatives?: unknown;
+      expectedOutcomes?: unknown;
+      kpis?: unknown;
+      risks?: unknown;
+      contentBlocks?: unknown;
+      strategicPriorities?: unknown;
+      budgetsByYear?: unknown;
+      axisContributions?: unknown;
+      horizonStartYear?: number | null;
+      horizonYearCount?: number | null;
+      horizonLabel?: string | null;
+    },
+    visionAxes: VisionAxisRef[],
+    schema?: NormalizedStrategySchema,
+  ) {
+    const normalized = schema ?? normalizeStrategySchemaPayload(strategy);
+    const lastReviewAt = strategy.approvedAt ?? strategy.updatedAt ?? null;
+    return {
+      schema: normalized,
+      ambition: strategy.ambition,
+      visionAxes,
+      lastReviewAt,
+      nowMonthOffset: computeNowMonthOffset(normalized.horizonStartYear),
     };
   }
 
@@ -438,6 +627,433 @@ export class StrategicDirectionStrategyService {
     return this.mapStrategy(strategy);
   }
 
+  async getPortfolio(
+    clientId: string,
+    query?: { alignedVisionId?: string; search?: string },
+  ) {
+    if (query?.alignedVisionId) {
+      await this.resolveVisionForClient(clientId, query.alignedVisionId);
+    }
+
+    const search = query?.search?.trim();
+    const directions = await this.prisma.strategicDirection.findMany({
+      where: {
+        clientId,
+        isActive: true,
+        ...(search
+          ? {
+              OR: [
+                { name: { contains: search, mode: 'insensitive' } },
+                { code: { contains: search, mode: 'insensitive' } },
+                { parentLabel: { contains: search, mode: 'insensitive' } },
+                { description: { contains: search, mode: 'insensitive' } },
+                {
+                  sponsorResource: {
+                    OR: [
+                      { name: { contains: search, mode: 'insensitive' } },
+                      { firstName: { contains: search, mode: 'insensitive' } },
+                    ],
+                  },
+                },
+              ],
+            }
+          : {}),
+      },
+      select: {
+        ...directionSelect,
+        sortOrder: true,
+      },
+      orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
+    });
+
+    if (directions.length === 0) {
+      return { items: [] as const };
+    }
+
+    const directionIds = directions.map((d) => d.id);
+    const strategies = await this.prisma.strategicDirectionStrategy.findMany({
+      where: {
+        clientId,
+        directionId: { in: directionIds },
+        NOT: { status: StrategicDirectionStrategyStatus.ARCHIVED },
+      },
+      orderBy: [{ updatedAt: 'desc' }],
+    });
+
+    const familyRows = await this.prisma.strategicDirectionStrategy.findMany({
+      where: {
+        clientId,
+        directionId: { in: directionIds },
+      },
+      select: {
+        id: true,
+        directionId: true,
+        alignedVisionId: true,
+        status: true,
+        title: true,
+        archivedAt: true,
+        archivedReason: true,
+        approvedAt: true,
+        updatedAt: true,
+        createdAt: true,
+      },
+    });
+
+    const visionIds = [
+      ...new Set(
+        strategies
+          .map((s) => s.alignedVisionId)
+          .concat(query?.alignedVisionId ? [query.alignedVisionId] : []),
+      ),
+    ];
+    const axesRows =
+      visionIds.length > 0
+        ? await this.prisma.strategicAxis.findMany({
+            where: { clientId, visionId: { in: visionIds } },
+            select: { id: true, name: true, visionId: true, orderIndex: true },
+            orderBy: [{ orderIndex: 'asc' }, { name: 'asc' }],
+          })
+        : [];
+    const axesByVision = new Map<string, VisionAxisRef[]>();
+    for (const axis of axesRows) {
+      const list = axesByVision.get(axis.visionId) ?? [];
+      list.push({ id: axis.id, name: axis.name });
+      axesByVision.set(axis.visionId, list);
+    }
+
+    const byDirection = new Map<string, typeof strategies>();
+    for (const strategy of strategies) {
+      const list = byDirection.get(strategy.directionId) ?? [];
+      list.push(strategy);
+      byDirection.set(strategy.directionId, list);
+    }
+
+    const items = directions.map((direction) => {
+      const mappedDirection = this.mapDirectionIdentity(direction);
+      const picked = this.pickLatestStrategy(
+        byDirection.get(direction.id) ?? [],
+        query?.alignedVisionId,
+      );
+
+      if (!picked) {
+        return {
+          directionId: mappedDirection.id,
+          code: mappedDirection.code,
+          name: mappedDirection.name,
+          description: mappedDirection.description,
+          accentTone: mappedDirection.accentTone,
+          parentLabel: mappedDirection.parentLabel,
+          sponsorLabel: mappedDirection.sponsorLabel,
+          fteCount: mappedDirection.fteCount,
+          operatingBudgetCents: mappedDirection.operatingBudgetCents,
+          strategyId: null as string | null,
+          needsStrategy: true,
+          status: null as StrategicDirectionStrategyStatus | null,
+          versionLabel: null as string | null,
+          horizonLabel: null as string | null,
+          ambition: null as string | null,
+          context: null as string | null,
+          initiativesCount: 0,
+          initiativesDone: 0,
+          score: null as number | null,
+          lastReviewAt: null as string | null,
+        };
+      }
+
+      const schema = normalizeStrategySchemaPayload(picked);
+      const visionAxes = axesByVision.get(picked.alignedVisionId) ?? [];
+      const score = computeAlignmentScore(schema, visionAxes);
+      const family = familyRows.filter(
+        (row) =>
+          row.directionId === picked.directionId &&
+          row.alignedVisionId === picked.alignedVisionId,
+      );
+      const version = buildStrategyVersionSummaries(family, picked.id).find(
+        (row) => row.id === picked.id,
+      );
+      const lastReview = picked.approvedAt ?? picked.updatedAt;
+
+      return {
+        directionId: mappedDirection.id,
+        code: mappedDirection.code,
+        name: mappedDirection.name,
+        description: mappedDirection.description,
+        accentTone: mappedDirection.accentTone,
+        parentLabel: mappedDirection.parentLabel,
+        sponsorLabel: mappedDirection.sponsorLabel ?? picked.ownerLabel ?? null,
+        fteCount: mappedDirection.fteCount,
+        operatingBudgetCents: mappedDirection.operatingBudgetCents,
+        strategyId: picked.id,
+        needsStrategy: false,
+        status: picked.status,
+        versionLabel: version?.versionLabel ?? 'v1',
+        horizonLabel: picked.horizonLabel,
+        ambition: picked.ambition,
+        context: picked.context,
+        initiativesCount: schema.majorInitiatives.length,
+        initiativesDone: schema.majorInitiatives.filter((c) => c.progressPct >= 100)
+          .length,
+        score,
+        lastReviewAt: lastReview?.toISOString() ?? null,
+      };
+    });
+
+    return { items };
+  }
+
+  async getSchemaMetrics(clientId: string, id: string) {
+    const strategy = await this.prisma.strategicDirectionStrategy.findFirst({
+      where: { id, clientId },
+    });
+    if (!strategy) throw new NotFoundException('Strategic direction strategy not found');
+
+    const visionAxes = await this.loadVisionAxes(clientId, strategy.alignedVisionId);
+    return computeSchemaMetrics(this.schemaMetricsInput(strategy, visionAxes));
+  }
+
+  async getConsolidation(
+    clientId: string,
+    query?: { alignedVisionId?: string },
+  ) {
+    let visionId = query?.alignedVisionId?.trim() || null;
+    if (visionId) {
+      await this.resolveVisionForClient(clientId, visionId);
+    } else {
+      const activeVision = await this.prisma.strategicVision.findFirst({
+        where: { clientId, isActive: true },
+        select: { id: true },
+        orderBy: [{ updatedAt: 'desc' }],
+      });
+      visionId = activeVision?.id ?? null;
+    }
+
+    const visionAxes = visionId
+      ? await this.loadVisionAxes(clientId, visionId)
+      : [];
+
+    const directions = await this.prisma.strategicDirection.findMany({
+      where: { clientId, isActive: true },
+      select: directionSelect,
+      orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
+    });
+
+    const directionIds = directions.map((d) => d.id);
+    const strategies =
+      directionIds.length === 0
+        ? []
+        : await this.prisma.strategicDirectionStrategy.findMany({
+            where: {
+              clientId,
+              directionId: { in: directionIds },
+              NOT: { status: StrategicDirectionStrategyStatus.ARCHIVED },
+              ...(visionId ? { alignedVisionId: visionId } : {}),
+            },
+            orderBy: [{ updatedAt: 'desc' }],
+          });
+
+    type CardRow = {
+      direction: {
+        id: string;
+        code: string;
+        name: string;
+        accentTone: string | null;
+        sponsorLabel: string | null;
+        fteCount: number | null;
+        operatingBudgetCents: number | null;
+      };
+      strategy: (typeof strategies)[number];
+      schema: NormalizedStrategySchema;
+      score: number;
+      maturity: ReturnType<typeof computeSchemaMetrics>['maturity'];
+    };
+
+    const cards: CardRow[] = [];
+    const byDirection = new Map<string, typeof strategies>();
+    for (const strategy of strategies) {
+      const list = byDirection.get(strategy.directionId) ?? [];
+      list.push(strategy);
+      byDirection.set(strategy.directionId, list);
+    }
+
+    let horizonStartYear = new Date().getFullYear();
+    let horizonYearCount = 3;
+
+    for (const direction of directions) {
+      const picked = this.pickLatestStrategy(
+        byDirection.get(direction.id) ?? [],
+        visionId ?? undefined,
+      );
+      if (!picked) continue;
+      const schema = normalizeStrategySchemaPayload(picked);
+      const metrics = computeSchemaMetrics(
+        this.schemaMetricsInput(picked, visionAxes, schema),
+      );
+      horizonStartYear = schema.horizonStartYear;
+      horizonYearCount = schema.horizonYearCount;
+      cards.push({
+        direction: this.mapDirectionIdentity(direction),
+        strategy: picked,
+        schema,
+        score: metrics.score,
+        maturity: metrics.maturity,
+      });
+    }
+
+    if (cards.length > 0) {
+      horizonStartYear = Math.min(...cards.map((c) => c.schema.horizonStartYear));
+      horizonYearCount = Math.max(...cards.map((c) => c.schema.horizonYearCount));
+    }
+
+    const nowMonthOffset = computeNowMonthOffset(horizonStartYear);
+    const allInitiatives = cards.flatMap((card) =>
+      card.schema.majorInitiatives.map((initiative) => ({
+        directionId: card.direction.id,
+        directionCode: card.direction.code,
+        directionName: card.direction.name,
+        accentTone: card.direction.accentTone,
+        initiative,
+      })),
+    );
+
+    const budgetHorizonCents = cards.reduce(
+      (sum, card) =>
+        sum + Object.values(card.schema.budgetsByYear).reduce((a, b) => a + b, 0),
+      0,
+    );
+    const overlaps = detectInitiativeOverlaps(
+      cards.map((card) => ({
+        directionId: card.direction.id,
+        directionCode: card.direction.code,
+        initiatives: card.schema.majorInitiatives,
+      })),
+      horizonYearCount * 12,
+    );
+    const averageAlignmentScore =
+      cards.length > 0
+        ? Math.round(cards.reduce((s, c) => s + c.score, 0) / cards.length)
+        : null;
+
+    const axisNameById = new Map(visionAxes.map((a) => [a.id, a.name]));
+
+    return {
+      alignedVisionId: visionId,
+      horizonStartYear,
+      horizonYearCount,
+      nowMonthOffset,
+      visionAxes,
+      kpis: {
+        directionsCount: cards.length,
+        approvedCount: cards.filter((c) => c.strategy.status === 'APPROVED').length,
+        initiativesCount: allInitiatives.length,
+        initiativesInProgress: allInitiatives.filter(
+          (row) => row.initiative.progressPct > 0 && row.initiative.progressPct < 100,
+        ).length,
+        budgetHorizonCents,
+        budgetHorizonLabel: formatEur(budgetHorizonCents),
+        averageAlignmentScore,
+        overlapsCount: overlaps.length,
+      },
+      matrix: cards.map((card) => {
+        const budgetSchemaCents = Object.values(card.schema.budgetsByYear).reduce(
+          (a, b) => a + b,
+          0,
+        );
+        const progressAvg =
+          card.schema.majorInitiatives.length > 0
+            ? Math.round(
+                card.schema.majorInitiatives.reduce((s, c) => s + c.progressPct, 0) /
+                  card.schema.majorInitiatives.length,
+              )
+            : 0;
+        return {
+          directionId: card.direction.id,
+          strategyId: card.strategy.id,
+          directionCode: card.direction.code,
+          directionName: card.direction.name,
+          accentTone: card.direction.accentTone,
+          sponsorLabel: card.direction.sponsorLabel ?? card.strategy.ownerLabel ?? null,
+          score: card.score,
+          status: card.strategy.status,
+          ambition: card.strategy.ambition,
+          horizonLabel: card.strategy.horizonLabel,
+          fteCount: card.direction.fteCount ?? null,
+          operatingBudgetCents: card.direction.operatingBudgetCents ?? null,
+          budgetSchemaCents,
+          ownAxesCount: card.schema.ownAxes.length,
+          outcomesCount: card.schema.expectedOutcomes.length,
+          risksCount: card.schema.risks.length,
+          initiativesCount: card.schema.majorInitiatives.length,
+          initiativesProgressAvg: progressAvg,
+          lastReviewAt:
+            card.strategy.approvedAt?.toISOString() ??
+            card.strategy.updatedAt?.toISOString() ??
+            null,
+          cells: visionAxes.map((axis) => ({
+            axisId: axis.id,
+            axisName: axis.name,
+            contributionPct: card.schema.axisContributions[axis.id] ?? 0,
+            initiativesCount: card.schema.majorInitiatives.filter((c) =>
+              c.strategicAxisIds.includes(axis.id),
+            ).length,
+          })),
+        };
+      }),
+      maturity: cards.map((card) => ({
+        directionId: card.direction.id,
+        strategyId: card.strategy.id,
+        directionCode: card.direction.code,
+        directionName: card.direction.name,
+        accentTone: card.direction.accentTone,
+        maturity: card.maturity,
+      })),
+      timeline: cards.map((card) => ({
+        directionId: card.direction.id,
+        strategyId: card.strategy.id,
+        directionCode: card.direction.code,
+        directionName: card.direction.name,
+        accentTone: card.direction.accentTone,
+        initiatives: [...card.schema.majorInitiatives].sort(
+          (a, b) => a.startMonthOffset - b.startMonthOffset,
+        ),
+      })),
+      portfolioInitiatives: [...allInitiatives]
+        .sort((a, b) => a.initiative.startMonthOffset - b.initiative.startMonthOffset)
+        .map((row) => {
+          const card = cards.find((c) => c.direction.id === row.directionId);
+          return {
+            directionId: row.directionId,
+            strategyId: card?.strategy.id ?? null,
+            directionCode: row.directionCode,
+            directionName: row.directionName,
+            accentTone: row.accentTone,
+            initiative: row.initiative,
+            axisNames: row.initiative.strategicAxisIds
+              .map((id) => axisNameById.get(id))
+              .filter((name): name is string => Boolean(name)),
+          };
+        }),
+      overlaps: overlaps.map((pair) => ({
+        severity: pair.severity,
+        shared: pair.shared,
+        overlapMonths: pair.overlapMonths,
+        a: {
+          directionId: pair.a.directionId,
+          directionCode: pair.a.directionCode,
+          strategyId:
+            cards.find((c) => c.direction.id === pair.a.directionId)?.strategy.id ?? null,
+          initiative: pair.a.initiative,
+        },
+        b: {
+          directionId: pair.b.directionId,
+          directionCode: pair.b.directionCode,
+          strategyId:
+            cards.find((c) => c.direction.id === pair.b.directionId)?.strategy.id ?? null,
+          initiative: pair.b.initiative,
+        },
+      })),
+    };
+  }
+
   async create(
     clientId: string,
     dto: CreateStrategicDirectionStrategyDto,
@@ -458,6 +1074,12 @@ export class StrategicDirectionStrategyService {
       kpis: this.asJsonArray(dto.kpis),
       majorInitiatives: this.asJsonArray(dto.majorInitiatives),
       risks: this.asJsonArray(dto.risks),
+      ownAxes: this.asJsonValue(dto.ownAxes),
+      horizonStartYear: dto.horizonStartYear ?? null,
+      horizonYearCount: dto.horizonYearCount ?? undefined,
+      budgetsByYear: this.validateBudgetsByYear(dto.budgetsByYear),
+      axisContributions: this.validateAxisContributions(dto.axisContributions),
+      contentBlocks: this.asJsonValue(dto.contentBlocks),
       horizonLabel: dto.horizonLabel.trim(),
       ownerLabel: this.normalizeOptionalString(dto.ownerLabel),
       status: StrategicDirectionStrategyStatus.DRAFT,
@@ -532,6 +1154,18 @@ export class StrategicDirectionStrategyService {
     if (dto.kpis !== undefined) data.kpis = this.asJsonArray(dto.kpis);
     if (dto.majorInitiatives !== undefined) data.majorInitiatives = this.asJsonArray(dto.majorInitiatives);
     if (dto.risks !== undefined) data.risks = this.asJsonArray(dto.risks);
+    if (dto.ownAxes !== undefined) data.ownAxes = this.asJsonValue(dto.ownAxes);
+    if (dto.horizonStartYear !== undefined) data.horizonStartYear = dto.horizonStartYear;
+    if (dto.horizonYearCount !== undefined) data.horizonYearCount = dto.horizonYearCount;
+    if (dto.budgetsByYear !== undefined) {
+      data.budgetsByYear = this.validateBudgetsByYear(dto.budgetsByYear);
+    }
+    if (dto.axisContributions !== undefined) {
+      data.axisContributions = this.validateAxisContributions(dto.axisContributions);
+    }
+    if (dto.contentBlocks !== undefined) {
+      data.contentBlocks = this.asJsonValue(dto.contentBlocks);
+    }
     if (Object.keys(data).length === 0) return this.getById(clientId, id);
 
     if (existing.status === 'REJECTED') {
@@ -568,6 +1202,12 @@ export class StrategicDirectionStrategyService {
             kpis: existing.kpis as Prisma.InputJsonValue,
             majorInitiatives: existing.majorInitiatives as Prisma.InputJsonValue,
             risks: existing.risks as Prisma.InputJsonValue,
+            ownAxes: existing.ownAxes as Prisma.InputJsonValue,
+            horizonStartYear: existing.horizonStartYear,
+            horizonYearCount: existing.horizonYearCount,
+            budgetsByYear: existing.budgetsByYear as Prisma.InputJsonValue,
+            axisContributions: existing.axisContributions as Prisma.InputJsonValue,
+            contentBlocks: existing.contentBlocks as Prisma.InputJsonValue,
             horizonLabel: existing.horizonLabel,
             ownerLabel: existing.ownerLabel,
             status: StrategicDirectionStrategyStatus.ARCHIVED,
@@ -850,6 +1490,11 @@ export class StrategicDirectionStrategyService {
         approvedAt: isApproved ? new Date() : null,
         approvedByUserId: isApproved ? context?.actorUserId ?? null : null,
         rejectionReason: isApproved ? null : dto.rejectionReason?.trim() ?? null,
+        reviewNote:
+          dto.decisionNote?.trim() ||
+          (isApproved ? null : dto.rejectionReason?.trim()) ||
+          null,
+        reviewInstanceLabel: dto.reviewInstanceLabel?.trim() || 'CODIR',
       },
       include: strategyInclude,
     });
@@ -861,7 +1506,12 @@ export class StrategicDirectionStrategyService {
         : 'strategic_direction_strategy.rejected',
       id,
       { status: existing.status },
-      { status: reviewed.status, rejectionReason: reviewed.rejectionReason },
+      {
+        status: reviewed.status,
+        rejectionReason: reviewed.rejectionReason,
+        reviewNote: reviewed.reviewNote,
+        reviewInstanceLabel: reviewed.reviewInstanceLabel,
+      },
     );
     return this.mapStrategy(reviewed);
   }
@@ -934,6 +1584,9 @@ export class StrategicDirectionStrategyService {
         approvedAt: true,
         updatedAt: true,
         createdAt: true,
+        reviewNote: true,
+        reviewInstanceLabel: true,
+        rejectionReason: true,
       },
     });
 

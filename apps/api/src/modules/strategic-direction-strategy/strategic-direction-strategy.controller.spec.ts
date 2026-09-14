@@ -27,6 +27,9 @@ describe('StrategicDirectionStrategyController', () => {
     archive: jest.fn(),
     review: jest.fn(),
     validatorOptions: jest.fn(),
+    getPortfolio: jest.fn(),
+    getConsolidation: jest.fn(),
+    getSchemaMetrics: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -55,11 +58,23 @@ describe('StrategicDirectionStrategyController', () => {
       Reflect.getMetadata(PATH_METADATA, StrategicDirectionStrategyController.prototype.validatorOptions),
     ).toBe('validator-options');
     expect(
+      Reflect.getMetadata(PATH_METADATA, StrategicDirectionStrategyController.prototype.getPortfolio),
+    ).toBe('portfolio');
+    expect(
+      Reflect.getMetadata(PATH_METADATA, StrategicDirectionStrategyController.prototype.getConsolidation),
+    ).toBe('consolidation');
+    expect(
       Reflect.getMetadata(PATH_METADATA, StrategicDirectionStrategyController.prototype.create),
     ).toBe('/');
     expect(
       Reflect.getMetadata(PATH_METADATA, StrategicDirectionStrategyController.prototype.getLinks),
     ).toBe(':id/links');
+    expect(
+      Reflect.getMetadata(
+        PATH_METADATA,
+        StrategicDirectionStrategyController.prototype.getSchemaMetrics,
+      ),
+    ).toBe(':id/schema-metrics');
     expect(
       Reflect.getMetadata(PATH_METADATA, StrategicDirectionStrategyController.prototype.listVersions),
     ).toBe(':id/versions');
@@ -100,6 +115,24 @@ describe('StrategicDirectionStrategyController', () => {
       Reflect.getMetadata(
         REQUIRE_PERMISSIONS_KEY,
         StrategicDirectionStrategyController.prototype.list,
+      ),
+    ).toEqual(['strategic_direction_strategy.read']);
+    expect(
+      Reflect.getMetadata(
+        REQUIRE_PERMISSIONS_KEY,
+        StrategicDirectionStrategyController.prototype.getPortfolio,
+      ),
+    ).toEqual(['strategic_direction_strategy.read']);
+    expect(
+      Reflect.getMetadata(
+        REQUIRE_PERMISSIONS_KEY,
+        StrategicDirectionStrategyController.prototype.getConsolidation,
+      ),
+    ).toEqual(['strategic_direction_strategy.read']);
+    expect(
+      Reflect.getMetadata(
+        REQUIRE_PERMISSIONS_KEY,
+        StrategicDirectionStrategyController.prototype.getSchemaMetrics,
       ),
     ).toEqual(['strategic_direction_strategy.read']);
     expect(
