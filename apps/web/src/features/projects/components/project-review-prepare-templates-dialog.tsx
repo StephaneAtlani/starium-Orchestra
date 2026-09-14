@@ -1,14 +1,22 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type Ref } from 'react';
 import { LayoutTemplate, Pencil, Plus, Trash2 } from 'lucide-react';
 import { EmptyState } from '@/components/feedback/empty-state';
 import { ErrorState } from '@/components/feedback/error-state';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { StariumModal } from '@/components/layout/form-dialog-shell';
+import {
+  OverflowTabsMoreMeasureProbe,
+  OverflowTabsMoreMenu,
+} from '@/components/layout/overflow-tabs-more-menu';
 import { Button } from '@/components/ui/button';
 import { IconButton } from '@/components/ui/icon-button';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
+import {
+  OVERFLOW_TABS_MEASURE_ROW_CLASS,
+  useOverflowTabs,
+} from '@/hooks/use-overflow-tabs';
 import { useQueryClient } from '@tanstack/react-query';
 import { displayLabel } from '@/lib/display-label';
 import { toast } from '@/lib/toast';
@@ -218,6 +226,30 @@ export function ProjectReviewPrepareTemplatesDialog({
     ? items.find((t) => t.id === confirmDeleteId)
     : null;
 
+  const filterTabItems = useMemo(() => {
+    const all = {
+      id: 'ALL' as const,
+      label: 'Tous',
+      count: items.length,
+    };
+    const typed = typeFilters.map((code) => ({
+      id: code,
+      label: typeCodeLabel(code),
+      count: items.filter((t) => asPrepTypeCode(t.typeCode) === code).length,
+    }));
+    return [all, ...typed];
+  }, [items, typeFilters]);
+
+  const filterOverflow = useOverflowTabs(filterTabItems.length, {
+    gapPx: 2,
+    deps: [filterTabItems.map((t) => `${t.id}:${t.count}`).join('|'), filterType],
+  });
+  const filterVisible = filterTabItems.slice(0, filterOverflow.visibleCount);
+  const filterOverflowItems = filterTabItems.slice(filterOverflow.visibleCount);
+  const filterActiveInOverflow = filterOverflowItems.some(
+    (item) => item.id === filterType,
+  );
+
   return (
     <>
       <StariumModal
@@ -256,43 +288,82 @@ export function ProjectReviewPrepareTemplatesDialog({
         <div className="space-y-4">
           {typeFilters.length > 0 ? (
             <div
+              ref={filterOverflow.containerRef as Ref<HTMLDivElement>}
               role="group"
               aria-label="Filtrer par type de modèle"
-              className="starium-tab-group w-full max-w-full overflow-x-auto"
+              className="starium-tab-group relative z-20 w-full max-w-full overflow-visible"
             >
-              <button
-                type="button"
-                aria-pressed={filterType === 'ALL'}
-                className={cn(
-                  'starium-tab-btn min-h-11 shrink-0',
-                  filterType === 'ALL' && 'starium-tab-btn--active',
-                )}
-                onClick={() => setFilterType('ALL')}
+              <div
+                aria-hidden
+                className={cn(OVERFLOW_TABS_MEASURE_ROW_CLASS, 'gap-0.5')}
               >
-                Tous
-                <FilterCount count={items.length} active={filterType === 'ALL'} />
-              </button>
-              {typeFilters.map((code) => {
-                const count = items.filter(
-                  (t) => asPrepTypeCode(t.typeCode) === code,
-                ).length;
-                const active = filterType === code;
+                <div
+                  ref={filterOverflow.measureRef}
+                  className="flex w-max flex-nowrap items-center gap-0.5"
+                >
+                  {filterTabItems.map((item) => (
+                    <span
+                      key={`m-${item.id}`}
+                      className="starium-tab-btn min-h-11 shrink-0"
+                    >
+                      {item.label}
+                      <FilterCount count={item.count} active={false} />
+                    </span>
+                  ))}
+                </div>
+                <OverflowTabsMoreMeasureProbe
+                  ref={filterOverflow.moreMeasureRef as Ref<HTMLSpanElement>}
+                  className="starium-tab-btn shrink-0"
+                />
+              </div>
+              {filterVisible.map((item) => {
+                const active = filterType === item.id;
                 return (
                   <button
-                    key={code}
+                    key={item.id}
                     type="button"
                     aria-pressed={active}
                     className={cn(
                       'starium-tab-btn min-h-11 shrink-0 whitespace-nowrap',
                       active && 'starium-tab-btn--active',
                     )}
-                    onClick={() => setFilterType(code)}
+                    onClick={() =>
+                      setFilterType(
+                        item.id === 'ALL' ? 'ALL' : (item.id as PrepTypeCode),
+                      )
+                    }
                   >
-                    {typeCodeLabel(code)}
-                    <FilterCount count={count} active={active} />
+                    {item.label}
+                    <FilterCount count={item.count} active={active} />
                   </button>
                 );
               })}
+              {filterOverflowItems.length > 0 ? (
+                <OverflowTabsMoreMenu
+                  items={filterOverflowItems.map((item) => ({
+                    id: item.id,
+                    label: item.label,
+                    onSelect: () =>
+                      setFilterType(
+                        item.id === 'ALL' ? 'ALL' : (item.id as PrepTypeCode),
+                      ),
+                    trailing: (
+                      <FilterCount
+                        count={item.count}
+                        active={item.id === filterType}
+                      />
+                    ),
+                  }))}
+                  activeOverflowId={
+                    filterActiveInOverflow ? String(filterType) : null
+                  }
+                  triggerClassName={cn(
+                    'starium-tab-btn !size-auto min-h-11 min-w-11',
+                    filterActiveInOverflow && 'starium-tab-btn--active',
+                  )}
+                  align="start"
+                />
+              ) : null}
             </div>
           ) : null}
 

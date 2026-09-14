@@ -29,7 +29,7 @@ import {
   TrendingUp,
   Users,
 } from 'lucide-react';
-import type { ComponentType, ReactNode } from 'react';
+import type { ComponentType, ReactNode, Ref } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -50,8 +50,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { useMediaQuery } from '@/hooks/use-media-query';
-import { useHorizontalDragScroll } from '@/hooks/use-horizontal-drag-scroll';
+import {
+  OVERFLOW_TABS_MEASURE_ROW_CLASS,
+  useOverflowTabs,
+} from '@/hooks/use-overflow-tabs';
 import { usePermissions } from '@/hooks/use-permissions';
+import { OverflowTabsMoreMeasureProbe, OverflowTabsMoreMenu } from '@/components/layout/overflow-tabs-more-menu';
 import { cn } from '@/lib/utils';
 import { toast } from '@/lib/toast';
 import { displayLabel } from '@/lib/display-label';
@@ -878,7 +882,6 @@ export function ProjectReviewEditorDialog({
   const [editorTab, setEditorTab] = useState('agenda');
   const [selectedAgendaItemId, setSelectedAgendaItemId] = useState<string | null>(null);
   const isConductWideLayout = useMediaQuery('(min-width: 1024px)');
-  const conductTabsDragScroll = useHorizontalDragScroll();
   const [conductSidebarOpen, setConductSidebarOpen] = useState(false);
   const planningDetailsRef = useRef<HTMLDetailsElement>(null);
   const prepareParamsDetailsRef = useRef<HTMLDetailsElement>(null);
@@ -1936,6 +1939,24 @@ export function ProjectReviewEditorDialog({
     });
   }, [d, phaseTabs, editorPhase]);
 
+  const conductTabsOverflow = useOverflowTabs(conductTabOptions.length, {
+    gapPx: 24,
+    deps: [
+      conductTabOptions.map((t) => `${t.value}:${t.label}:${t.count ?? 0}`).join('|'),
+      editorTab,
+    ],
+  });
+  const conductVisibleTabs = conductTabOptions.slice(
+    0,
+    conductTabsOverflow.visibleCount,
+  );
+  const conductOverflowTabs = conductTabOptions.slice(
+    conductTabsOverflow.visibleCount,
+  );
+  const conductActiveInOverflow = conductOverflowTabs.some(
+    (tab) => tab.value === editorTab,
+  );
+
   const closeConductSidebar = useCallback(() => setConductSidebarOpen(false), []);
 
   const navigateConductTab = useCallback(
@@ -1949,14 +1970,6 @@ export function ProjectReviewEditorDialog({
   const reviewTabPanelClass =
     'starium-form mt-0 flex w-full min-w-0 flex-col overscroll-contain min-h-0 flex-1 gap-4 overflow-y-auto';
   const reviewTabsListClass = 'w-max max-w-none shrink-0';
-
-  const onConductTabsWheel = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
-    const element = conductTabsDragScroll.ref.current;
-    if (!element || element.scrollWidth <= element.clientWidth + 1) return;
-    if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
-    element.scrollLeft += event.deltaY;
-    event.preventDefault();
-  }, [conductTabsDragScroll.ref]);
 
   const handleClose = () => {
     onExit?.();
@@ -3135,41 +3148,89 @@ export function ProjectReviewEditorDialog({
                 ) : null}
                 {conductTabOptions.length > 0 ? (
                   <div
-                    ref={conductTabsDragScroll.ref}
+                    ref={conductTabsOverflow.containerRef as Ref<HTMLDivElement>}
                     className={cn(
-                      'hidden min-w-0 flex-1 overflow-x-auto overscroll-x-contain lg:block',
-                      '[scrollbar-width:thin] pb-2',
-                      '[&::-webkit-scrollbar]:h-1.5',
-                      '[&::-webkit-scrollbar-thumb]:rounded-full',
-                      conductTabsDragScroll.className,
+                      'relative z-20 hidden min-w-0 flex-1 overflow-visible lg:block',
+                      'pb-2',
                     )}
-                    onPointerDown={conductTabsDragScroll.onPointerDown}
-                    onPointerMove={conductTabsDragScroll.onPointerMove}
-                    onPointerUp={conductTabsDragScroll.onPointerUp}
-                    onPointerCancel={conductTabsDragScroll.onPointerCancel}
-                    onClickCapture={conductTabsDragScroll.onClickCapture}
-                    onWheel={onConductTabsWheel}
-                    aria-label="Sections du point — glisser horizontalement pour parcourir les onglets"
+                    aria-label="Sections du point"
                   >
-                    <TabsList
-                      variant="line"
-                      className={cn(
-                        reviewTabsListClass,
-                        editorPhase !== 'retex' && 'border-b-0',
-                        'overflow-visible pb-0.5',
-                      )}
+                    <div
+                      aria-hidden
+                      className={cn(OVERFLOW_TABS_MEASURE_ROW_CLASS, 'gap-6')}
                     >
-                      {conductTabOptions.map((tab) => (
-                        <ReviewEditorTabTrigger
-                          key={tab.value}
-                          step={tab.step}
-                          value={tab.value}
-                          count={tab.count}
-                        >
-                          {tab.label}
-                        </ReviewEditorTabTrigger>
-                      ))}
-                    </TabsList>
+                      <div
+                        ref={conductTabsOverflow.measureRef}
+                        className="flex w-max flex-nowrap items-center gap-6"
+                      >
+                        {conductTabOptions.map((tab) => (
+                          <span
+                            key={`m-${tab.value}`}
+                            className="inline-flex shrink-0 items-center gap-2 px-1 py-2.5 text-sm font-medium"
+                          >
+                            <span className="size-6 shrink-0" />
+                            {tab.label}
+                            {tab.count != null && tab.count > 0 ? (
+                              <span className="px-1.5 text-[0.65rem]">
+                                {tab.count}
+                              </span>
+                            ) : null}
+                          </span>
+                        ))}
+                      </div>
+                      <OverflowTabsMoreMeasureProbe
+                        ref={
+                          conductTabsOverflow.moreMeasureRef as Ref<HTMLSpanElement>
+                        }
+                      />
+                    </div>
+                    <div className="flex min-w-0 items-end gap-1">
+                      <TabsList
+                        variant="line"
+                        className={cn(
+                          reviewTabsListClass,
+                          editorPhase !== 'retex' && 'border-b-0',
+                          'min-w-0 overflow-visible pb-0.5',
+                        )}
+                      >
+                        {conductVisibleTabs.map((tab) => (
+                          <ReviewEditorTabTrigger
+                            key={tab.value}
+                            step={tab.step}
+                            value={tab.value}
+                            count={tab.count}
+                          >
+                            {tab.label}
+                          </ReviewEditorTabTrigger>
+                        ))}
+                      </TabsList>
+                      {conductOverflowTabs.length > 0 ? (
+                        <OverflowTabsMoreMenu
+                          items={conductOverflowTabs.map((tab) => ({
+                            id: tab.value,
+                            label: tab.label,
+                            icon: tab.icon,
+                            onSelect: () => setEditorTab(tab.value),
+                            trailing:
+                              tab.count != null && tab.count > 0 ? (
+                                <span className="tabular-nums text-xs text-muted-foreground">
+                                  {tab.count}
+                                </span>
+                              ) : undefined,
+                          }))}
+                          activeOverflowId={
+                            conductActiveInOverflow ? editorTab : null
+                          }
+                          triggerClassName={cn(
+                            'inline-flex size-11 min-h-11 min-w-11 items-center justify-center border-b-2',
+                            conductActiveInOverflow
+                              ? 'border-[color:var(--brand-gold)] font-semibold text-[color:var(--brand-gold-700)]'
+                              : 'border-transparent text-foreground/60 hover:text-foreground',
+                          )}
+                          align="start"
+                        />
+                      ) : null}
+                    </div>
                   </div>
                 ) : null}
                 {editorPhase === 'conduct' &&

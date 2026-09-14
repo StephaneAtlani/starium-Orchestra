@@ -104,7 +104,7 @@ html.dark {
 .starium-project-workspace-tabs {
   align-items: center;
   gap: 4px;
-  overflow-x: auto;
+  overflow: visible;
   overscroll-behavior-x: contain;
   scrollbar-width: none;
   border-radius: var(--radius-md, 10px);
@@ -113,7 +113,6 @@ html.dark {
   padding: 7px 10px;
   margin-bottom: 18px;
   box-shadow: var(--shadow-1);
-  -webkit-overflow-scrolling: touch;
 }
 .starium-project-workspace-tabs::-webkit-scrollbar {
   display: none;

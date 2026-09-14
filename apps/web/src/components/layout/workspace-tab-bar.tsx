@@ -1,7 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import type { ComponentType, ReactNode } from 'react';
+import {
+  type ComponentType,
+  type ReactNode,
+  type Ref,
+} from 'react';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -10,7 +14,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useHorizontalDragScroll } from '@/hooks/use-horizontal-drag-scroll';
+import { OverflowTabsMoreMenu, OverflowTabsMoreMeasureProbe } from '@/components/layout/overflow-tabs-more-menu';
+import {
+  OVERFLOW_TABS_MEASURE_ROW_CLASS,
+  useOverflowTabs,
+} from '@/hooks/use-overflow-tabs';
 import { cn } from '@/lib/utils';
 
 export type WorkspaceTabBarItem = {
@@ -171,9 +179,9 @@ function WorkspaceTabBarMobileSelect({
 /**
  * Bandeau d’onglets Starium (design system) — conteneur blanc, icône + libellé,
  * soulignement or à l’état actif. Mobile : sélecteur dans le même habillage visuel.
+ * Desktop : surplus accessible via bouton « Plus » (pas de scroll horizontal).
  *
  * Réf. CSS : `.starium-project-workspace-tabs` dans `globals.css`.
- * Usage : navigation projet (`ProjectWorkspaceTabs`), vision stratégique, etc.
  */
 export function WorkspaceTabBar({
   items,
@@ -194,10 +202,16 @@ export function WorkspaceTabBar({
   mobileAriaLabel?: string;
   'data-testid'?: string;
 }) {
-  const dragScroll = useHorizontalDragScroll<HTMLElement>();
+  const overflow = useOverflowTabs(items.length, {
+    gapPx: 4,
+    deps: [items.map((i) => i.label).join('|')],
+  });
+  const visibleItems = items.slice(0, overflow.visibleCount);
+  const overflowItems = items.slice(overflow.visibleCount);
+  const activeInOverflow = overflowItems.some((item) => item.id === activeId);
 
   return (
-    <div data-testid={dataTestId}>
+    <div data-testid={dataTestId} className="relative z-20">
       <WorkspaceTabBarMobileSelect
         items={items}
         activeId={activeId}
@@ -207,20 +221,36 @@ export function WorkspaceTabBar({
         mobileAriaLabel={mobileAriaLabel ?? ariaLabel}
       />
       <nav
-        ref={dragScroll.ref}
-        className={cn(
-          'starium-project-workspace-tabs relative z-0 hidden min-w-0 md:flex',
-          dragScroll.className,
-        )}
+        ref={overflow.containerRef as Ref<HTMLElement>}
+        className="starium-project-workspace-tabs relative z-20 hidden w-full min-w-0 md:flex"
         role="tablist"
         aria-label={ariaLabel}
-        onPointerDown={dragScroll.onPointerDown}
-        onPointerMove={dragScroll.onPointerMove}
-        onPointerUp={dragScroll.onPointerUp}
-        onPointerCancel={dragScroll.onPointerCancel}
-        onClickCapture={dragScroll.onClickCapture}
       >
-        {items.map((item) => (
+        <div
+          aria-hidden
+          className={cn(OVERFLOW_TABS_MEASURE_ROW_CLASS, 'gap-1')}
+        >
+          <div
+            ref={overflow.measureRef}
+            className="flex w-max flex-nowrap items-center gap-1"
+          >
+            {items.map((item) => (
+              <span key={`m-${item.id}`} className="shrink-0">
+                <WorkspaceTabBarDesktopItem
+                  item={item}
+                  active={false}
+                  onSelect={() => undefined}
+                />
+              </span>
+            ))}
+          </div>
+          <OverflowTabsMoreMeasureProbe
+            ref={overflow.moreMeasureRef as Ref<HTMLSpanElement>}
+            className={cn(workspaceTabClass(false), 'shrink-0')}
+          />
+        </div>
+
+        {visibleItems.map((item) => (
           <WorkspaceTabBarDesktopItem
             key={item.id}
             item={item}
@@ -228,6 +258,21 @@ export function WorkspaceTabBar({
             onSelect={onSelect}
           />
         ))}
+        {overflowItems.length > 0 ? (
+          <OverflowTabsMoreMenu
+            items={overflowItems.map((item) => ({
+              id: item.id,
+              label: item.label,
+              href: item.href,
+              ariaLabel: item.ariaLabel ?? item.label,
+              icon: item.icon,
+              onSelect: item.href ? undefined : () => onSelect(item.id),
+            }))}
+            activeOverflowId={activeInOverflow ? activeId : null}
+            triggerClassName={workspaceTabClass(activeInOverflow)}
+            align="start"
+          />
+        ) : null}
       </nav>
     </div>
   );
