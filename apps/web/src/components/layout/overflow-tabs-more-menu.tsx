@@ -36,8 +36,7 @@ type Props = {
 };
 
 /**
- * Burger + menu des onglets hors largeur.
- * Trigger collé au dernier visible ; panneau en portal (au-dessus du contenu).
+ * Burger + menu des onglets hors largeur (portal body, pas de truncate).
  */
 export function OverflowTabsMoreMenu({
   items,
@@ -50,8 +49,12 @@ export function OverflowTabsMoreMenu({
 }: Props) {
   const menuRef = useRef<HTMLDetailsElement>(null);
   const summaryRef = useRef<HTMLElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);
-  const [panelStyle, setPanelStyle] = useState<CSSProperties>({});
+  const [panelStyle, setPanelStyle] = useState<CSSProperties>({
+    position: 'fixed',
+    zIndex: 500,
+  });
   const activeItem = items.find((item) => item.id === activeOverflowId);
   const hasActive = Boolean(activeItem);
 
@@ -65,22 +68,31 @@ export function OverflowTabsMoreMenu({
 
   const updatePanelPosition = () => {
     const summary = summaryRef.current;
+    const panel = panelRef.current;
     if (!summary) return;
     const rect = summary.getBoundingClientRect();
-    const style: CSSProperties = {
-      position: 'fixed',
-      top: rect.bottom + 4,
-      zIndex: 400,
-      minWidth: Math.max(12 * 16, rect.width),
-    };
-    if (align === 'end') {
-      style.right = Math.max(8, window.innerWidth - rect.right);
-      style.left = 'auto';
-    } else {
-      style.left = Math.max(8, rect.left);
-      style.right = 'auto';
+    const margin = 8;
+    const panelW = panel?.offsetWidth ?? 240;
+    let left =
+      align === 'end' ? rect.right - panelW : rect.left;
+    left = Math.min(
+      Math.max(margin, left),
+      window.innerWidth - panelW - margin,
+    );
+    let top = rect.bottom + 4;
+    const panelH = panel?.offsetHeight ?? 200;
+    if (top + panelH > window.innerHeight - margin) {
+      top = Math.max(margin, rect.top - panelH - 4);
     }
-    setPanelStyle(style);
+    setPanelStyle({
+      position: 'fixed',
+      top,
+      left,
+      zIndex: 500,
+      width: 'max-content',
+      minWidth: 12 * 16,
+      maxWidth: `min(22rem, calc(100vw - ${margin * 2}px))`,
+    });
   };
 
   useLayoutEffect(() => {
@@ -93,8 +105,8 @@ export function OverflowTabsMoreMenu({
       window.removeEventListener('resize', onWin);
       window.removeEventListener('scroll', onWin, true);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- align/open only
-  }, [open, align]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, align, items]);
 
   useEffect(() => {
     const el = menuRef.current;
@@ -111,7 +123,11 @@ export function OverflowTabsMoreMenu({
     const onPointerDown = (e: PointerEvent) => {
       if (!el.open) return;
       const target = e.target as Node | null;
-      if (target && (el.contains(target) || (target as Element).closest?.('[data-overflow-tabs-panel]'))) {
+      if (
+        target &&
+        (el.contains(target) ||
+          (target as Element).closest?.('[data-overflow-tabs-panel]'))
+      ) {
         return;
       }
       closeIfOpen();
@@ -139,12 +155,11 @@ export function OverflowTabsMoreMenu({
   const panel = open
     ? createPortal(
         <div
+          ref={panelRef}
           data-overflow-tabs-panel
           role="menu"
           style={panelStyle}
-          className={cn(
-            'starium-dropdown-panel starium-dropdown-panel--floating rounded-xl py-1.5 text-sm shadow-lg',
-          )}
+          className="starium-dropdown-panel starium-dropdown-panel--floating rounded-xl py-1.5 text-sm shadow-lg"
         >
           {items.map((item) => {
             const Icon = item.icon;
@@ -159,7 +174,7 @@ export function OverflowTabsMoreMenu({
                 {Icon ? (
                   <Icon className="size-4 shrink-0 opacity-80" aria-hidden />
                 ) : null}
-                <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                <span className="whitespace-nowrap">{item.label}</span>
                 {item.trailing}
               </>
             );
@@ -204,7 +219,7 @@ export function OverflowTabsMoreMenu({
 
   return (
     <>
-      <details ref={menuRef} className="relative ml-0 shrink-0">
+      <details ref={menuRef} className="relative shrink-0">
         <summary
           ref={setSummaryRefs}
           className={cn(
@@ -242,7 +257,7 @@ export const OverflowTabsMoreMeasureProbe = forwardRef<
     <span
       ref={ref}
       className={cn(
-        'inline-flex size-11 min-h-11 min-w-11 items-center justify-center',
+        'inline-flex size-11 min-h-11 min-w-11 shrink-0 items-center justify-center',
         className,
       )}
     >

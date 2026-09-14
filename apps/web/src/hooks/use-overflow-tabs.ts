@@ -2,24 +2,56 @@
 
 import { useLayoutEffect, useRef, useState } from 'react';
 
-function sumWithGaps(widths: number[], gapPx: number): number {
+export function sumWithGaps(widths: number[], gapPx: number): number {
   if (widths.length === 0) return 0;
   return widths.reduce((acc, w) => acc + w, 0) + gapPx * (widths.length - 1);
 }
 
+/** Pure : combien d’onglets garder visibles (le reste → burger). */
+export function computeVisibleTabCount(input: {
+  widths: number[];
+  available: number;
+  gapPx: number;
+  moreW: number;
+  leadingW?: number;
+}): number {
+  const { widths, available, gapPx, moreW } = input;
+  const leadingW = input.leadingW ?? 0;
+  if (widths.length === 0) return 0;
+  if (available < 32) return widths.length;
+
+  const allParts = [
+    ...(leadingW > 0 ? [leadingW] : []),
+    ...widths,
+  ];
+  if (sumWithGaps(allParts, gapPx) <= available) {
+    return widths.length;
+  }
+
+  let count = 0;
+  for (let i = 0; i < widths.length; i += 1) {
+    const candidate = [
+      ...(leadingW > 0 ? [leadingW] : []),
+      ...widths.slice(0, i + 1),
+      moreW,
+    ];
+    if (sumWithGaps(candidate, gapPx) <= available) {
+      count = i + 1;
+    } else {
+      break;
+    }
+  }
+  return count;
+}
+
 type Options = {
-  /** Espacement flex entre items (px) — doit matcher le CSS réel. */
   gapPx?: number;
-  /** Déclenche un recalcul (libellés, compteurs, etc.). */
   deps?: readonly unknown[];
 };
 
 /**
- * Découpe une barre d’onglets : autant d’items visibles que la largeur permet,
- * le reste via le menu burger. L’onglet actif n’est pas promu s’il déborde.
- *
- * La rangée de mesure doit être hors flux (`fixed` + `w-max` + enfants `shrink-0`)
- * pour obtenir les largeurs naturelles, pas des largeurs contraintes par le flex parent.
+ * Découpe adaptative. `containerRef` = hôte **plein largeur** (w-full) pour la place dispo.
+ * `measureRef` = rangée hors écran (enfants shrink-0) pour les largeurs naturelles.
  */
 export function useOverflowTabs(itemCount: number, options?: Options) {
   const gapPx = options?.gapPx ?? 4;
@@ -35,15 +67,18 @@ export function useOverflowTabs(itemCount: number, options?: Options) {
     const measureEl = measureRef.current;
     if (!container || !measureEl) return;
 
+    let raf = 0;
+
     const recalculate = () => {
       if (typeof window === 'undefined') return;
 
       const style = getComputedStyle(container);
+      if (style.display === 'none') return;
+
       const padX =
         (parseFloat(style.paddingLeft) || 0) +
         (parseFloat(style.paddingRight) || 0);
-      // display:none (ex. mobile `hidden md:flex`) → clientWidth 0 : ne pas écraser.
-      const available = Math.max(0, container.clientWidth - padX);
+      const available = Math.floor(container.getBoundingClientRect().width - padX);
       if (available < 32) return;
 
       const kids = Array.from(measureEl.children) as HTMLElement[];
@@ -52,45 +87,31 @@ export function useOverflowTabs(itemCount: number, options?: Options) {
         return;
       }
 
-      const widths = kids.map((k) => Math.max(0, k.offsetWidth));
-      if (widths.some((w) => w <= 0)) {
-        // Mesure pas encore prête (fonts / layout) — réessayer au frame suivant.
-        requestAnimationFrame(recalculate);
+      const widths = kids.map((k) => k.getBoundingClientRect().width);
+      if (widths.some((w) => w < 1)) {
+        cancelAnimationFrame(raf);
+        raf = requestAnimationFrame(recalculate);
         return;
       }
 
       const leadingW = leadingRef.current
-        ? Math.max(0, leadingRef.current.offsetWidth)
+        ? leadingRef.current.getBoundingClientRect().width
         : 0;
       const moreW = moreMeasureRef.current
-        ? Math.max(40, moreMeasureRef.current.offsetWidth)
+        ? Math.max(
+            40,
+            moreMeasureRef.current.getBoundingClientRect().width,
+          )
         : 44;
 
-      const allParts = [
-        ...(leadingW > 0 ? [leadingW] : []),
-        ...widths,
-      ];
-      const totalAll = sumWithGaps(allParts, gapPx);
-
-      if (totalAll <= available) {
-        setVisibleCount(widths.length);
-        return;
-      }
-
-      let count = 0;
-      for (let i = 0; i < widths.length; i += 1) {
-        const candidate = [
-          ...(leadingW > 0 ? [leadingW] : []),
-          ...widths.slice(0, i + 1),
-          moreW,
-        ];
-        if (sumWithGaps(candidate, gapPx) <= available) {
-          count = i + 1;
-        } else {
-          break;
-        }
-      }
-      setVisibleCount(count);
+      const next = computeVisibleTabCount({
+        widths,
+        available,
+        gapPx,
+        moreW,
+        leadingW,
+      });
+      setVisibleCount((prev) => (prev === next ? prev : next));
     };
 
     recalculate();
@@ -102,7 +123,10 @@ export function useOverflowTabs(itemCount: number, options?: Options) {
     if (document.fonts?.ready) {
       void document.fonts.ready.then(() => recalculate());
     }
-    return () => ro.disconnect();
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- deps fournis par l’appelant
   }, [itemCount, gapPx, ...deps]);
 
@@ -115,6 +139,6 @@ export function useOverflowTabs(itemCount: number, options?: Options) {
   };
 }
 
-/** Classes communes pour la rangée de mesure hors écran. */
+/** Rangée de mesure hors écran — largeurs naturelles, hors cascade flex du bandeau. */
 export const OVERFLOW_TABS_MEASURE_ROW_CLASS =
-  'pointer-events-none fixed left-0 top-0 -z-[1] flex w-max max-w-none flex-nowrap items-center opacity-0';
+  'pointer-events-none fixed left-[-10000px] top-0 z-[-1] flex w-max max-w-none flex-nowrap items-center';

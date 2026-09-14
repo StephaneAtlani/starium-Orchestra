@@ -14,7 +14,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { OverflowTabsMoreMenu, OverflowTabsMoreMeasureProbe } from '@/components/layout/overflow-tabs-more-menu';
+import {
+  OverflowTabsMoreMenu,
+  OverflowTabsMoreMeasureProbe,
+} from '@/components/layout/overflow-tabs-more-menu';
 import {
   OVERFLOW_TABS_MEASURE_ROW_CLASS,
   useOverflowTabs,
@@ -82,6 +85,17 @@ function WorkspaceTabBarDesktopItem({
     >
       {content}
     </button>
+  );
+}
+
+/** Clone de mesure — mêmes classes, pas de Link (largeurs naturelles). */
+function WorkspaceTabMeasureChip({ item }: { item: WorkspaceTabBarItem }) {
+  const Icon = item.icon;
+  return (
+    <span className={cn(workspaceTabClass(false), 'shrink-0')}>
+      <Icon className="shrink-0" aria-hidden />
+      <span>{item.label}</span>
+    </span>
   );
 }
 
@@ -177,11 +191,7 @@ function WorkspaceTabBarMobileSelect({
 }
 
 /**
- * Bandeau d’onglets Starium (design system) — conteneur blanc, icône + libellé,
- * soulignement or à l’état actif. Mobile : sélecteur dans le même habillage visuel.
- * Desktop : surplus accessible via bouton « Plus » (pas de scroll horizontal).
- *
- * Réf. CSS : `.starium-project-workspace-tabs` dans `globals.css`.
+ * Bandeau d’onglets Starium — desktop : surplus via burger (mesure hors flux).
  */
 export function WorkspaceTabBar({
   items,
@@ -204,14 +214,14 @@ export function WorkspaceTabBar({
 }) {
   const overflow = useOverflowTabs(items.length, {
     gapPx: 4,
-    deps: [items.map((i) => i.label).join('|')],
+    deps: [items.map((i) => `${i.id}:${i.label}`).join('|')],
   });
   const visibleItems = items.slice(0, overflow.visibleCount);
   const overflowItems = items.slice(overflow.visibleCount);
   const activeInOverflow = overflowItems.some((item) => item.id === activeId);
 
   return (
-    <div data-testid={dataTestId} className="relative z-20">
+    <div data-testid={dataTestId} className="relative z-20 w-full min-w-0">
       <WorkspaceTabBarMobileSelect
         items={items}
         activeId={activeId}
@@ -235,18 +245,11 @@ export function WorkspaceTabBar({
             className="flex w-max flex-nowrap items-center gap-1"
           >
             {items.map((item) => (
-              <span key={`m-${item.id}`} className="shrink-0">
-                <WorkspaceTabBarDesktopItem
-                  item={item}
-                  active={false}
-                  onSelect={() => undefined}
-                />
-              </span>
+              <WorkspaceTabMeasureChip key={`m-${item.id}`} item={item} />
             ))}
           </div>
           <OverflowTabsMoreMeasureProbe
             ref={overflow.moreMeasureRef as Ref<HTMLSpanElement>}
-            className={cn(workspaceTabClass(false), 'shrink-0')}
           />
         </div>
 
@@ -278,7 +281,6 @@ export function WorkspaceTabBar({
   );
 }
 
-/** Enveloppe optionnelle autour du contenu d’un onglet (espacement cohérent). */
 export function WorkspaceTabBarPanel({
   children,
   className,
