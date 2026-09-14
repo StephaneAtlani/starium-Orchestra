@@ -740,7 +740,8 @@ export function ProjectReviewPrepareWorkspace({
               </div>
               <StariumScrollArea
                 id="pw-col-left"
-                className="h-full min-h-0 w-full flex-1"
+                layout="fill"
+                className="h-0 min-h-0 w-full flex-1"
                 viewportClassName="prepare-workspace__viewport"
                 reveal="hover"
               >
@@ -872,7 +873,8 @@ export function ProjectReviewPrepareWorkspace({
               </div>
               <StariumScrollArea
                 id="pw-col-right"
-                className="h-full min-h-0 w-full flex-1"
+                layout="fill"
+                className="h-0 min-h-0 w-full flex-1"
                 viewportClassName="prepare-workspace__viewport"
                 reveal="hover"
               >

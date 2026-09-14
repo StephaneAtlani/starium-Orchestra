@@ -858,10 +858,10 @@ export function ReviewAgendaSection({
               <div className="mt-2 flex flex-wrap gap-1.5">
                 <span className="starium-ds-badge starium-ds-badge--neutral">
                   {PROJECT_REVIEW_AGENDA_ITEM_TYPE_LABEL[selected.itemType] ?? selected.itemType}
-                </span>
+                  </span>
                 <span className={cn('starium-ds-badge', agendaStatusBadgeClass(selected.status))}>
                   {PROJECT_REVIEW_AGENDA_ITEM_STATUS_LABEL[selected.status] ?? selected.status}
-                </span>
+                  </span>
                 {selected.plannedDurationMinutes ? (
                   <span className="starium-ds-badge starium-ds-badge--neutral">
                     {selected.plannedDurationMinutes} min
@@ -887,42 +887,42 @@ export function ReviewAgendaSection({
               ) : null}
             </div>
             <div className="flex shrink-0 items-center gap-1">
-              <Button
-                type="button"
+                    <Button
+                      type="button"
                 variant="outline"
-                size="icon"
-                className="size-11"
+                      size="icon"
+                      className="size-11"
                 aria-label="Point précédent"
                 disabled={selectedIndex <= 0}
                 onClick={() => goToRelativePoint(-1)}
               >
                 <ChevronLeft className="size-4" />
-              </Button>
-              <Button
-                type="button"
+                    </Button>
+                    <Button
+                      type="button"
                 variant="outline"
-                size="icon"
-                className="size-11"
+                      size="icon"
+                      className="size-11"
                 aria-label="Point suivant"
                 disabled={selectedIndex >= sortedItems.length - 1}
                 onClick={() => goToRelativePoint(1)}
               >
                 <ChevronRight className="size-4" />
-              </Button>
-            </div>
-          </div>
+                    </Button>
+                  </div>
+              </div>
 
           {conductEditable ? (
             <div className="mt-4 flex flex-wrap gap-2">
               {selected.status === 'TODO' || selected.status === 'SKIPPED' ? (
-                <Button
-                  type="button"
-                  className="min-h-11"
+                  <Button
+                    type="button"
+                    className="min-h-11"
                   onClick={() => void onStartPoint(selected.id)}
-                >
-                  <Play className="size-4" aria-hidden />
-                  Démarrer le point
-                </Button>
+                  >
+                    <Play className="size-4" aria-hidden />
+                    Démarrer le point
+                  </Button>
               ) : null}
               {selected.status === 'IN_PROGRESS' ? (
                 <>
@@ -951,8 +951,8 @@ export function ReviewAgendaSection({
                   Point traité
                 </p>
               ) : null}
-            </div>
-          ) : null}
+        </div>
+      ) : null}
         </header>
 
         <div className="px-4 py-4 sm:px-5 sm:py-5">
@@ -962,40 +962,40 @@ export function ReviewAgendaSection({
                 Préparation du point
               </legend>
               <div className="mt-2 grid gap-4 md:grid-cols-2">
-                <div className="starium-form-field">
-                  <label htmlFor="agenda-objective" className="starium-form-label">
-                    Objectif du point
-                  </label>
+          <div className="starium-form-field">
+            <label htmlFor="agenda-objective" className="starium-form-label">
+              Objectif du point
+            </label>
                   <p id="agenda-objective-hint" className="starium-form-hint mb-1.5">
                     Pourquoi ce sujet est à l&apos;ordre du jour.
                   </p>
-                  <textarea
-                    id="agenda-objective"
+            <textarea
+              id="agenda-objective"
                     className="starium-form-textarea min-h-[88px]"
-                    value={objective}
+              value={objective}
                     readOnly={!conductEditable}
                     aria-describedby="agenda-objective-hint"
-                    onChange={(e) => setObjective(e.target.value)}
-                    onBlur={() => void saveConductFields()}
-                  />
-                </div>
-                <div className="starium-form-field">
-                  <label htmlFor="agenda-expected" className="starium-form-label">
+              onChange={(e) => setObjective(e.target.value)}
+              onBlur={() => void saveConductFields()}
+            />
+          </div>
+          <div className="starium-form-field">
+            <label htmlFor="agenda-expected" className="starium-form-label">
                     Question à trancher
-                  </label>
+            </label>
                   <p id="agenda-expected-hint" className="starium-form-hint mb-1.5">
                     Formulation de la décision recherchée — préparée avant la séance, pas l&apos;acte formalisé.
                   </p>
-                  <textarea
-                    id="agenda-expected"
+            <textarea
+              id="agenda-expected"
                     className="starium-form-textarea min-h-[88px]"
-                    value={expectedDecision}
+              value={expectedDecision}
                     readOnly={!conductEditable}
                     aria-describedby="agenda-expected-hint"
-                    onChange={(e) => setExpectedDecision(e.target.value)}
-                    onBlur={() => void saveConductFields()}
-                  />
-                </div>
+              onChange={(e) => setExpectedDecision(e.target.value)}
+              onBlur={() => void saveConductFields()}
+            />
+          </div>
               </div>
             </fieldset>
 
@@ -1004,41 +1004,41 @@ export function ReviewAgendaSection({
                 Tenue du point
               </legend>
               <div className="mt-2 grid gap-4">
-                <div className="starium-form-field">
-                  <label htmlFor="agenda-notes" className="starium-form-label">
+          <div className="starium-form-field">
+            <label htmlFor="agenda-notes" className="starium-form-label">
                     Notes de séance
-                  </label>
+            </label>
                   <p id="agenda-notes-hint" className="starium-form-hint mb-1.5">
                     Notes prises pendant la discussion (contexte, arguments, participants).
                   </p>
-                  <textarea
-                    id="agenda-notes"
+            <textarea
+              id="agenda-notes"
                     className="starium-form-textarea min-h-[96px]"
-                    value={notes}
+              value={notes}
                     readOnly={!conductEditable}
                     aria-describedby="agenda-notes-hint"
-                    onChange={(e) => setNotes(e.target.value)}
-                    onBlur={() => void saveConductFields()}
-                  />
-                </div>
-                <div className="starium-form-field">
-                  <label htmlFor="agenda-decision" className="starium-form-label">
+              onChange={(e) => setNotes(e.target.value)}
+              onBlur={() => void saveConductFields()}
+            />
+          </div>
+          <div className="starium-form-field">
+            <label htmlFor="agenda-decision" className="starium-form-label">
                     Conclusion du point (brouillon)
-                  </label>
+            </label>
                   <p id="agenda-decision-hint" className="starium-form-hint mb-1.5">
                     Synthèse rapide en fin de point — complémentaire, pas substitut à une décision formalisée.
                   </p>
-                  <textarea
-                    id="agenda-decision"
+            <textarea
+              id="agenda-decision"
                     className="starium-form-textarea min-h-[96px]"
-                    value={decisionSummary}
+              value={decisionSummary}
                     readOnly={!conductEditable}
                     aria-describedby="agenda-decision-hint"
-                    onChange={(e) => setDecisionSummary(e.target.value)}
-                    onBlur={() => void saveConductFields()}
-                  />
-                </div>
-              </div>
+              onChange={(e) => setDecisionSummary(e.target.value)}
+              onBlur={() => void saveConductFields()}
+            />
+          </div>
+        </div>
             </fieldset>
 
             <ConductSuitesPanel
@@ -1577,36 +1577,36 @@ export function ReviewMeetingInfoBlock({
     : null;
 
   const body = (
-    <div className="text-sm">
-      {modeLabel ? (
-        <p className="text-muted-foreground">
-          Format : <span className="font-medium text-foreground">{modeLabel}</span>
-        </p>
-      ) : null}
-      {detail.location ? (
-        <p className="mt-1 text-muted-foreground">
-          Lieu : <span className="font-medium text-foreground">{detail.location}</span>
-        </p>
-      ) : null}
-      {detail.meetingUrl ? (
-        <p className="mt-2">
-          <a
-            href={detail.meetingUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="starium-link inline-flex min-h-11 items-center font-medium"
-          >
-            Rejoindre la réunion
-          </a>
-        </p>
-      ) : null}
-      {detail.startedAt ? (
-        <p className="mt-2 text-xs text-muted-foreground">
-          Démarrée le {new Date(detail.startedAt).toLocaleString('fr-FR')}
-          {detail.startedByDisplayName ? ` par ${detail.startedByDisplayName}` : ''}
-        </p>
-      ) : null}
-    </div>
+      <div className="text-sm">
+        {modeLabel ? (
+          <p className="text-muted-foreground">
+            Format : <span className="font-medium text-foreground">{modeLabel}</span>
+          </p>
+        ) : null}
+        {detail.location ? (
+          <p className="mt-1 text-muted-foreground">
+            Lieu : <span className="font-medium text-foreground">{detail.location}</span>
+          </p>
+        ) : null}
+        {detail.meetingUrl ? (
+          <p className="mt-2">
+            <a
+              href={detail.meetingUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="starium-link inline-flex min-h-11 items-center font-medium"
+            >
+              Rejoindre la réunion
+            </a>
+          </p>
+        ) : null}
+        {detail.startedAt ? (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Démarrée le {new Date(detail.startedAt).toLocaleString('fr-FR')}
+            {detail.startedByDisplayName ? ` par ${detail.startedByDisplayName}` : ''}
+          </p>
+        ) : null}
+      </div>
   );
 
   if (embedded) return body;

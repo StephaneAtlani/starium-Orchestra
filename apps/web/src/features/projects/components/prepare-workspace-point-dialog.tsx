@@ -504,7 +504,7 @@ export function PrepareWorkspacePointDialog({
         size={isPlanning ? 'xl' : 'lg'}
         overlayClassName="!z-[100] bg-black/55 dark:bg-black/70"
         contentClassName={`!z-[101] ${isPlanning ? 'sm:max-w-[min(960px,94vw)] max-h-[min(92dvh,860px)] h-[min(92dvh,860px)]' : 'sm:max-w-[620px] max-h-[min(92dvh,720px)]'}`}
-        bodyClassName="!overflow-hidden flex min-h-0 flex-auto flex-col !p-0"
+        bodyClassName="!overflow-hidden flex min-h-0 flex-1 flex-col !p-0"
         footer={
           <Button
             type="button"

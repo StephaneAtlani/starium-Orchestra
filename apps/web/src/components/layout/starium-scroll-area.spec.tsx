@@ -108,4 +108,33 @@ describe('StariumScrollArea', () => {
       flowContainer.querySelector('.starium-scroll-area__viewport')?.className,
     ).toMatch(/max-h-\[inherit\]/);
   });
+
+  it('layout=fill explicite même sans h-* (colonnes flex atelier)', () => {
+    const { container } = render(
+      <StariumScrollArea layout="fill" className="min-h-0 w-full flex-1">
+        <p>Colonne</p>
+      </StariumScrollArea>,
+    );
+    expect(
+      container.querySelector('[data-starium-scroll]')?.getAttribute(
+        'data-scroll-layout',
+      ),
+    ).toBe('fill');
+    expect(
+      container.querySelector('.starium-scroll-area__viewport')?.className,
+    ).toMatch(/absolute/);
+  });
+
+  it('flex-1 seul ne bascule pas en fill (piège prepare ODJ)', () => {
+    const { container } = render(
+      <StariumScrollArea className="min-h-0 w-full flex-1">
+        <p>Flow par défaut</p>
+      </StariumScrollArea>,
+    );
+    expect(
+      container.querySelector('[data-starium-scroll]')?.getAttribute(
+        'data-scroll-layout',
+      ),
+    ).toBe('flow');
+  });
 });

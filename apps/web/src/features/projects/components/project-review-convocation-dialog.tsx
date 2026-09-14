@@ -458,7 +458,7 @@ export function ProjectReviewConvocationDialog({
       icon={Send}
       size="xl"
       overlayClassName="!z-[100] bg-black/55 dark:bg-black/70"
-      contentClassName="!z-[101] sm:max-w-[min(1080px,96vw)] h-[min(92dvh,calc(100dvh-2rem))]"
+      contentClassName="!z-[101] sm:max-w-[min(1080px,96vw)] !h-[calc(100%-2rem)] !max-h-[calc(100%-2rem)]"
       bodyClassName="!p-0 !overflow-hidden flex min-h-0 flex-1 flex-col"
       footer={
         <>

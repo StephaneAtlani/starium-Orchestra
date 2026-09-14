@@ -49,13 +49,12 @@ describe('DialogContent', () => {
     expect(cls).toContain('top-1/2');
     expect(cls).toContain('-translate-x-1/2');
     expect(cls).toContain('-translate-y-1/2');
-    expect(cls).toContain('max-h-[min(92dvh,calc(100dvh-2rem))]');
+    expect(cls).toContain('max-h-[calc(100%-2rem)]');
     expect(cls).toContain('bg-card');
     expect(cls).toContain('flex');
     expect(cls).toContain('flex-col');
     expect(cls).toContain('min-h-0');
-    expect(cls).toContain('overflow-x-hidden');
-    expect(cls).toContain('overflow-y-hidden');
+    expect(cls).toContain('overflow-hidden');
     expect(cls).not.toContain('overflow-y-auto');
     expect(cls).not.toContain('bottom-0');
   });

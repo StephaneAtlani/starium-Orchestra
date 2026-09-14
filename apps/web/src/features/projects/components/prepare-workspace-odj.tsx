@@ -1,6 +1,12 @@
 'use client';
 
-import { useMemo, useState, type ReactNode, type Ref } from 'react';
+import {
+  useMemo,
+  useState,
+  type ReactNode,
+  type Ref,
+  type WheelEvent,
+} from 'react';
 import {
   Check,
   ChevronDown,
@@ -26,6 +32,21 @@ import {
   type PrepWorkspaceMode,
 } from '../lib/prepare-workspace-types';
 import type { ProjectReviewAgendaItemApi } from '../types/project.types';
+
+/**
+ * Chrome / Safari : molette sur `input[type=number]` focusé change la valeur
+ * et bloque le scroll du parent. Blur en phase capture → le scroll reprend.
+ */
+function blurNumberInputOnWheelCapture(e: WheelEvent) {
+  const t = e.target;
+  if (
+    t instanceof HTMLInputElement &&
+    t.type === 'number' &&
+    document.activeElement === t
+  ) {
+    t.blur();
+  }
+}
 
 export type PrepareOdjPointTarget =
   | { kind: 'block'; blockId: string; index: number }
@@ -311,6 +332,7 @@ export function PrepareWorkspaceOdj({
     <div
       ref={agendaListRef as Ref<HTMLDivElement>}
       className="prepare-workspace__odj"
+      onWheelCapture={blurNumberInputOnWheelCapture}
     >
       <div className="prepare-workspace__mid-h">
         <div>
@@ -338,7 +360,8 @@ export function PrepareWorkspaceOdj({
       </div>
 
       <StariumScrollArea
-        className="prepare-workspace__odj-scroll min-h-0 w-full flex-1"
+        layout="fill"
+        className="prepare-workspace__odj-scroll h-0 min-h-0 w-full flex-1"
         viewportClassName="prepare-workspace__odj-viewport"
         reveal="hover"
       >

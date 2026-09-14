@@ -252,7 +252,7 @@ export function ProjectReviewPrepareDialog({
           ) : null
         }
       >
-        {!reviewId || detailQuery.isLoading ? (
+        {!reviewId || (detailQuery.isPending && !detail) ? (
           <div className="p-4">
             <LoadingState rows={6} />
           </div>

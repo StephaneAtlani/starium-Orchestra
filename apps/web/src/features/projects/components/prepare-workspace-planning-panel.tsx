@@ -354,7 +354,9 @@ export function PrepareWorkspacePlanningPanel({
                   className={`prepare-workspace__chk${on ? ' is-on' : ''}`}
                   aria-hidden
                 >
-                  {on ? <Check className="size-2.5" /> : null}
+                  {on ? (
+                    <Check className="size-2.5 shrink-0 stroke-[3]" aria-hidden />
+                  ) : null}
                 </span>
                 <span
                   className={`prepare-plan__diamond is-${m.tone}`}
