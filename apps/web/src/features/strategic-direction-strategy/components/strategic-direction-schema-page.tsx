@@ -1504,8 +1504,12 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
       </div>
 
       <div className="card stg-hero">
-        <div className="stg-hero-sigle" style={{ background: T.bg, color: T.c }}>
-          {code}
+        <div
+          className="stg-hero-sigle"
+          style={{ background: T.bg, color: T.c }}
+          title={displayLabel(code, 'Direction')}
+        >
+          {displayLabel(code, 'Direction')}
         </div>
         <div className="stg-hero-id">
           <h2>{name}</h2>
