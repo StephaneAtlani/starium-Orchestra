@@ -17,7 +17,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { displayLabel, firstDisplayLabel } from '@/lib/display-label';
-import { toast } from '@/lib/toast';
 import {
   StrategicAxisNameLabel,
 } from '@/features/strategic-vision/components/strategic-axis-name-label';
@@ -656,18 +655,6 @@ export function StrategicDirectionStrategyConsolidationPage({ alignedVisionId }:
                         </span>
                       ))}
                     </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="min-h-11"
-                      onClick={() =>
-                        toast.success(
-                          'Recouvrement inscrit à l’ordre du jour de la revue croisée',
-                        )
-                      }
-                    >
-                      Inscrire en revue croisée
-                    </Button>
                   </div>
                 </div>
               );
