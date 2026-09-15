@@ -312,6 +312,7 @@ export function StrategicDirectionStrategyPortfolioPage() {
                       <div
                         className="stg-sigle"
                         style={{ background: T.bg, color: T.c }}
+                        title={displayLabel(card.code, 'Direction')}
                       >
                         {displayLabel(card.code, 'Direction')}
                       </div>
