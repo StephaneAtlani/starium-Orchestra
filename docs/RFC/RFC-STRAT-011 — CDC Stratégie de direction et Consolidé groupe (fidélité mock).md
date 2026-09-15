@@ -31,7 +31,7 @@ Clic carte → vue dédiée **`#view-dirstrat`** (« *SIGLE — Schéma directeu
 - Actions header : Export PDF · **Partager** (lien / Web Share) · Nouvelle revue · **Nouvelle version** (`APPROVED`) · **Archiver** (`APPROVED`) · Modifier la direction
 - Modales : direction · chantier · bloc · OKR · revue · **nouvelle version** (`archiveReason`) · **archiver** · comparateur 2 directions
 - Édition contenu : uniquement `DRAFT` / `REJECTED` (`canEditContent`) ; `SUBMITTED` / `APPROVED` / `ARCHIVED` = lecture seule (CTA version/archive en header)
-- Options client (`/strategic-direction-strategy/options`, CLIENT_ADMIN) : choix validateur · **`allowSelfValidation`** · validateurs autorisés
+- Options client (modale depuis le portefeuille / `?options=1`, CLIENT_ADMIN) : choix validateur · **`allowSelfValidation`** · validateurs autorisés
 - Portfolio : badge **Sponsor** ; CTA créer gated `canCreateStrategy`
 
 ### 1.2 Ce que le produit a déjà (STRAT-005 / 006)

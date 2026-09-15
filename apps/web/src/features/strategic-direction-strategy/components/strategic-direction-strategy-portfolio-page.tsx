@@ -1,12 +1,11 @@
 'use client';
 
-import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Plus, Search, Settings2 } from 'lucide-react';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { EmptyState } from '@/components/feedback/empty-state';
 import { ErrorState } from '@/components/feedback/error-state';
@@ -20,6 +19,7 @@ import {
 } from '../hooks/use-strategic-direction-strategy-queries';
 import { getStrategicDirectionStrategyStatusLabel } from '../lib/strategic-direction-strategy-labels';
 import { StrategicDirectionStrategyConsolidationPage } from './strategic-direction-strategy-consolidation-page';
+import { StrategicDirectionStrategyOptionsDialog } from './strategic-direction-strategy-options-dialog';
 import '../styles/strategie.css';
 
 const TONE_STYLE: Record<string, { c: string; bg: string }> = {
@@ -134,6 +134,26 @@ export function StrategicDirectionStrategyPortfolioPage() {
     router.replace(q ? `?${q}` : '/strategic-direction-strategy');
   };
 
+  const [optionsOpen, setOptionsOpen] = useState(
+    () => searchParams.get('options') === '1',
+  );
+
+  useEffect(() => {
+    if (searchParams.get('options') === '1') {
+      setOptionsOpen(true);
+    }
+  }, [searchParams]);
+
+  const closeOptions = (open: boolean) => {
+    setOptionsOpen(open);
+    if (!open && searchParams.get('options') === '1') {
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete('options');
+      const q = params.toString();
+      router.replace(q ? `?${q}` : '/strategic-direction-strategy');
+    }
+  };
+
   return (
     <PageContainer>
       <div className="stg-root">
@@ -142,13 +162,15 @@ export function StrategicDirectionStrategyPortfolioPage() {
         description="Chaque direction porte sa propre stratégie sous forme de schéma directeur."
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <Link
-              href="/strategic-direction-strategy/options"
-              className={cn(buttonVariants({ variant: 'outline' }), 'min-h-11')}
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11"
+              onClick={() => setOptionsOpen(true)}
             >
               <Settings2 className="size-4" aria-hidden />
               Options
-            </Link>
+            </Button>
             {canManageDirections || canCreate ? (
               <Button
                 type="button"
@@ -165,6 +187,10 @@ export function StrategicDirectionStrategyPortfolioPage() {
         }
       />
 
+      <StrategicDirectionStrategyOptionsDialog
+        open={optionsOpen}
+        onOpenChange={closeOptions}
+      />
       <div
         className="starium-tab-group stg-subtabs max-w-full overflow-x-auto"
         id="ds-subtabs"

@@ -340,7 +340,7 @@ export function StrategicDirectionStrategyConsolidationPage({ alignedVisionId }:
                     <StrategicAxisNameLabel name={a.name} iconClassName="size-3.5 shrink-0" />
                   </th>
                 ))}
-                <th>Score</th>
+                <th className="score">Score</th>
               </tr>
             </thead>
             <tbody>
@@ -366,21 +366,16 @@ export function StrategicDirectionStrategyConsolidationPage({ alignedVisionId }:
                           value={cell.contributionPct}
                           title={`${cell.initiativesCount} chantier(s) rattaché(s)`}
                         />
-                        <div
-                          style={{
-                            textAlign: 'center',
-                            fontSize: '10.5px',
-                            fontWeight: 700,
-                            color: 'var(--neutral-400)',
-                            marginTop: 2,
-                          }}
-                        >
+                        <div className="stg-mx-sub">
                           {cell.initiativesCount ? `${cell.initiativesCount} ch.` : '—'}
                         </div>
                       </td>
                     ))}
-                    <td>
-                      <HeatCell value={row.score} />
+                    <td className="score">
+                      <HeatCell value={row.score} title="Score d’alignement" />
+                      <div className="stg-mx-sub" aria-hidden>
+                        &nbsp;
+                      </div>
                     </td>
                   </tr>
                 );
