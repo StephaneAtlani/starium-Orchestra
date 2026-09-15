@@ -8,12 +8,11 @@ import {
   Archive,
   ArrowLeft,
   CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
   ClipboardCheck,
   FileText,
   FileUp,
   GitBranch,
+  GripVertical,
   LayoutGrid,
   Pencil,
   Plus,
@@ -439,6 +438,8 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
   const [kpiOpen, setKpiOpen] = useState(false);
   const [kpiDraft, setKpiDraft] = useState<StrategyKpi>(emptyKpi());
   const [editingKpiIndex, setEditingKpiIndex] = useState<number | null>(null);
+  const [draggingKpiIndex, setDraggingKpiIndex] = useState<number | null>(null);
+  const [dragOverKpiIndex, setDragOverKpiIndex] = useState<number | null>(null);
 
   const [reviewOpen, setReviewOpen] = useState(false);
   const [submitValidatorUserId, setSubmitValidatorUserId] = useState('');
@@ -1615,41 +1616,66 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
               canUpdate &&
               strategy.status !== 'ARCHIVED' &&
               strategy.status !== 'SUBMITTED';
+            const canReorder = editable && kpis.length > 1 && !updateMutation.isPending;
             return (
               <div
                 key={`${k.label}-${i}`}
                 className={cn(
                   'stg-kpi-wrap',
-                  editable && kpis.length > 1 && 'stg-kpi-wrap--reorder',
+                  canReorder && 'stg-kpi-wrap--reorder',
+                  draggingKpiIndex === i && 'stg-kpi-wrap--dragging',
+                  dragOverKpiIndex === i && draggingKpiIndex != null && draggingKpiIndex !== i && 'stg-kpi-wrap--drop',
                 )}
+                onDragOver={
+                  canReorder
+                    ? (e) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'move';
+                        if (dragOverKpiIndex !== i) setDragOverKpiIndex(i);
+                      }
+                    : undefined
+                }
+                onDragLeave={
+                  canReorder
+                    ? () => {
+                        setDragOverKpiIndex((cur) => (cur === i ? null : cur));
+                      }
+                    : undefined
+                }
+                onDrop={
+                  canReorder
+                    ? (e) => {
+                        e.preventDefault();
+                        const raw = e.dataTransfer.getData('text/plain');
+                        const from = Number.parseInt(raw, 10);
+                        setDraggingKpiIndex(null);
+                        setDragOverKpiIndex(null);
+                        if (Number.isFinite(from)) void moveKpi(from, i);
+                      }
+                    : undefined
+                }
               >
-                {editable && kpis.length > 1 ? (
-                  <div className="stg-kpi-reorder" role="group" aria-label="Ordre de l’indicateur">
-                    <button
-                      type="button"
-                      className="stg-kpi-reorder-btn min-h-11 min-w-11"
-                      disabled={i === 0 || updateMutation.isPending}
-                      aria-label={`Déplacer « ${displayLabel(k.label, 'Indicateur')} » vers la gauche`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        void moveKpi(i, i - 1);
-                      }}
-                    >
-                      <ChevronLeft className="size-4" aria-hidden />
-                    </button>
-                    <button
-                      type="button"
-                      className="stg-kpi-reorder-btn min-h-11 min-w-11"
-                      disabled={i === kpis.length - 1 || updateMutation.isPending}
-                      aria-label={`Déplacer « ${displayLabel(k.label, 'Indicateur')} » vers la droite`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        void moveKpi(i, i + 1);
-                      }}
-                    >
-                      <ChevronRight className="size-4" aria-hidden />
-                    </button>
-                  </div>
+                {canReorder ? (
+                  <button
+                    type="button"
+                    className="stg-kpi-drag min-h-11 min-w-11"
+                    draggable
+                    aria-label={`Glisser pour réordonner « ${displayLabel(k.label, 'Indicateur')} »`}
+                    title="Glisser-déposer pour changer l’ordre"
+                    onClick={(e) => e.stopPropagation()}
+                    onDragStart={(e) => {
+                      e.stopPropagation();
+                      setDraggingKpiIndex(i);
+                      e.dataTransfer.effectAllowed = 'move';
+                      e.dataTransfer.setData('text/plain', String(i));
+                    }}
+                    onDragEnd={() => {
+                      setDraggingKpiIndex(null);
+                      setDragOverKpiIndex(null);
+                    }}
+                  >
+                    <GripVertical className="size-4" aria-hidden />
+                  </button>
                 ) : null}
                 <button
                   type="button"
