@@ -132,8 +132,8 @@ export function StrategicDirectionStrategyOptionsDialog({ open, onOpenChange }: 
               Circuit de validation
             </h3>
 
-            <div className="starium-form-field flex items-start justify-between gap-4">
-              <div className="min-w-0 space-y-1">
+            <div className="flex min-h-11 flex-row items-start justify-between gap-4">
+              <div className="min-w-0 flex-1 space-y-1">
                 <Label htmlFor="allow-submitter-pick-validator">
                   Le soumissionnaire choisit le validateur
                 </Label>
@@ -144,6 +144,7 @@ export function StrategicDirectionStrategyOptionsDialog({ open, onOpenChange }: 
               </div>
               <Switch
                 id="allow-submitter-pick-validator"
+                className="mt-0.5 shrink-0"
                 checked={allowPick}
                 disabled={patchMutation.isPending}
                 onCheckedChange={(checked) => {
@@ -171,8 +172,8 @@ export function StrategicDirectionStrategyOptionsDialog({ open, onOpenChange }: 
               />
             </div>
 
-            <div className="starium-form-field flex items-start justify-between gap-4">
-              <div className="min-w-0 space-y-1">
+            <div className="flex min-h-11 flex-row items-start justify-between gap-4">
+              <div className="min-w-0 flex-1 space-y-1">
                 <Label htmlFor="allow-self-validation">Autoriser l’auto-validation</Label>
                 <p className="text-xs text-muted-foreground">
                   Si activé, le soumissionnaire peut valider ou refuser sa propre stratégie (utile
@@ -181,6 +182,7 @@ export function StrategicDirectionStrategyOptionsDialog({ open, onOpenChange }: 
               </div>
               <Switch
                 id="allow-self-validation"
+                className="mt-0.5 shrink-0"
                 checked={allowSelfValidation}
                 disabled={patchMutation.isPending}
                 onCheckedChange={(checked) => patch({ allowSelfValidation: checked })}
@@ -246,6 +248,7 @@ export function StrategicDirectionStrategyOptionsDialog({ open, onOpenChange }: 
                         {firstDisplayLabel([user.displayName, user.email], 'Validateur')}
                       </span>
                       <Switch
+                        className="shrink-0"
                         checked={indeterminateEmpty ? false : checked}
                         disabled={patchMutation.isPending}
                         onCheckedChange={(next) => {

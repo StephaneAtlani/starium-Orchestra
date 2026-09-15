@@ -36,7 +36,7 @@ export type NormalizedRisk = {
   mitigation: string;
 };
 export type NormalizedContentBlock = {
-  kind: 'text' | 'image';
+  kind: 'text' | 'image' | 'document';
   title: string;
   body: string;
   documentId: string | null;
@@ -230,7 +230,9 @@ function normalizeBlocks(raw: unknown): NormalizedContentBlock[] {
       if (!r) return null;
       const title = str(r.title ?? r.t).trim();
       if (!title) return null;
-      const kind = str(r.kind ?? r.k, 'text') === 'image' ? 'image' : 'text';
+      const kindRaw = str(r.kind ?? r.k, 'text');
+      const kind: NormalizedContentBlock['kind'] =
+        kindRaw === 'image' ? 'image' : kindRaw === 'document' ? 'document' : 'text';
       return {
         kind,
         title,

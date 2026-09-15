@@ -202,8 +202,8 @@ export class StrategyRiskDto {
 }
 
 export class StrategyContentBlockDto {
-  @IsIn(['text', 'image'])
-  kind!: 'text' | 'image';
+  @IsIn(['text', 'image', 'document'])
+  kind!: 'text' | 'image' | 'document';
 
   @IsString()
   @IsNotEmpty()

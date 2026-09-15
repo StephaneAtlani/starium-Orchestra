@@ -32,7 +32,7 @@ export type StrategyRisk = {
   mitigation: string;
 };
 export type StrategyContentBlock = {
-  kind: 'text' | 'image';
+  kind: 'text' | 'image' | 'document';
   title: string;
   body: string;
   documentId: string | null;

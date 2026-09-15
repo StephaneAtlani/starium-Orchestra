@@ -131,6 +131,20 @@ describe('normalizeStrategySchemaPayload', () => {
     });
   });
 
+  it('normalise un bloc document avec documentId', () => {
+    const schema = normalizeStrategySchemaPayload({
+      contentBlocks: [
+        { kind: 'document', title: 'Charte architecture', body: 'V1', documentId: 'doc-1' },
+      ],
+    });
+    expect(schema.contentBlocks[0]).toEqual({
+      kind: 'document',
+      title: 'Charte architecture',
+      body: 'V1',
+      documentId: 'doc-1',
+    });
+  });
+
   it('fournit 3 axes propres par défaut si absents', () => {
     const schema = normalizeStrategySchemaPayload({});
     expect(schema.ownAxes).toHaveLength(3);

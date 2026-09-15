@@ -10,9 +10,9 @@ import {
   CheckCircle2,
   ClipboardCheck,
   FileText,
+  FileUp,
   GitBranch,
   LayoutGrid,
-  MoreHorizontal,
   Pencil,
   Plus,
   Printer,
@@ -24,6 +24,7 @@ import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button, buttonVariants } from '@/components/ui/button';
+import { IconButton } from '@/components/ui/icon-button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { LoadingState } from '@/components/feedback/loading-state';
@@ -49,6 +50,7 @@ import {
 import type { StrategicDirectionDto } from '@/features/strategic-vision/types/strategic-vision.types';
 import { StrategyDocumentPicker } from './strategy-document-picker';
 import { StrategyBlockImagePreview } from './strategy-block-image-preview';
+import { StrategyBlockDocumentPreview } from './strategy-block-document-preview';
 import { HumanResourceCombobox } from '@/features/teams/work-teams/components/human-resource-combobox';
 import { humanResourceLeadLabel } from '@/features/teams/work-teams/components/work-team-lead-combobox';
 import {
@@ -675,6 +677,13 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
       toast.error('Titre du bloc requis.');
       return;
     }
+    if (
+      (blockDraft.kind === 'image' || blockDraft.kind === 'document') &&
+      !blockDraft.documentId
+    ) {
+      toast.error('Sélectionnez ou déposez un document.');
+      return;
+    }
     const list = [...schema.contentBlocks];
     const payload = { ...blockDraft, title, body: blockDraft.body?.trim() ?? '' };
     if (editingBlockIndex != null && editingBlockIndex >= 0) list[editingBlockIndex] = payload;
@@ -1238,119 +1247,80 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
           <div className="flex flex-wrap items-center gap-2">
             <Link
               href="/strategic-direction-strategy"
-              className={cn(buttonVariants({ variant: 'outline' }), 'min-h-11')}
+              className={cn(
+                buttonVariants({ variant: 'outline', size: 'icon' }),
+                'min-h-11 min-w-11',
+              )}
+              aria-label="Toutes les directions"
             >
               <ArrowLeft className="size-4" aria-hidden />
-              <span className="max-sm:sr-only">Toutes les directions</span>
             </Link>
             {canShare ? (
-              <Button
+              <IconButton
                 type="button"
                 variant="outline"
-                className="min-h-11"
+                className="min-h-11 min-w-11"
+                aria-label="Partager"
                 onClick={() => void handleShare()}
               >
                 <Share2 className="size-4" aria-hidden />
-                Partager
-              </Button>
+              </IconButton>
             ) : null}
             {showReviewEntry ? (
-              <Button
+              <IconButton
                 type="button"
                 variant="outline"
-                className="min-h-11"
+                className="min-h-11 min-w-11"
+                aria-label="Nouvelle revue"
                 onClick={() => setReviewOpen(true)}
               >
                 <ClipboardCheck className="size-4" aria-hidden />
-                Nouvelle revue
-              </Button>
+              </IconButton>
             ) : null}
             {canAdaptVersion ? (
-              <Button
+              <IconButton
                 type="button"
                 variant="outline"
-                className="min-h-11"
+                className="min-h-11 min-w-11"
+                aria-label="Nouvelle version"
                 onClick={() => setAdaptOpen(true)}
               >
                 <GitBranch className="size-4" aria-hidden />
-                Nouvelle version
-              </Button>
+              </IconButton>
             ) : null}
-            <div className="hidden flex-wrap items-center gap-2 sm:flex">
-              {canExport ? (
-                <Button type="button" variant="outline" className="min-h-11" onClick={handlePrint}>
-                  <Printer className="size-4" aria-hidden />
-                  Export PDF 1 page
-                </Button>
-              ) : null}
-              {canArchive ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="min-h-11"
-                  onClick={() => setArchiveOpen(true)}
-                >
-                  <Archive className="size-4" aria-hidden />
-                  Archiver
-                </Button>
-              ) : null}
-              {canManageDirection ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="min-h-11"
-                  onClick={() => setDirectionEditOpen(true)}
-                >
-                  <Pencil className="size-4" aria-hidden />
-                  Modifier la direction
-                </Button>
-              ) : null}
-            </div>
-            {(canExport || canArchive || canManageDirection) && (
-              <details className="group/details relative sm:hidden">
-                <summary
-                  className={cn(
-                    buttonVariants({ variant: 'outline', size: 'icon' }),
-                    'min-h-11 min-w-11 [&::-webkit-details-marker]:hidden list-none',
-                  )}
-                  aria-label="Plus d’actions"
-                >
-                  <MoreHorizontal className="size-4" aria-hidden />
-                </summary>
-                <div className="starium-dropdown-panel absolute right-0 z-[120] mt-1 min-w-[14rem] rounded-xl border border-border bg-card py-1.5 shadow-lg">
-                  {canExport ? (
-                    <button
-                      type="button"
-                      className="flex min-h-11 w-full items-center gap-2.5 px-3.5 py-3 text-left text-sm hover:bg-accent"
-                      onClick={handlePrint}
-                    >
-                      <Printer className="size-4 shrink-0 opacity-80" aria-hidden />
-                      Export PDF 1 page
-                    </button>
-                  ) : null}
-                  {canArchive ? (
-                    <button
-                      type="button"
-                      className="flex min-h-11 w-full items-center gap-2.5 px-3.5 py-3 text-left text-sm hover:bg-accent"
-                      onClick={() => setArchiveOpen(true)}
-                    >
-                      <Archive className="size-4 shrink-0 opacity-80" aria-hidden />
-                      Archiver
-                    </button>
-                  ) : null}
-                  {canManageDirection ? (
-                    <button
-                      type="button"
-                      className="flex min-h-11 w-full items-center gap-2.5 px-3.5 py-3 text-left text-sm hover:bg-accent"
-                      onClick={() => setDirectionEditOpen(true)}
-                    >
-                      <Pencil className="size-4 shrink-0 opacity-80" aria-hidden />
-                      Modifier la direction
-                    </button>
-                  ) : null}
-                </div>
-              </details>
-            )}
+            {canExport ? (
+              <IconButton
+                type="button"
+                variant="outline"
+                className="min-h-11 min-w-11"
+                aria-label="Export PDF 1 page"
+                onClick={handlePrint}
+              >
+                <Printer className="size-4" aria-hidden />
+              </IconButton>
+            ) : null}
+            {canArchive ? (
+              <IconButton
+                type="button"
+                variant="outline"
+                className="min-h-11 min-w-11"
+                aria-label="Archiver"
+                onClick={() => setArchiveOpen(true)}
+              >
+                <Archive className="size-4" aria-hidden />
+              </IconButton>
+            ) : null}
+            {canManageDirection ? (
+              <IconButton
+                type="button"
+                variant="outline"
+                className="min-h-11 min-w-11"
+                aria-label="Modifier la direction"
+                onClick={() => setDirectionEditOpen(true)}
+              >
+                <Pencil className="size-4" aria-hidden />
+              </IconButton>
+            ) : null}
           </div>
         }
       />
@@ -1902,7 +1872,8 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
                   Notes &amp; pièces du schéma directeur
                 </div>
                 <div className="stg-sec-sub">
-                  Textes de cadrage, principes, schémas d’architecture — libre à la direction.
+                  Textes de cadrage, principes, schémas d’architecture et documents joints —
+                  libre à la direction.
                 </div>
               </div>
               {canUpdate && strategy.status !== 'ARCHIVED' && strategy.status !== 'SUBMITTED' ? (
@@ -1923,13 +1894,24 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
                   >
                     Ajouter une image
                   </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="min-h-11"
+                    onClick={() =>
+                      openBlock({ kind: 'document', title: '', body: '', documentId: null })
+                    }
+                  >
+                    <FileUp className="size-4" aria-hidden />
+                    Ajouter un document
+                  </Button>
                 </div>
               ) : null}
             </div>
             {blocks.length === 0 ? (
               <div className="card">
                 <div className="stg-empty">
-                  Aucune note. Ajoutez un texte de cadrage ou un schéma.
+                  Aucune note. Ajoutez un texte de cadrage, un schéma ou un document joint.
                 </div>
               </div>
             ) : (
@@ -1960,6 +1942,19 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
                           <span style={{ fontWeight: 600, color: 'var(--neutral-400)' }}>
                             Glisser-déposer ou cliquer
                           </span>
+                        </div>
+                      )
+                    ) : b.kind === 'document' ? (
+                      b.documentId ? (
+                        <StrategyBlockDocumentPreview
+                          strategyId={strategyId}
+                          documentId={b.documentId}
+                          title={b.title}
+                          description={b.body || undefined}
+                        />
+                      ) : (
+                        <div className="stg-block-b text-muted-foreground">
+                          Document non lié — ouvrez le bloc pour joindre un fichier.
                         </div>
                       )
                     ) : (
@@ -3394,7 +3389,9 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
               onValueChange={(v) =>
                 setBlockDraft((d) => ({
                   ...d,
-                  kind: v === 'image' ? 'image' : 'text',
+                  kind: v === 'image' ? 'image' : v === 'document' ? 'document' : 'text',
+                  documentId:
+                    v === 'text' ? null : d.documentId,
                 }))
               }
             >
@@ -3403,7 +3400,8 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="text">Texte</SelectItem>
-                <SelectItem value="image">Image / schéma (Documents)</SelectItem>
+                <SelectItem value="image">Image / schéma</SelectItem>
+                <SelectItem value="document">Document (PDF, image…)</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -3420,7 +3418,11 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
           </div>
           <div className="starium-form-field">
             <label className="starium-form-label" htmlFor="stg-block-body">
-              {blockDraft.kind === 'image' ? 'Légende / consigne' : 'Contenu'}
+              {blockDraft.kind === 'image'
+                ? 'Légende / consigne'
+                : blockDraft.kind === 'document'
+                  ? 'Description (optionnelle)'
+                  : 'Contenu'}
             </label>
             <Textarea
               id="stg-block-body"
@@ -3430,18 +3432,29 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
               placeholder={
                 blockDraft.kind === 'image'
                   ? 'Légende affichée sous le schéma.'
-                  : undefined
+                  : blockDraft.kind === 'document'
+                    ? 'Contexte ou consigne d’usage du document.'
+                    : undefined
               }
             />
           </div>
-          {blockDraft.kind === 'image' ? (
+          {blockDraft.kind === 'image' || blockDraft.kind === 'document' ? (
             <StrategyDocumentPicker
               strategyId={strategyId}
               value={blockDraft.documentId}
-              onLinkDocument={(documentId) =>
-                setBlockDraft((d) => ({ ...d, documentId }))
+              onLinkDocument={(documentId, document) =>
+                setBlockDraft((d) => ({
+                  ...d,
+                  documentId,
+                  title:
+                    d.title.trim() ||
+                    displayLabel(document?.name, '').trim() ||
+                    d.title,
+                }))
               }
-              label="Image / schéma (Documents)"
+              label={
+                blockDraft.kind === 'image' ? 'Image / schéma' : 'Document joint'
+              }
             />
           ) : null}
         </div>

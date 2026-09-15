@@ -24,7 +24,7 @@ export function StrategyDocumentPicker({
 }: {
   strategyId: string;
   value?: string | null;
-  onLinkDocument: (documentId: string) => void;
+  onLinkDocument: (documentId: string, document?: { name?: string | null }) => void;
   disabled?: boolean;
   id?: string;
   label?: string;
@@ -44,7 +44,7 @@ export function StrategyDocumentPicker({
     }
     try {
       const created = await upload.mutateAsync(file);
-      onLinkDocument(created.id);
+      onLinkDocument(created.id, created);
       toast.success('Document joint.');
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Upload impossible.');
@@ -62,7 +62,10 @@ export function StrategyDocumentPicker({
           disabled={disabled || documentsQuery.isLoading}
           onChange={(e) => {
             const next = e.target.value;
-            if (next) onLinkDocument(next);
+            if (next) {
+              const picked = options.find((d) => d.id === next);
+              onLinkDocument(next, picked);
+            }
           }}
           aria-label={label}
         >
