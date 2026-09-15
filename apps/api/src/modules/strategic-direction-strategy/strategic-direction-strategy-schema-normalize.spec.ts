@@ -31,8 +31,18 @@ describe('normalizeStrategySchemaPayload', () => {
       ownerLabel: '—',
       target: '99,9 %',
       current: '—',
+      unit: '',
       progressPct: 0,
     });
+  });
+
+  it('conserve unit sur expectedOutcomes', () => {
+    const schema = normalizeStrategySchemaPayload({
+      expectedOutcomes: [
+        { title: 'Délai clôture', target: '5', current: '9', unit: 'jours', progressPct: 40 },
+      ],
+    });
+    expect(schema.expectedOutcomes[0]?.unit).toBe('jours');
   });
 
   it('mappe le legacy kpis { name, target, unit }', () => {

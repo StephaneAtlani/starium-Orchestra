@@ -23,6 +23,7 @@ export type NormalizedOutcome = {
   ownerLabel: string;
   target: string;
   current: string;
+  unit: string;
   progressPct: number;
 };
 export type NormalizedKpi = { label: string; value: string; detail: string };
@@ -175,6 +176,7 @@ function normalizeOutcomes(raw: unknown): NormalizedOutcome[] {
         ownerLabel: str(r.ownerLabel ?? r.who, '—') || '—',
         target: str(r.target ?? r.kpi, '—') || '—',
         current: str(r.current ?? r.cur, '—') || '—',
+        unit: str(r.unit ?? r.u).trim(),
         progressPct: clampPct(r.progressPct ?? r.pct),
       };
     })

@@ -166,7 +166,7 @@ export function StrategicDirectionStrategyPortfolioPage() {
       />
 
       <div
-        className="bud-subtabs"
+        className="starium-tab-group stg-subtabs max-w-full overflow-x-auto"
         id="ds-subtabs"
         role="tablist"
         aria-label="Vues stratégie"
@@ -175,7 +175,10 @@ export function StrategicDirectionStrategyPortfolioPage() {
           type="button"
           role="tab"
           aria-selected={view === 'directions'}
-          className={cn('bud-subtab', view === 'directions' && 'active')}
+          className={cn(
+            'starium-tab-btn min-h-11 shrink-0 sm:min-h-9',
+            view === 'directions' && 'starium-tab-btn--active',
+          )}
           onClick={() => setView('directions')}
         >
           Directions
@@ -185,7 +188,10 @@ export function StrategicDirectionStrategyPortfolioPage() {
           type="button"
           role="tab"
           aria-selected={view === 'consolide'}
-          className={cn('bud-subtab', view === 'consolide' && 'active')}
+          className={cn(
+            'starium-tab-btn min-h-11 shrink-0 sm:min-h-9',
+            view === 'consolide' && 'starium-tab-btn--active',
+          )}
           onClick={() => setView('consolide')}
         >
           Consolidé groupe

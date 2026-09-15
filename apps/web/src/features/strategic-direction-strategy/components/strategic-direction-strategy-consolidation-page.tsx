@@ -18,6 +18,9 @@ import {
 } from '@/components/ui/select';
 import { displayLabel, firstDisplayLabel } from '@/lib/display-label';
 import { toast } from '@/lib/toast';
+import {
+  StrategicAxisNameLabel,
+} from '@/features/strategic-vision/components/strategic-axis-name-label';
 import { cn } from '@/lib/utils';
 import {
   useStrategicDirectionStrategyCompareQuery,
@@ -333,7 +336,9 @@ export function StrategicDirectionStrategyConsolidationPage({ alignedVisionId }:
               <tr>
                 <th className="rowh">Direction</th>
                 {data.visionAxes.map((a) => (
-                  <th key={a.id}>{displayLabel(a.name, 'Axe')}</th>
+                  <th key={a.id}>
+                    <StrategicAxisNameLabel name={a.name} iconClassName="size-3.5 shrink-0" />
+                  </th>
                 ))}
                 <th>Score</th>
               </tr>
@@ -511,7 +516,7 @@ export function StrategicDirectionStrategyConsolidationPage({ alignedVisionId }:
                           {row.axisNames.length > 0 ? (
                             row.axisNames.map((n) => (
                               <span key={n} className="stg-chip">
-                                {displayLabel(n, 'Axe')}
+                                <StrategicAxisNameLabel name={n} />
                               </span>
                             ))
                           ) : (
@@ -872,7 +877,9 @@ export function StrategicDirectionStrategyConsolidationPage({ alignedVisionId }:
                           className="stg-contrib-row"
                           style={{ gridTemplateColumns: '1fr 90px 38px' }}
                         >
-                          <div className="l">{displayLabel(cell.axisName, 'Axe')}</div>
+                          <div className="l">
+                            <StrategicAxisNameLabel name={cell.axisName} />
+                          </div>
                           <div className="t" style={{ height: 14 }}>
                             <i
                               style={{

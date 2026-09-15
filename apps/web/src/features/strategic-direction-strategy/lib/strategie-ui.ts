@@ -118,3 +118,53 @@ export function overlapSeverityLabel(sev: 'high' | 'mid' | 'low'): string {
   if (sev === 'mid') return 'Recouvrement notable';
   return 'Recouvrement limité';
 }
+
+/**
+ * Parse une métrique OKR libre (« 80 », « 12,5 % », « 1 200 », « 50k »).
+ * Retourne null si ce n’est pas un nombre exploitable.
+ */
+export function parseOkrMetricNumber(raw: string | null | undefined): number | null {
+  if (typeof raw !== 'string') return null;
+  let t = raw.trim();
+  if (!t || t === '—' || t === '-') return null;
+  t = t.replace(/\u00a0/g, ' ').replace(/\s+/g, '');
+  t = t.replace(/%/g, '').replace(/€/g, '').replace(/\$/g, '');
+  const kMatch = t.match(/^(-?\d+(?:[.,]\d+)?)[kK]$/);
+  if (kMatch) {
+    const base = Number(kMatch[1]!.replace(',', '.'));
+    return Number.isFinite(base) ? base * 1000 : null;
+  }
+  t = t.replace(',', '.');
+  if (!/^-?\d+(\.\d+)?$/.test(t)) return null;
+  const n = Number(t);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Avancement % = actuel / cible, borné 0–100. Null si non calculable. */
+export function computeOkrProgressPct(
+  currentRaw: string | null | undefined,
+  targetRaw: string | null | undefined,
+): number | null {
+  const current = parseOkrMetricNumber(currentRaw);
+  const target = parseOkrMetricNumber(targetRaw);
+  if (current == null || target == null || target === 0) return null;
+  return Math.min(100, Math.max(0, Math.round((current / target) * 100)));
+}
+
+/** Affiche une métrique OKR avec son unité (« 80 jours », « 12,5 % »). */
+export function formatOkrValueWithUnit(
+  value: string | null | undefined,
+  unit: string | null | undefined,
+  emptyFallback: string,
+): string {
+  const v =
+    typeof value === 'string' && value.trim() && value.trim() !== '—'
+      ? value.trim()
+      : '';
+  if (!v) return emptyFallback;
+  const u = typeof unit === 'string' ? unit.trim() : '';
+  if (!u) return v;
+  if (v.endsWith(u) || (u === '%' && v.includes('%'))) return v;
+  return `${v} ${u}`;
+}
+

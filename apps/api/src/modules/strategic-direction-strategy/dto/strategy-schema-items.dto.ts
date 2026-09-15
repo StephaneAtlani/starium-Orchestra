@@ -141,6 +141,11 @@ export class StrategyOutcomeDto {
   @MaxLength(255)
   current?: string;
 
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  unit?: string;
+
   @Type(() => Number)
   @IsInt()
   @Min(0)

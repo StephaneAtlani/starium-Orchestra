@@ -19,6 +19,7 @@ export type StrategyOutcome = {
   ownerLabel: string;
   target: string;
   current: string;
+  unit: string;
   progressPct: number;
 };
 export type StrategyKpi = { label: string; value: string; detail: string };

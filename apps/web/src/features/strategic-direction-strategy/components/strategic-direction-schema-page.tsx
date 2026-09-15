@@ -42,9 +42,15 @@ import { displayLabel, firstDisplayLabel } from '@/lib/display-label';
 import { toast } from '@/lib/toast';
 import { usePermissions } from '@/hooks/use-permissions';
 import { StrategicDirectionCreateEditDialog } from '@/features/strategic-vision/components/strategic-direction-create-edit-dialog';
+import {
+  axisDisplayTitle,
+  StrategicAxisNameLabel,
+} from '@/features/strategic-vision/components/strategic-axis-name-label';
 import type { StrategicDirectionDto } from '@/features/strategic-vision/types/strategic-vision.types';
 import { StrategyDocumentPicker } from './strategy-document-picker';
 import { StrategyBlockImagePreview } from './strategy-block-image-preview';
+import { HumanResourceCombobox } from '@/features/teams/work-teams/components/human-resource-combobox';
+import { humanResourceLeadLabel } from '@/features/teams/work-teams/components/work-team-lead-combobox';
 import {
   useArchiveStrategicDirectionStrategyMutation,
   useReviewStrategicDirectionStrategyMutation,
@@ -68,7 +74,9 @@ import {
 } from '../lib/strategic-direction-strategy-labels';
 import {
   contribFillColor,
+  computeOkrProgressPct,
   formatEurCents,
+  formatOkrValueWithUnit,
   formatReviewDate,
   MATURITY_DIMS,
   progressFillColor,
@@ -208,6 +216,7 @@ function emptyOutcome(): StrategyOutcome {
     ownerLabel: '',
     target: '',
     current: '',
+    unit: '',
     progressPct: 0,
   };
 }
@@ -337,6 +346,7 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
 
   const [okrOpen, setOkrOpen] = useState(false);
   const [okrDraft, setOkrDraft] = useState<StrategyOutcome>(emptyOutcome());
+  const [okrOwnerResourceId, setOkrOwnerResourceId] = useState('');
   const [editingOkrIndex, setEditingOkrIndex] = useState<number | null>(null);
 
   const [blockOpen, setBlockOpen] = useState(false);
@@ -570,11 +580,22 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
   const openOkr = (outcome?: StrategyOutcome, index?: number) => {
     if (outcome && index != null) {
       setEditingOkrIndex(index);
-      setOkrDraft({ ...outcome });
+      const owner =
+        outcome.ownerLabel.trim() === '—' || outcome.ownerLabel.trim() === '-'
+          ? ''
+          : outcome.ownerLabel;
+      const draft = {
+        ...outcome,
+        ownerLabel: owner,
+        unit: typeof outcome.unit === 'string' ? outcome.unit : '',
+      };
+      const auto = computeOkrProgressPct(draft.current, draft.target);
+      setOkrDraft(auto == null ? draft : { ...draft, progressPct: auto });
     } else {
       setEditingOkrIndex(null);
       setOkrDraft(emptyOutcome());
     }
+    setOkrOwnerResourceId('');
     setOkrOpen(true);
   };
 
@@ -586,7 +607,16 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
       return;
     }
     const list = [...schema.expectedOutcomes];
-    const payload = { ...okrDraft, title };
+    const ownerLabel =
+      okrDraft.ownerLabel.trim() === '—' || okrDraft.ownerLabel.trim() === '-'
+        ? ''
+        : okrDraft.ownerLabel.trim();
+    const payload = {
+      ...okrDraft,
+      title,
+      ownerLabel,
+      unit: okrDraft.unit.trim(),
+    };
     if (editingOkrIndex != null && editingOkrIndex >= 0) list[editingOkrIndex] = payload;
     else list.push(payload);
     try {
@@ -822,7 +852,7 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
 
   const deleteAxisAt = async (index: number) => {
     if (!schema) return;
-    const axisName = displayLabel(schema.ownAxes[index]?.name, 'Axe');
+    const axisName = axisDisplayTitle(schema.ownAxes[index]?.name, 'Axe');
     const list = schema.ownAxes.filter((_, i) => i !== index);
     try {
       await patchOwnAxes(list);
@@ -1203,7 +1233,7 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
       <div id="view-dirstrat" className="stg-root">
       <PageHeader
         title={`${code} — Schéma directeur`}
-        description={`${name} · ${displayLabel(strategy.horizonLabel, 'Horizon non renseigné')} · ${displayLabel(versionsQ.data?.versions.find((v) => v.isCurrent)?.versionLabel, 'v1')}`}
+        description={`${name} · ${displayLabel(strategy.horizonLabel, 'Horizon non renseigné')} · v${versionsQ.data?.versions.find((v) => v.isCurrent)?.versionNumber ?? 1}`}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Link
@@ -1493,7 +1523,7 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
       )}
 
       <div
-        className="bud-subtabs"
+        className="starium-tab-group stg-subtabs max-w-full overflow-x-auto"
         id="ds-subtabs"
         role="tablist"
         aria-label="Onglets schéma directeur"
@@ -1504,7 +1534,10 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
             type="button"
             role="tab"
             aria-selected={tab === t.id}
-            className={cn('bud-subtab', tab === t.id && 'active')}
+            className={cn(
+              'starium-tab-btn min-h-11 shrink-0 sm:min-h-9',
+              tab === t.id && 'starium-tab-btn--active',
+            )}
             onClick={() => setTab(t.id)}
           >
             {t.label}
@@ -1579,7 +1612,7 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
                     <div key={axis.id}>
                       <div className="stg-tl-lane-h">
                         <i style={{ background: t.c }} aria-hidden />
-                        {displayLabel(axis.name, 'Axe')}
+                        <StrategicAxisNameLabel name={axis.name} />
                       </div>
                       {[...laneInits]
                         .sort((a, b) => a.startMonthOffset - b.startMonthOffset)
@@ -1704,7 +1737,7 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
                   {timelineLanes.map((a) => (
                     <span key={a.id} className="k">
                       <i style={{ background: stgTone(a.tone).c }} aria-hidden />
-                      {displayLabel(a.name, 'Axe')}
+                      <StrategicAxisNameLabel name={a.name} />
                     </span>
                   ))}
                   <span className="k">
@@ -1782,7 +1815,7 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
                             laneInits.reduce((s, c) => s + (c.progressPct || 0), 0) / n,
                           )
                         : 0;
-                    const axisLabel = displayLabel(a.name, 'Axe');
+                    const axisLabel = axisDisplayTitle(a.name, 'Axe');
                     const editable =
                       canUpdate &&
                       strategy.status !== 'ARCHIVED' &&
@@ -1800,7 +1833,7 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
                               aria-hidden
                             />
                             <span className="truncate font-semibold text-foreground">
-                              {axisLabel}
+                              <StrategicAxisNameLabel name={a.name} />
                             </span>
                           </div>
                           <div className="flex items-center gap-3">
@@ -1983,6 +2016,7 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
                           <th>Responsable</th>
                           <th>Indicateur cible</th>
                           <th>Actuel</th>
+                          <th>Unité</th>
                           <th>Avancement</th>
                           {canUpdate &&
                           strategy.status !== 'ARCHIVED' &&
@@ -2027,6 +2061,9 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
                               <td>{displayLabel(o.target, 'Cible non renseignée')}</td>
                               <td className="tabular-nums font-bold">
                                 {displayLabel(o.current, 'Non mesuré')}
+                              </td>
+                              <td className="text-muted-foreground">
+                                {displayLabel(o.unit, '—')}
                               </td>
                               <td>
                                 <div className="prog" aria-label={`Avancement ${o.progressPct} %`}>
@@ -2112,13 +2149,13 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
                           <div>
                             <div className="k">Cible</div>
                             <div className="v">
-                              {displayLabel(o.target, 'Non renseignée')}
+                              {formatOkrValueWithUnit(o.target, o.unit, 'Non renseignée')}
                             </div>
                           </div>
                           <div>
                             <div className="k">Actuel</div>
                             <div className="v">
-                              {displayLabel(o.current, 'Non mesuré')}
+                              {formatOkrValueWithUnit(o.current, o.unit, 'Non mesuré')}
                             </div>
                           </div>
                           <div>
@@ -2298,8 +2335,8 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
                   return (
                     <div key={a.id}>
                       <div className="stg-contrib-row">
-                        <div className="l" title={displayLabel(a.name, 'Axe')}>
-                          {displayLabel(a.name, 'Axe')}
+                        <div className="l" title={axisDisplayTitle(a.name, 'Axe')}>
+                          <StrategicAxisNameLabel name={a.name} />
                         </div>
                         <div className="t">
                           {canUpdate ? (
@@ -2309,7 +2346,7 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
                               max={100}
                               step={5}
                               className="w-full min-h-11"
-                              aria-label={`Contribution ${displayLabel(a.name, 'Axe')}`}
+                              aria-label={`Contribution ${axisDisplayTitle(a.name, 'Axe')}`}
                               value={v}
                               onChange={(e) =>
                                 setContribDraft((d) => ({
@@ -2411,7 +2448,9 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
                             {alertLevelLabel(a.level)}
                           </span>
                         </td>
-                        <td className="cell-strong">{displayLabel(a.title, 'Alerte')}</td>
+                        <td className="cell-strong">
+                          <StrategicAxisNameLabel name={a.title} fallback="Alerte" />
+                        </td>
                         <td className="text-muted-foreground">
                           {displayLabel(a.detail, '')}
                         </td>
@@ -2509,12 +2548,9 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
                 <div className="stg-sec-t">Revues stratégiques &amp; versions</div>
                 <div className="stg-sec-sub">
                   {(versionsQ.data?.versions.length ?? 0)} version
-                  {(versionsQ.data?.versions.length ?? 0) > 1 ? 's' : ''} · version courante{' '}
-                  {displayLabel(
-                    versionsQ.data?.versions.find((v) => v.isCurrent)?.versionLabel,
-                    'v1',
-                  )}{' '}
-                  ({getStrategicDirectionStrategyStatusLabel(strategy.status).toLowerCase()})
+                  {(versionsQ.data?.versions.length ?? 0) > 1 ? 's' : ''} · version courante v
+                  {versionsQ.data?.versions.find((v) => v.isCurrent)?.versionNumber ?? 1} (
+                  {getStrategicDirectionStrategyStatusLabel(strategy.status).toLowerCase()})
                 </div>
               </div>
               {showReviewEntry ? (
@@ -2538,31 +2574,57 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
             ) : (versionsQ.data?.versions.length ?? 0) === 0 ? (
               <EmptyState title="Aucune version" />
             ) : (
-              <div className="card stg-rev">
-                {versionsQ.data!.versions.map((v) => (
-                  <div key={v.id} className="stg-rev-item">
-                    <div>
-                      <div className="stg-rev-v">{displayLabel(v.versionLabel, 'Version')}</div>
-                      <div className="stg-rev-d">
-                        {formatReviewDate(v.approvedAt ?? v.archivedAt ?? v.updatedAt)}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="stg-rev-n">
-                        {displayLabel(
-                          v.reviewNote || v.rejectionReason || v.title,
-                          'Revue stratégique',
-                        )}
-                      </div>
-                      <div className="stg-rev-w">
-                        {displayLabel(v.reviewInstanceLabel, v.isCurrent ? 'Version courante' : 'Version archivée')}
-                      </div>
-                    </div>
-                    <span className={cn('stg-badge', strategyStatusBadgeClass(v.status))}>
-                      {getStrategicDirectionStrategyStatusLabel(v.status)}
-                    </span>
-                  </div>
-                ))}
+              <div className="card tablecard overflow-x-auto">
+                <table className="dt">
+                  <thead>
+                    <tr>
+                      <th scope="col">Version</th>
+                      <th scope="col">Date</th>
+                      <th scope="col">Intitulé</th>
+                      <th scope="col">Instance</th>
+                      <th scope="col">Statut</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {versionsQ.data!.versions.map((v) => {
+                      const versionShort = `v${v.versionNumber}`;
+                      const dated = formatReviewDate(
+                        v.approvedAt ?? v.archivedAt ?? v.updatedAt,
+                      );
+                      const intitule = displayLabel(
+                        v.reviewNote || v.rejectionReason || v.archivedReason || v.title,
+                        'Revue stratégique',
+                      );
+                      const instance = displayLabel(
+                        v.reviewInstanceLabel,
+                        v.isCurrent ? 'Version courante' : 'Version archivée',
+                      );
+                      return (
+                        <tr
+                          key={v.id}
+                          className={v.isCurrent ? 'stg-rev-row--current' : undefined}
+                        >
+                          <td className="cell-strong">
+                            <span className="tabular-nums">{versionShort}</span>
+                            {v.isCurrent ? (
+                              <span className="stg-badge bdg-gold nodot ml-2">Courante</span>
+                            ) : null}
+                          </td>
+                          <td className="whitespace-nowrap text-muted-foreground tabular-nums">
+                            {dated}
+                          </td>
+                          <td>{intitule}</td>
+                          <td className="text-muted-foreground">{instance}</td>
+                          <td>
+                            <span className={cn('stg-badge', strategyStatusBadgeClass(v.status))}>
+                              {getStrategicDirectionStrategyStatusLabel(v.status)}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             )}
           </section>
@@ -2671,7 +2733,9 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
             <div className="stg-p-l">
               {ownAxes.map((a) => (
                 <div key={a.id}>
-                  <span>{displayLabel(a.name, 'Axe')}</span>
+                  <span>
+                    <StrategicAxisNameLabel name={a.name} />
+                  </span>
                   <b>{displayLabel(a.tone, '—')}</b>
                 </div>
               ))}
@@ -2682,7 +2746,9 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
             <div className="stg-p-l">
               {(linksQ.data?.axes ?? []).map((a) => (
                 <div key={a.id}>
-                  <span>{displayLabel(a.name, 'Axe')}</span>
+                  <span>
+                    <StrategicAxisNameLabel name={a.name} />
+                  </span>
                   <b>{contributions[a.id] ?? 0}%</b>
                 </div>
               ))}
@@ -2868,13 +2934,23 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
                 }
               >
                 <SelectTrigger id="stg-init-lane" className="min-h-11 w-full">
-                  <SelectValue />
+                  <SelectValue placeholder="Choisir un axe">
+                    <StrategicAxisNameLabel
+                      name={
+                        (ownAxes.length > 0
+                          ? ownAxes
+                          : [{ id: '0', name: 'Chantiers', tone: 'info' as const }]
+                        )[initiativeDraft.lane]?.name
+                      }
+                      fallback="Chantiers"
+                    />
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {(ownAxes.length > 0 ? ownAxes : [{ id: '0', name: 'Chantiers', tone: 'info' }]).map(
                     (a, i) => (
                       <SelectItem key={a.id} value={String(i)}>
-                        {displayLabel(a.name, 'Axe')}
+                        <StrategicAxisNameLabel name={a.name} />
                       </SelectItem>
                     ),
                   )}
@@ -2954,6 +3030,7 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
                           : 'border-border bg-card text-foreground',
                       )}
                       aria-pressed={selected}
+                      aria-label={axisDisplayTitle(a.name, 'Axe')}
                       onClick={() =>
                         setInitiativeDraft((d) => ({
                           ...d,
@@ -2963,7 +3040,7 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
                         }))
                       }
                     >
-                      {displayLabel(a.name, 'Axe')}
+                      <StrategicAxisNameLabel name={a.name} />
                     </button>
                   );
                 })
@@ -3086,7 +3163,8 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
         title={editingOkrIndex != null ? 'Modifier l’objectif' : 'Nouvel objectif mesurable'}
         description="Résultat attendu et indicateur de suivi"
         icon={CheckCircle2}
-        size="lg"
+        size="xl"
+        contentClassName="sm:max-w-2xl"
         footer={
           <>
             {editingOkrIndex != null && canUpdate ? (
@@ -3134,14 +3212,24 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="starium-form-field">
-              <label className="starium-form-label" htmlFor="stg-okr-who">
-                Responsable
-              </label>
-              <Input
+              <HumanResourceCombobox
                 id="stg-okr-who"
-                className="min-h-11"
-                value={okrDraft.ownerLabel}
-                onChange={(e) => setOkrDraft((d) => ({ ...d, ownerLabel: e.target.value }))}
+                label="Responsable"
+                dialogOpen={okrOpen}
+                value={okrOwnerResourceId}
+                fallbackLabel={okrDraft.ownerLabel || null}
+                onChange={(id) => {
+                  setOkrOwnerResourceId(id);
+                  if (!id.trim()) {
+                    setOkrDraft((d) => ({ ...d, ownerLabel: '' }));
+                  }
+                }}
+                onPickResource={(resource) => {
+                  setOkrDraft((d) => ({
+                    ...d,
+                    ownerLabel: humanResourceLeadLabel(resource),
+                  }));
+                }}
               />
             </div>
             <div className="starium-form-field">
@@ -3151,40 +3239,107 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
               <Input
                 id="stg-okr-tgt"
                 className="min-h-11"
+                inputMode="decimal"
                 value={okrDraft.target}
-                onChange={(e) => setOkrDraft((d) => ({ ...d, target: e.target.value }))}
+                onChange={(e) => {
+                  const target = e.target.value;
+                  setOkrDraft((d) => {
+                    const next = { ...d, target };
+                    const auto = computeOkrProgressPct(next.current, target);
+                    return auto == null ? next : { ...next, progressPct: auto };
+                  });
+                }}
+              />
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="starium-form-field">
+              <label className="starium-form-label" htmlFor="stg-okr-cur">
+                Valeur actuelle
+              </label>
+              <Input
+                id="stg-okr-cur"
+                className="min-h-11"
+                inputMode="decimal"
+                value={okrDraft.current}
+                onChange={(e) => {
+                  const current = e.target.value;
+                  setOkrDraft((d) => {
+                    const next = { ...d, current };
+                    const auto = computeOkrProgressPct(current, next.target);
+                    return auto == null ? next : { ...next, progressPct: auto };
+                  });
+                }}
+              />
+            </div>
+            <div className="starium-form-field">
+              <label className="starium-form-label" htmlFor="stg-okr-unit">
+                Unité
+              </label>
+              <Input
+                id="stg-okr-unit"
+                className="min-h-11"
+                placeholder="%, jours, k€…"
+                value={okrDraft.unit}
+                onChange={(e) => setOkrDraft((d) => ({ ...d, unit: e.target.value }))}
+                maxLength={32}
               />
             </div>
           </div>
           <div className="starium-form-field">
-            <label className="starium-form-label" htmlFor="stg-okr-cur">
-              Valeur actuelle
-            </label>
-            <Input
-              id="stg-okr-cur"
-              className="min-h-11"
-              value={okrDraft.current}
-              onChange={(e) => setOkrDraft((d) => ({ ...d, current: e.target.value }))}
-            />
-          </div>
-          <div className="starium-form-field">
-            <label className="starium-form-label" htmlFor="stg-okr-pct">
-              Avancement — {okrDraft.progressPct}%
-            </label>
-            <Input
-              id="stg-okr-pct"
-              type="range"
-              min={0}
-              max={100}
-              step={5}
-              value={okrDraft.progressPct}
-              onChange={(e) =>
-                setOkrDraft((d) => ({
-                  ...d,
-                  progressPct: parseInt(e.target.value, 10) || 0,
-                }))
-              }
-            />
+            {(() => {
+              const autoPct = computeOkrProgressPct(okrDraft.current, okrDraft.target);
+              return (
+                <>
+                  <label className="starium-form-label" htmlFor="stg-okr-pct">
+                    Avancement — {okrDraft.progressPct}%
+                    {autoPct != null ? (
+                      <span className="ml-2 font-normal text-muted-foreground normal-case tracking-normal">
+                        (calculé automatiquement)
+                      </span>
+                    ) : null}
+                  </label>
+                  {autoPct != null ? (
+                    <div
+                      className="prog mt-1"
+                      aria-label={`Avancement calculé ${okrDraft.progressPct} %`}
+                    >
+                      <div className="prog-track">
+                        <div
+                          className="prog-fill"
+                          style={{
+                            width: `${Math.min(100, Math.max(0, okrDraft.progressPct))}%`,
+                            background: progressFillColor(okrDraft.progressPct),
+                          }}
+                        />
+                      </div>
+                      <span className="prog-pct">{okrDraft.progressPct}%</span>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="mb-2 text-xs text-muted-foreground">
+                        Saisissez des chiffres pour cible et actuel afin de calculer
+                        automatiquement, ou réglez manuellement.
+                      </p>
+                      <Input
+                        id="stg-okr-pct"
+                        type="range"
+                        min={0}
+                        max={100}
+                        step={5}
+                        value={okrDraft.progressPct}
+                        onChange={(e) =>
+                          setOkrDraft((d) => ({
+                            ...d,
+                            progressPct: parseInt(e.target.value, 10) || 0,
+                          }))
+                        }
+                      />
+                    </>
+                  )}
+                </>
+              );
+            })()}
           </div>
         </div>
       </StariumModal>
