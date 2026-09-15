@@ -54,6 +54,7 @@ describe('normalizeStrategySchemaPayload', () => {
       label: 'Disponibilité',
       value: '99,72 %',
       detail: 'cible 99,9 %',
+      linkedFromOutcome: false,
     });
   });
 

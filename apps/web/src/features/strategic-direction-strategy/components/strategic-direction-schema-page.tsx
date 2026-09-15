@@ -17,6 +17,7 @@ import {
   Plus,
   Printer,
   Share2,
+  SquareKanban,
   Target,
   Trash2,
 } from 'lucide-react';
@@ -251,6 +252,73 @@ function emptyOwnAxis(): StrategyOwnAxis {
 
 function emptyKpi(): StrategyKpi {
   return { label: '', value: '', detail: '' };
+}
+
+function outcomeToKpi(outcome: StrategyOutcome): StrategyKpi {
+  const unit = outcome.unit.trim();
+  const current = outcome.current.trim();
+  const target = outcome.target.trim();
+  const value =
+    current ||
+    (target ? `cible ${target}` : '') ||
+    (outcome.progressPct > 0 ? `${outcome.progressPct} %` : '—');
+  const detailParts = [
+    target && current ? `cible ${target}${unit ? ` ${unit}` : ''}` : unit || '',
+    outcome.progressPct > 0 ? `${outcome.progressPct} %` : '',
+  ].filter(Boolean);
+  return {
+    label: outcome.title.trim(),
+    value,
+    detail: detailParts.join(' · '),
+    linkedFromOutcome: true,
+  };
+}
+
+function kpiLabelKey(label: string): string {
+  return label.trim().toLowerCase();
+}
+
+/** Met à jour le KPI déjà en bande (lié ou même libellé) — ne crée pas. */
+function upsertLinkedKpiFromOutcome(
+  kpis: StrategyKpi[],
+  matchKeys: string[],
+  outcome: StrategyOutcome,
+): StrategyKpi[] {
+  const next = outcomeToKpi(outcome);
+  const keys = [...new Set(matchKeys.map(kpiLabelKey).filter(Boolean))];
+  if (keys.length === 0) return kpis;
+  const linkedIdx = kpis.findIndex(
+    (k) => k.linkedFromOutcome === true && keys.includes(kpiLabelKey(k.label)),
+  );
+  const sameLabelIdx = kpis.findIndex((k) => keys.includes(kpiLabelKey(k.label)));
+  const targetIdx = linkedIdx >= 0 ? linkedIdx : sameLabelIdx;
+  if (targetIdx < 0) return kpis;
+  const list = [...kpis];
+  list[targetIdx] = next;
+  return list;
+}
+
+function removeLinkedKpisForKeys(kpis: StrategyKpi[], matchKeys: string[]): StrategyKpi[] {
+  const keys = new Set(matchKeys.map(kpiLabelKey).filter(Boolean));
+  if (keys.size === 0) return kpis;
+  return kpis.filter((k) => {
+    const key = kpiLabelKey(k.label);
+    if (!keys.has(key)) return true;
+    // KPI poussé depuis l’objectif (flag) ou même libellé (promotions antérieures)
+    return false;
+  });
+}
+
+/** Affichage live : si le libellé KPI = titre d’un objectif, on affiche les valeurs de l’objectif. */
+function resolveDisplayKpis(
+  kpis: StrategyKpi[],
+  outcomes: StrategyOutcome[],
+): StrategyKpi[] {
+  const byKey = new Map(outcomes.map((o) => [kpiLabelKey(o.title), o]));
+  return kpis.map((k) => {
+    const outcome = byKey.get(kpiLabelKey(k.label));
+    return outcome ? outcomeToKpi(outcome) : k;
+  });
 }
 
 type Props = { strategyId: string };
@@ -602,7 +670,7 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
   };
 
   const saveOkr = async () => {
-    if (!schema) return;
+    if (!schema || !strategy) return;
     const title = okrDraft.title.trim();
     if (!title) {
       toast.error('Objectif requis.');
@@ -619,10 +687,24 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
       ownerLabel,
       unit: okrDraft.unit.trim(),
     };
+    const previousTitle =
+      editingOkrIndex != null && editingOkrIndex >= 0
+        ? schema.expectedOutcomes[editingOkrIndex]?.title
+        : undefined;
     if (editingOkrIndex != null && editingOkrIndex >= 0) list[editingOkrIndex] = payload;
     else list.push(payload);
+
+    const matchKeys = [previousTitle ?? '', title].filter(Boolean);
+    const nextKpis = upsertLinkedKpiFromOutcome(schema.kpis, matchKeys, payload);
+
     try {
-      await patchOutcomes(list);
+      await updateMutation.mutateAsync({
+        strategyId: strategy.id,
+        body: {
+          expectedOutcomes: list as unknown as Array<Record<string, unknown>>,
+          kpis: nextKpis as unknown as Array<Record<string, unknown>>,
+        },
+      });
       toast.success(editingOkrIndex != null ? 'Objectif mis à jour.' : 'Objectif ajouté.');
       setOkrOpen(false);
     } catch (e) {
@@ -640,10 +722,18 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
   };
 
   const deleteOkrAt = async (index: number) => {
-    if (!schema) return;
+    if (!schema || !strategy) return;
+    const removed = schema.expectedOutcomes[index];
     const list = schema.expectedOutcomes.filter((_, i) => i !== index);
+    const nextKpis = removeLinkedKpisForKeys(schema.kpis, [removed?.title ?? '']);
     try {
-      await patchOutcomes(list);
+      await updateMutation.mutateAsync({
+        strategyId: strategy.id,
+        body: {
+          expectedOutcomes: list as unknown as Array<Record<string, unknown>>,
+          kpis: nextKpis as unknown as Array<Record<string, unknown>>,
+        },
+      });
       toast.success('Objectif supprimé.');
       setOkrOpen(false);
       setEditingOkrIndex(null);
@@ -654,6 +744,44 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
           : 'Suppression impossible.';
       toast.error(msg);
     }
+  };
+
+  const promoteOutcomeToKpi = async (outcome: StrategyOutcome) => {
+    if (!schema) return;
+    const title = outcome.title.trim();
+    if (!title) {
+      toast.error('Objectif sans libellé — impossible de l’afficher en bande KPI.');
+      return;
+    }
+    const nextKpi = outcomeToKpi(outcome);
+    const key = kpiLabelKey(nextKpi.label);
+    const list = [...schema.kpis];
+    const existing = list.findIndex((k) => kpiLabelKey(k.label) === key);
+    if (existing >= 0) {
+      list[existing] = nextKpi;
+    } else {
+      list.push(nextKpi);
+    }
+    try {
+      await patchKpis(list);
+      toast.success(
+        existing >= 0
+          ? 'Indicateur déjà en bande — lien objectif synchronisé.'
+          : 'Objectif ajouté à la bande d’indicateurs (synchro auto).',
+      );
+    } catch (e) {
+      const msg =
+        typeof e === 'object' && e && 'message' in e && typeof (e as { message: unknown }).message === 'string'
+          ? (e as { message: string }).message
+          : 'Ajout à la bande KPI impossible.';
+      toast.error(msg);
+    }
+  };
+
+  const isOutcomeOnKpiBand = (outcome: StrategyOutcome) => {
+    const key = kpiLabelKey(outcome.title);
+    if (!key) return false;
+    return (schema?.kpis ?? []).some((k) => kpiLabelKey(k.label) === key);
   };
 
   const openBlock = (block?: StrategyContentBlock, index?: number) => {
@@ -1202,7 +1330,7 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
   const ownAxes = schema?.ownAxes ?? [];
   const initiatives = schema?.majorInitiatives ?? [];
   const outcomes = schema?.expectedOutcomes ?? [];
-  const kpis = schema?.kpis ?? [];
+  const kpis = resolveDisplayKpis(schema?.kpis ?? [], outcomes);
   const risks = schema?.risks ?? [];
   const blocks = schema?.contentBlocks ?? [];
   const budgetsByYear = schema?.budgetsByYear ?? {};
@@ -1489,6 +1617,17 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
               <div className="d">{displayLabel(k.detail, '')}</div>
             </button>
           ))}
+          {canUpdate && strategy.status !== 'ARCHIVED' && strategy.status !== 'SUBMITTED' ? (
+            <button
+              type="button"
+              className="stg-kpi stg-kpi--add min-h-11 w-full"
+              onClick={() => openKpi()}
+              aria-label="Ajouter un indicateur"
+            >
+              <Plus className="size-4 shrink-0" aria-hidden />
+              <span>Ajouter un indicateur</span>
+            </button>
+          ) : null}
         </div>
       )}
 
@@ -2076,19 +2215,43 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
                               </td>
                               {editable ? (
                                 <td className="right">
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    className="min-h-11 min-w-11"
-                                    aria-label={`Supprimer l’objectif ${displayLabel(o.title, 'Objectif')}`}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      void deleteOkrAt(i);
-                                    }}
-                                  >
-                                    <Trash2 className="size-4" aria-hidden />
-                                  </Button>
+                                  <div className="inline-flex items-center justify-end gap-1">
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      className="min-h-11 min-w-11"
+                                      aria-label={
+                                        isOutcomeOnKpiBand(o)
+                                          ? `Actualiser « ${displayLabel(o.title, 'Objectif')} » dans la bande d’indicateurs`
+                                          : `Ajouter « ${displayLabel(o.title, 'Objectif')} » à la bande d’indicateurs`
+                                      }
+                                      title={
+                                        isOutcomeOnKpiBand(o)
+                                          ? 'Actualiser en bande KPI'
+                                          : 'Afficher en bande KPI'
+                                      }
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        void promoteOutcomeToKpi(o);
+                                      }}
+                                    >
+                                      <SquareKanban className="size-4" aria-hidden />
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      className="min-h-11 min-w-11"
+                                      aria-label={`Supprimer l’objectif ${displayLabel(o.title, 'Objectif')}`}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        void deleteOkrAt(i);
+                                      }}
+                                    >
+                                      <Trash2 className="size-4" aria-hidden />
+                                    </Button>
+                                  </div>
                                 </td>
                               ) : null}
                             </tr>
@@ -2122,16 +2285,37 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
                             </div>
                           )}
                           {editable ? (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="min-h-11 min-w-11 shrink-0"
-                              aria-label={`Supprimer l’objectif ${displayLabel(o.title, 'Objectif')}`}
-                              onClick={() => void deleteOkrAt(i)}
-                            >
-                              <Trash2 className="size-4" aria-hidden />
-                            </Button>
+                            <div className="flex shrink-0 items-center gap-1">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="min-h-11 min-w-11"
+                                aria-label={
+                                  isOutcomeOnKpiBand(o)
+                                    ? `Actualiser « ${displayLabel(o.title, 'Objectif')} » dans la bande d’indicateurs`
+                                    : `Ajouter « ${displayLabel(o.title, 'Objectif')} » à la bande d’indicateurs`
+                                }
+                                title={
+                                  isOutcomeOnKpiBand(o)
+                                    ? 'Actualiser en bande KPI'
+                                    : 'Afficher en bande KPI'
+                                }
+                                onClick={() => void promoteOutcomeToKpi(o)}
+                              >
+                                <SquareKanban className="size-4" aria-hidden />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="min-h-11 min-w-11"
+                                aria-label={`Supprimer l’objectif ${displayLabel(o.title, 'Objectif')}`}
+                                onClick={() => void deleteOkrAt(i)}
+                              >
+                                <Trash2 className="size-4" aria-hidden />
+                              </Button>
+                            </div>
                           ) : null}
                         </div>
                         <div className="stg-okr-card-meta">
@@ -3172,6 +3356,23 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
               >
                 <Trash2 className="mr-2 size-4" aria-hidden />
                 Supprimer
+              </Button>
+            ) : null}
+            {canUpdate &&
+            strategy?.status !== 'ARCHIVED' &&
+            strategy?.status !== 'SUBMITTED' &&
+            okrDraft.title.trim() ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="min-h-11"
+                disabled={updateMutation.isPending}
+                onClick={() => void promoteOutcomeToKpi(okrDraft)}
+              >
+                <SquareKanban className="mr-2 size-4" aria-hidden />
+                {isOutcomeOnKpiBand(okrDraft)
+                  ? 'Lié à la bande KPI'
+                  : 'Afficher en bande KPI'}
               </Button>
             ) : null}
             <Button

@@ -26,7 +26,12 @@ export type NormalizedOutcome = {
   unit: string;
   progressPct: number;
 };
-export type NormalizedKpi = { label: string; value: string; detail: string };
+export type NormalizedKpi = {
+  label: string;
+  value: string;
+  detail: string;
+  linkedFromOutcome: boolean;
+};
 export type NormalizedRisk = {
   name: string;
   probability: string;
@@ -194,6 +199,7 @@ function normalizeKpis(raw: unknown): NormalizedKpi[] {
         label,
         value: str(r.value ?? r.v ?? r.target, '—') || '—',
         detail: str(r.detail ?? r.d ?? r.unit),
+        linkedFromOutcome: Boolean(r.linkedFromOutcome),
       };
     })
     .filter((x): x is NormalizedKpi => x != null);

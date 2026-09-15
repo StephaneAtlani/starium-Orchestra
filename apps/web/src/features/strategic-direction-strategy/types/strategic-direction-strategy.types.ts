@@ -22,7 +22,13 @@ export type StrategyOutcome = {
   unit: string;
   progressPct: number;
 };
-export type StrategyKpi = { label: string; value: string; detail: string };
+export type StrategyKpi = {
+  label: string;
+  value: string;
+  detail: string;
+  /** KPI poussé depuis un objectif mesurable — resynchronisé à chaque save OKR. */
+  linkedFromOutcome?: boolean;
+};
 export type StrategyRisk = {
   name: string;
   probability: string;

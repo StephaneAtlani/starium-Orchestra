@@ -2,6 +2,7 @@ import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
+  IsBoolean,
   IsIn,
   IsInt,
   IsNotEmpty,
@@ -168,6 +169,10 @@ export class StrategyKpiDto {
   @IsString()
   @MaxLength(255)
   detail?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  linkedFromOutcome?: boolean;
 }
 
 export class StrategyRiskDto {
