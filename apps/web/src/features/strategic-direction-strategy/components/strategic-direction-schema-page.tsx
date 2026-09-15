@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   Archive,
   ArrowLeft,
+  Check,
   CheckCircle2,
   ClipboardCheck,
   FileText,
@@ -427,6 +428,7 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
   const [riskOpen, setRiskOpen] = useState(false);
   const [riskDraft, setRiskDraft] = useState<StrategyRisk>(emptyRisk());
   const [editingRiskIndex, setEditingRiskIndex] = useState<number | null>(null);
+  const [riskOwnerResourceId, setRiskOwnerResourceId] = useState('');
 
   const [contribDraft, setContribDraft] = useState<Record<string, number>>({});
   const [budgetDraft, setBudgetDraft] = useState<Record<string, string>>({});
@@ -856,6 +858,7 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
       setEditingRiskIndex(null);
       setRiskDraft(emptyRisk());
     }
+    setRiskOwnerResourceId('');
     setRiskOpen(true);
   };
 
@@ -901,10 +904,14 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
 
   const saveContributions = async () => {
     if (!strategy) return;
+    const scoped: Record<string, number> = {};
+    for (const axis of linkedGroupAxes) {
+      scoped[axis.id] = contribDraft[axis.id] ?? contributions[axis.id] ?? 0;
+    }
     try {
       await updateMutation.mutateAsync({
         strategyId: strategy.id,
-        body: { axisContributions: contribDraft },
+        body: { axisContributions: scoped },
       });
       toast.success('Contributions enregistrées.');
     } catch (e) {
@@ -1266,13 +1273,75 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
     return linksQ.data?.axes ?? [];
   }, [linksQ.data?.axes, linksQ.data?.visionAxes]);
 
+  /** Axes du groupe effectivement retenus pour cette direction (liens stratégie ↔ axes). */
+  const linkedGroupAxes = useMemo(
+    () => linksQ.data?.axes ?? [],
+    [linksQ.data?.axes],
+  );
+
+  const linkedAxisIdSet = useMemo(
+    () => new Set(linkedGroupAxes.map((a) => a.id)),
+    [linkedGroupAxes],
+  );
+
+  /** Chips chantier : axes rattachés à la direction, sinon tous les axes vision (bootstrap). */
+  const axesForInitiativePick = useMemo(
+    () => (linkedGroupAxes.length > 0 ? linkedGroupAxes : visionGroupAxes),
+    [linkedGroupAxes, visionGroupAxes],
+  );
+
+  const persistDirectionAxes = async (strategicAxisIds: string[]) => {
+    await replaceAxesMutation.mutateAsync({ strategyId, strategicAxisIds });
+  };
+
+  const toggleDirectionGroupAxis = async (axisId: string, enabled: boolean) => {
+    if (!canUpdate) return;
+    const current = linkedGroupAxes.map((a) => a.id);
+    const next = enabled
+      ? [...new Set([...current, axisId])]
+      : current.filter((id) => id !== axisId);
+    try {
+      await persistDirectionAxes(next);
+      if (!enabled && schema) {
+        const cleanedInits = schema.majorInitiatives.map((init) => ({
+          ...init,
+          strategicAxisIds: (init.strategicAxisIds ?? []).filter((id) => id !== axisId),
+        }));
+        const changed = cleanedInits.some(
+          (init, idx) =>
+            init.strategicAxisIds.join('|') !==
+            (schema.majorInitiatives[idx]?.strategicAxisIds ?? []).join('|'),
+        );
+        if (changed) {
+          await patchInitiatives(cleanedInits);
+        }
+        setContribDraft((d) => {
+          if (!(axisId in d)) return d;
+          const copy = { ...d };
+          delete copy[axisId];
+          return copy;
+        });
+      }
+      toast.success(
+        enabled ? 'Axe ajouté pour cette direction.' : 'Axe retiré de cette direction.',
+      );
+    } catch (e) {
+      const msg =
+        typeof e === 'object' && e && 'message' in e && typeof (e as { message: unknown }).message === 'string'
+          ? (e as { message: string }).message
+          : 'Mise à jour des axes impossible.';
+      toast.error(msg);
+    }
+  };
+
   const TIMELINE_TONES = TIMELINE_LANE_TONES;
 
-  /** Lanes Gantt : axes vision alignée en priorité (sinon axes propres / fallback). */
+  /** Lanes Gantt : axes rattachés à la direction, sinon vision, sinon axes propres. */
   const timelineLanes = useMemo(() => {
     const localOwnAxes = schema?.ownAxes ?? [];
-    if (visionGroupAxes.length > 0) {
-      return visionGroupAxes.map((a, i) => ({
+    const laneAxes = linkedGroupAxes.length > 0 ? linkedGroupAxes : visionGroupAxes;
+    if (laneAxes.length > 0) {
+      return laneAxes.map((a, i) => ({
         id: a.id,
         name: a.name,
         tone: TIMELINE_TONES[i % TIMELINE_TONES.length]!,
@@ -1292,13 +1361,20 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
       pick: (c: StrategyInitiative) =>
         localOwnAxes.length > 0 ? c.lane === i : true,
     }));
-  }, [visionGroupAxes, schema?.ownAxes]);
+  }, [linkedGroupAxes, visionGroupAxes, schema?.ownAxes]);
 
   const timelineOrphans = useMemo(() => {
     const list = schema?.majorInitiatives ?? [];
-    if (visionGroupAxes.length === 0) return [] as StrategyInitiative[];
+    if (linkedGroupAxes.length === 0 && visionGroupAxes.length === 0) {
+      return [] as StrategyInitiative[];
+    }
     return list.filter((c) => !timelineLanes.some((lane) => lane.pick(c)));
-  }, [visionGroupAxes.length, schema?.majorInitiatives, timelineLanes]);
+  }, [
+    linkedGroupAxes.length,
+    visionGroupAxes.length,
+    schema?.majorInitiatives,
+    timelineLanes,
+  ]);
 
   if (detailQ.isLoading) {
     return (
@@ -2538,44 +2614,25 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
           <section className="stg-sec">
             <div className="stg-sec-head">
               <div>
-                <div className="stg-sec-t">Contribution aux axes du groupe</div>
+                <div className="stg-sec-t">Axes du groupe pour cette direction</div>
                 <div className="stg-sec-sub">
-                  Score global d’alignement : {score} %. La contribution déclarée est
-                  confrontée aux chantiers réellement rattachés.
+                  Sélectionnez les axes de la vision sur lesquels cette direction s’engage.
                 </div>
               </div>
-              {canUpdate && visionGroupAxes.length > 0 ? (
-                <div className="flex flex-wrap items-center gap-2">
-                  {(linksQ.data?.axes.length ?? 0) === 0 ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="min-h-11 sm:min-h-9"
-                      disabled={replaceAxesMutation.isPending}
-                      onClick={() => {
-                        void replaceAxesMutation
-                          .mutateAsync({
-                            strategyId,
-                            strategicAxisIds: visionGroupAxes.map((a) => a.id),
-                          })
-                          .then(() => toast.success('Axes du groupe rattachés.'))
-                          .catch(() => toast.error('Rattachement impossible.'));
-                      }}
-                    >
-                      Rattacher les axes de la vision
-                    </Button>
-                  ) : null}
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="min-h-11 sm:min-h-9"
-                    disabled={updateMutation.isPending}
-                    onClick={() => void saveContributions()}
-                  >
-                    Enregistrer les contributions
-                  </Button>
-                </div>
+              {visionGroupAxes.length > 0 ? (
+                <span className="stg-axis-pick-count" aria-live="polite">
+                  {linkedGroupAxes.length}
+                  <span aria-hidden> / </span>
+                  {visionGroupAxes.length}
+                  <span className="sr-only">
+                    {' '}
+                    axes retenus sur {visionGroupAxes.length}
+                  </span>
+                  <span aria-hidden className="stg-axis-pick-count-lbl">
+                    {' '}
+                    retenus
+                  </span>
+                </span>
               ) : null}
             </div>
             {visionGroupAxes.length === 0 ? (
@@ -2584,52 +2641,182 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
                 description="Créez des axes dans Vision stratégique pour l’alignement."
               />
             ) : (
+              <div className="card stg-axis-pick">
+                <div
+                  className="stg-axis-pick-grid"
+                  role="group"
+                  aria-label="Axes du groupe retenus"
+                >
+                  {visionGroupAxes.map((a) => {
+                    const selected = linkedAxisIdSet.has(a.id);
+                    const chantierCount = initiatives.filter((c) =>
+                      c.strategicAxisIds.includes(a.id),
+                    ).length;
+                    return (
+                      <button
+                        key={a.id}
+                        type="button"
+                        disabled={!canUpdate || replaceAxesMutation.isPending}
+                        className={cn(
+                          'stg-axis-pick-card min-h-11',
+                          selected && 'stg-axis-pick-card--on',
+                        )}
+                        aria-pressed={selected}
+                        aria-label={
+                          selected
+                            ? `Retirer l’axe ${axisDisplayTitle(a.name, 'Axe')}`
+                            : `Rattacher l’axe ${axisDisplayTitle(a.name, 'Axe')}`
+                        }
+                        onClick={() => void toggleDirectionGroupAxis(a.id, !selected)}
+                      >
+                        <span
+                          className={cn(
+                            'stg-axis-pick-check',
+                            selected && 'stg-axis-pick-check--on',
+                          )}
+                          aria-hidden
+                        >
+                          {selected ? <Check className="size-3.5" strokeWidth={3} /> : null}
+                        </span>
+                        <span className="stg-axis-pick-name">
+                          <StrategicAxisNameLabel name={a.name} />
+                        </span>
+                        <span className="stg-axis-pick-meta">
+                          {selected
+                            ? chantierCount > 0
+                              ? `${chantierCount} chantier${chantierCount > 1 ? 's' : ''}`
+                              : 'Retenu · aucun chantier'
+                            : 'Non retenu'}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {canUpdate ? (
+                  <div className="stg-axis-pick-foot">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="min-h-11 sm:min-h-9 text-muted-foreground"
+                      disabled={
+                        replaceAxesMutation.isPending ||
+                        linkedGroupAxes.length === visionGroupAxes.length
+                      }
+                      onClick={() => {
+                        void persistDirectionAxes(visionGroupAxes.map((a) => a.id))
+                          .then(() =>
+                            toast.success('Tous les axes de la vision sont rattachés.'),
+                          )
+                          .catch(() => toast.error('Rattachement impossible.'));
+                      }}
+                    >
+                      Tout rattacher
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="min-h-11 sm:min-h-9 text-muted-foreground"
+                      disabled={
+                        replaceAxesMutation.isPending || linkedGroupAxes.length === 0
+                      }
+                      onClick={() => {
+                        void (async () => {
+                          try {
+                            await persistDirectionAxes([]);
+                            if (
+                              schema?.majorInitiatives.some(
+                                (c) => c.strategicAxisIds.length > 0,
+                              )
+                            ) {
+                              await patchInitiatives(
+                                schema.majorInitiatives.map((init) => ({
+                                  ...init,
+                                  strategicAxisIds: [],
+                                })),
+                              );
+                            }
+                            setContribDraft({});
+                            toast.success('Aucun axe retenu pour cette direction.');
+                          } catch {
+                            toast.error('Réinitialisation impossible.');
+                          }
+                        })();
+                      }}
+                    >
+                      Tout retirer
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+            )}
+          </section>
+
+          <section className="stg-sec">
+            <div className="stg-sec-head">
+              <div>
+                <div className="stg-sec-t">Contribution aux axes retenus</div>
+                <div className="stg-sec-sub">
+                  Score global d’alignement : {score} %. Déclarez le % de contribution, puis
+                  rattachez des chantiers (onglet Axes → chantier → « Axes du groupe »).
+                </div>
+              </div>
+              {canUpdate && linkedGroupAxes.length > 0 ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="min-h-11 sm:min-h-9"
+                  disabled={updateMutation.isPending}
+                  onClick={() => void saveContributions()}
+                >
+                  Enregistrer les contributions
+                </Button>
+              ) : null}
+            </div>
+            {linkedGroupAxes.length === 0 ? (
+              <EmptyState
+                title="Aucun axe retenu"
+                description="Cochez ci-dessus les axes du groupe concernés par cette direction."
+              />
+            ) : (
               <div className="card stg-contrib">
-                {visionGroupAxes.map((a) => {
+                {linkedGroupAxes.map((a) => {
                   const v = canUpdate
                     ? (contribDraft[a.id] ?? contributions[a.id] ?? 0)
                     : (contributions[a.id] ?? 0);
                   const linked = initiatives.filter((c) => c.strategicAxisIds.includes(a.id));
                   return (
-                    <div key={a.id}>
-                      <div className="stg-contrib-row">
-                        <div className="l" title={axisDisplayTitle(a.name, 'Axe')}>
-                          <StrategicAxisNameLabel name={a.name} />
-                        </div>
-                        <div className="t">
-                          {canUpdate ? (
-                            <input
-                              type="range"
-                              min={0}
-                              max={100}
-                              step={5}
-                              className="w-full min-h-11"
-                              aria-label={`Contribution ${axisDisplayTitle(a.name, 'Axe')}`}
-                              value={v}
-                              onChange={(e) =>
-                                setContribDraft((d) => ({
-                                  ...d,
-                                  [a.id]: parseInt(e.target.value, 10) || 0,
-                                }))
-                              }
-                            />
-                          ) : (
-                            <i style={{ width: `${v}%`, background: contribFillColor(v) }} />
-                          )}
-                        </div>
-                        <div className="p">{v}%</div>
+                    <div key={a.id} className="stg-contrib-item">
+                      <div className="l" title={axisDisplayTitle(a.name, 'Axe')}>
+                        <StrategicAxisNameLabel name={a.name} />
                       </div>
-                      <div
-                        style={{
-                          fontSize: 11,
-                          color: 'var(--neutral-500)',
-                          fontWeight: 600,
-                          margin: '-6px 0 8px',
-                        }}
-                      >
+                      <div className={cn('t', canUpdate && 't--range')}>
+                        {canUpdate ? (
+                          <input
+                            type="range"
+                            min={0}
+                            max={100}
+                            step={5}
+                            className="stg-contrib-range"
+                            aria-label={`Contribution ${axisDisplayTitle(a.name, 'Axe')}`}
+                            value={v}
+                            onChange={(e) =>
+                              setContribDraft((d) => ({
+                                ...d,
+                                [a.id]: parseInt(e.target.value, 10) || 0,
+                              }))
+                            }
+                          />
+                        ) : (
+                          <i style={{ width: `${v}%`, background: contribFillColor(v) }} />
+                        )}
+                      </div>
+                      <div className="p">{v}%</div>
+                      <div className="stg-contrib-meta">
                         {linked.length
                           ? linked.map((c) => displayLabel(c.title, 'Chantier')).join(' · ')
-                          : 'aucun chantier rattaché'}
+                          : 'Aucun chantier rattaché — ouvrez un chantier et cochez cet axe.'}
                       </div>
                     </div>
                   );
@@ -3270,12 +3457,13 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
           <fieldset className="starium-form-field">
             <legend className="starium-form-label">Axes du groupe</legend>
             <div className="flex flex-wrap gap-2" role="group" aria-label="Axes du groupe">
-              {visionGroupAxes.length === 0 ? (
+              {axesForInitiativePick.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  Aucun axe dans la vision alignée. Créez des axes dans Vision stratégique.
+                  Aucun axe retenu pour cette direction. Onglet Alignement → cochez les axes du
+                  groupe concernés.
                 </p>
               ) : (
-                visionGroupAxes.map((a) => {
+                axesForInitiativePick.map((a) => {
                   const selected = initiativeDraft.strategicAxisIds.includes(a.id);
                   return (
                     <button
@@ -3840,14 +4028,24 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
             </div>
           </div>
           <div className="starium-form-field">
-            <label className="starium-form-label" htmlFor="stg-risk-own">
-              Propriétaire
-            </label>
-            <Input
+            <HumanResourceCombobox
               id="stg-risk-own"
-              className="min-h-11"
-              value={riskDraft.ownerLabel}
-              onChange={(e) => setRiskDraft((d) => ({ ...d, ownerLabel: e.target.value }))}
+              label="Propriétaire"
+              dialogOpen={riskOpen}
+              value={riskOwnerResourceId}
+              fallbackLabel={riskDraft.ownerLabel || null}
+              onChange={(id) => {
+                setRiskOwnerResourceId(id);
+                if (!id.trim()) {
+                  setRiskDraft((d) => ({ ...d, ownerLabel: '' }));
+                }
+              }}
+              onPickResource={(resource) => {
+                setRiskDraft((d) => ({
+                  ...d,
+                  ownerLabel: humanResourceLeadLabel(resource),
+                }));
+              }}
             />
           </div>
           <div className="starium-form-field">

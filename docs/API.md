@@ -1009,12 +1009,12 @@ Workflow RFC-STRAT-006 (phase 2) client-scopé, sans duplication d’axes/object
   - Query : `alignedVisionId?` (défaut = vision active du client)
   - Payload consolidé groupe : KPI, matrice directions×axes, heatmap maturité 6 dims, timeline, `portfolioInitiatives`, `overlaps` (recouvrements tokenisés soft).
 - **GET /api/strategic-direction-strategies/:id/schema-metrics** (STRAT-011)
+  - Permission : `strategic_direction_strategy.read`
+  - `{ score, maturity{Ambition,Objectifs,Chantiers,Budget,Risques,Revue}, alerts[] }` — formules mock. **Score + alertes de couverture d’axes** calculés sur les **axes retenus** (`StrategicDirectionStrategyAxisLink`), pas sur toute la vision. Si aucun axe retenu → score 0 + alerte info « Aucun axe du groupe retenu ».
 - **GET /api/strategic-direction-strategies/:strategyId/documents** (STRAT-011) — liste documents du schéma (`strategic_direction_strategy.read`)
 - **POST /api/strategic-direction-strategies/:strategyId/documents/upload** (STRAT-011) — upload image/PDF (`strategic_direction_strategy.update`)
 - **GET /api/strategic-direction-strategies/:strategyId/documents/:documentId/download** (STRAT-011) — téléchargement / preview (`strategic_direction_strategy.read`)
 - **POST /api/strategic-direction-strategies/:id/review** — body : `decision`, `rejectionReason?`, `decisionNote?`, `reviewInstanceLabel?` (défaut CODIR)
-  - Permission : `strategic_direction_strategy.read`
-  - `{ score, maturity{Ambition,Objectifs,Chantiers,Budget,Risques,Revue}, alerts[] }` — formules portées du mock (`stgScore` / `stgMaturity` / `stgAlerts`), JSON stratégie normalisé (legacy → contrat mock).
 
 - **GET /api/strategic-direction-strategies**
   - Permission : `strategic_direction_strategy.read`

@@ -1014,8 +1014,29 @@ export class StrategicDirectionStrategyService {
     });
     if (!strategy) throw new NotFoundException('Strategic direction strategy not found');
 
-    const visionAxes = await this.loadVisionAxes(clientId, strategy.alignedVisionId);
-    return computeSchemaMetrics(this.schemaMetricsInput(strategy, visionAxes));
+    const linkedRows = await this.prisma.strategicDirectionStrategyAxisLink.findMany({
+      where: { strategyId: id, clientId },
+      include: {
+        axis: { select: { id: true, name: true, orderIndex: true } },
+      },
+    });
+    const retainedAxes = [...linkedRows]
+      .map((row) => ({
+        id: row.axis.id,
+        name: row.axis.name,
+        orderIndex: row.axis.orderIndex,
+      }))
+      .sort((a, b) => {
+        const ao = a.orderIndex ?? 0;
+        const bo = b.orderIndex ?? 0;
+        if (ao !== bo) return ao - bo;
+        return a.name.localeCompare(b.name, 'fr');
+      })
+      .map((a) => ({ id: a.id, name: a.name }));
+
+    // Score + alertes « axe non couvert / contribution » = axes retenus uniquement
+    // (Alignement → « Axes du groupe pour cette direction »). Pas de repli sur toute la vision.
+    return computeSchemaMetrics(this.schemaMetricsInput(strategy, retainedAxes));
   }
 
   async getConsolidation(

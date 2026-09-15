@@ -134,6 +134,16 @@ export function computeSchemaAlerts(input: SchemaMetricsInput): SchemaAlert[] {
     }
   }
 
+  if (visionAxes.length === 0) {
+    add(
+      'info',
+      'Aucun axe du groupe retenu',
+      'Sélectionnez les axes concernés dans Alignement — les alertes de couverture ne portent que sur ces axes.',
+    );
+  }
+
+  const retainedIds = new Set(visionAxes.map((a) => a.id));
+
   for (const c of schema.majorInitiatives) {
     if (c.endMonthOffset <= nowMonthOffset && c.progressPct < 100) {
       add(
@@ -152,7 +162,16 @@ export function computeSchemaAlerts(input: SchemaMetricsInput): SchemaAlert[] {
       add(
         'warning',
         `Chantier non aligné — ${c.title}`,
-        "Aucun rattachement à un axe du groupe : il ne remonte pas dans la consolidation.",
+        'Aucun rattachement à un axe du groupe : il ne remonte pas dans la consolidation.',
+      );
+    } else if (
+      retainedIds.size > 0 &&
+      !c.strategicAxisIds.some((id) => retainedIds.has(id))
+    ) {
+      add(
+        'warning',
+        `Chantier hors axes retenus — ${c.title}`,
+        'Rattaché à des axes non retenus pour cette direction — cochez l’axe dans Alignement ou changez le chantier.',
       );
     }
   }

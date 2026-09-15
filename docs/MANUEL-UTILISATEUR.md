@@ -37,7 +37,8 @@ Chaque guide modulaire est rédigé en format **manuel terrain**:
 6. `MANUEL-50-FOURNISSEURS-CONTRATS.md`
 7. `MANUEL-60-RESSOURCES-EQUIPES.md`
 8. `MANUEL-70-CONFORMITE.md`
-9. `MANUEL-90-DEPANNAGE.md`
+9. `MANUEL-80-VISION-STRATEGIE.md`
+10. `MANUEL-90-DEPANNAGE.md`
 
 ---
 
@@ -83,6 +84,7 @@ client --> projects[Projets and risques]
 client --> procurement[Procurement and contrats]
 client --> teams[Ressources and equipes]
 client --> compliance[Conformite]
+client --> strategy[Vision and strategie]
 ```
 
 ---
@@ -168,6 +170,17 @@ Référence: `MANUEL-60-RESSOURCES-EQUIPES.md`.
 - preuves et suivi.
 
 Référence: `MANUEL-70-CONFORMITE.md`.
+
+### Vision stratégique et stratégie de direction
+
+- vision entreprise (axes, objectifs, alignement, alertes);
+- référentiel directions;
+- portefeuille schémas de direction + fiche schéma directeur;
+- circuit brouillon → revue → validé (sponsor, validateurs, options);
+- consolidé groupe;
+- lecture collaborateurs (read-only).
+
+Référence: `MANUEL-80-VISION-STRATEGIE.md`.
 
 ---
 
@@ -291,6 +304,16 @@ Référence: `MANUEL-70-CONFORMITE.md`.
 - `/compliance/requirements`
 - `/compliance/requirements/[id]`
 
+### Vision / stratégie
+
+- `/strategic-vision`
+- `/strategic-direction-strategy`
+- `/strategic-direction-strategy?view=consolide`
+- `/strategic-direction-strategy?options=1`
+- `/strategic-direction-strategy/new`
+- `/strategic-direction-strategy/[id]`
+- `/strategic-direction-strategy/options` (redirige vers `?options=1`)
+
 ---
 
 ## 7) Gouvernance documentaire
@@ -305,6 +328,7 @@ Ce document consolidé est aligné avec les guides modulaires:
 - `MANUEL-50-FOURNISSEURS-CONTRATS.md`
 - `MANUEL-60-RESSOURCES-EQUIPES.md`
 - `MANUEL-70-CONFORMITE.md`
+- `MANUEL-80-VISION-STRATEGIE.md`
 - `MANUEL-90-DEPANNAGE.md`
 
 En cas de divergence, corriger le guide modulaire concerné puis répercuter ici.

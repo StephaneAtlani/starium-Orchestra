@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| **Statut** | ✅ Implémentée (fidélité mock Merge A+B — portefeuille, fiche schéma, consolidé, PDF print ; droits sponsor + cycle de vie + options workflow) |
+| **Statut** | ✅ Implémentée (fidélité mock Merge A+B — portefeuille, fiche schéma, consolidé, PDF print ; droits sponsor + cycle de vie + options workflow ; compléments UX alignement / KPI / pièces) |
 | **Date** | 2026-09-15 |
 | **Parents** | [RFC-STRAT-005](./RFC-STRAT-005%20%E2%80%94%20Stratégie%20par%20direction%20et%20vision%20stratégique.md) · [RFC-STRAT-006](./RFC-STRAT-006%20%E2%80%94%20Stratégie%20de%20direction%20et%20validation%20CODIR) · [RFC-STRAT-003](./RFC-STRAT-003%20%E2%80%94%20Strategic%20Vision%20Frontend%20UI.md) / [RFC-STRAT-009](./RFC-STRAT-009%20%E2%80%94%20Vision%20stratégique%20V1%20%E2%80%94%20Frontend%20cockpit%20et%20UX.md) |
 | **Source design** | *Refonte Portail Client* — `#view-vision` (onglets **Directions** + **Consolidé groupe**) + `#view-dirstrat` (schéma directeur) |
@@ -25,14 +25,14 @@ Sous **Vision stratégique**, le mock expose **trois sous-onglets** :
 
 Clic carte → vue dédiée **`#view-dirstrat`** (« *SIGLE — Schéma directeur* ») :
 
-- Hero (sigle, ambition HTML, meta directeur / rattachement / ETP / budget / revue, anneau alignement)
-- KPI direction (4 cellules libres)
-- Sous-onglets : **Axes stratégiques** (timeline Gantt chantiers + axes propres + blocs texte/image) · **Objectifs** (OKR + budget horizon) · **Alignement** (contribution axes groupe + maturité) · **Alertes** (règles calculées + risques) · **Historique** (revues / versions)
+- Hero (sigle adaptatif pour codes longs, ambition HTML, meta directeur / rattachement / ETP / budget / revue, anneau alignement)
+- Bande KPI (ajout / édition / réordonnancement glisser-déposer ; synchro auto depuis OKR si libellé = titre objectif / `linkedFromOutcome`)
+- Sous-onglets : **Axes stratégiques** (timeline Gantt chantiers + axes retenus + blocs texte/image/**document**) · **Objectifs** (OKR + budget horizon ; action « Afficher en bande KPI ») · **Alignement** (sélection axes groupe pour la direction + contributions + maturité) · **Alertes** (règles calculées + risques) · **Historique** (revues / versions)
 - Actions header : Export PDF · **Partager** (lien / Web Share) · Nouvelle revue · **Nouvelle version** (`APPROVED`) · **Archiver** (`APPROVED`) · Modifier la direction
-- Modales : direction · chantier · bloc · OKR · revue · **nouvelle version** (`archiveReason`) · **archiver** · comparateur 2 directions
+- Modales : direction · chantier · bloc (texte / image / document S3) · OKR · revue · **nouvelle version** (`archiveReason`) · **archiver** · comparateur 2 directions
 - Édition contenu : uniquement `DRAFT` / `REJECTED` (`canEditContent`) ; `SUBMITTED` / `APPROVED` / `ARCHIVED` = lecture seule (CTA version/archive en header)
-- Options client (modale depuis le portefeuille / `?options=1`, CLIENT_ADMIN) : choix validateur · **`allowSelfValidation`** · validateurs autorisés
-- Portfolio : badge **Sponsor** ; CTA créer gated `canCreateStrategy`
+- Options client (modale depuis le portefeuille / `?options=1`, CLIENT_ADMIN) : choix validateur · **`allowSelfValidation`** · validateurs autorisés (switches en fin de ligne)
+- Portfolio : badge **Sponsor** ; CTA créer gated `canCreateStrategy` ; sigle `.stg-sigle` responsive (codes longs)
 
 ### 1.2 Ce que le produit a déjà (STRAT-005 / 006)
 
@@ -67,9 +67,9 @@ Sidebar inchangée : **Vision stratégique › Stratégie** → portefeuille ; V
 | Axes propres (lanes) | Sous-ensemble JSON **ou** axes direction locaux | Distincts des `StrategicAxis` groupe ; lanes = index pour Gantt |
 | Chantiers | Enrichissement `majorInitiatives` **structuré** (V1) → entité `StrategicDirectionWorkstream` (V2) | Fenêtre `startMonthOffset`/`endMonthOffset`, `progressPct`, jalons, budget, liens optionnels `projectIds` |
 | OKR | `expectedOutcomes` structuré | title, ownerLabel, target, current, progressPct |
-| Alignement axes groupe | Liens `axisLinks` + score contribution **déclaré** (nouveau champ ou map JSON) | Confronté aux chantiers rattachés (calcul BE) |
+| Alignement axes groupe | Liens `axisLinks` (`PUT …/axes`) + `axisContributions` JSON | UI Alignement : cartes sélectionnables (sous-ensemble vision) ; contribution + chantiers rattachés via `strategicAxisIds` |
 | Risques | `risks` JSON typé | name, probability, impact, ownerLabel, level |
-| Blocs texte/image | Nouveau JSON `contentBlocks` ou documents module Documents | Image = Document client-scopé (pas base64 localStorage) |
+| Blocs texte/image/document | JSON `contentBlocks` + table `StrategicDirectionStrategyDocument` (S3 domaine `strategie`) | `kind: 'text' \| 'image' \| 'document'` ; `documentId` → upload/download existants |
 | Revues | Versioning + audit déjà là ; UI timeline mock | Réutiliser `GET …/versions` ; « Nouvelle revue » = soumission / adaptation version |
 | Score / maturité / alertes | Endpoints calcul BE | Aucune formule en React |
 
@@ -85,7 +85,7 @@ Sidebar inchangée : **Vision stratégique › Stratégie** → portefeuille ; V
 | H4 | Horizon Gantt V1 = années de `horizonLabel` parsées **ou** `horizonStartYear` + `horizonYearCount` (défaut 3) sur la stratégie ; offsets mois 0…N×12−1. |
 | H5 | Chantiers V1 = JSON validé dans `majorInitiatives` (schéma Zod/DTO strict) ; migration table V2 si volumétrie / liens projets lourds. |
 | H6 | Images des blocs = `Document` / upload existant (pas data-URL en DB). |
-| H7 | Recouvrements = **signal soft** (tokens normalisés, top N) — pas d’écriture automatique en ODJ réunion (CTA toast / stub lien MEET si présent). |
+| H7 | Recouvrements = **signal soft** (tokens normalisés, top N) — **pas** d’écriture ODJ réunion. CTA « Inscrire en revue croisée » **retiré** (stub toast) ; réintroduire quand pont MEET/agenda prêt. |
 | H8 | Export PDF V1 = **print CSS** 1 page (comme mock) ; génération serveur PDF = hors lot. |
 | H9 | Graphiques / anneaux / heatmaps : uniquement données API ≥ seuils réels ; sinon empty (règle charts-dynamic-only). |
 | H10 | Permissions : `strategic_direction_strategy.read|create|update|review` ; lecture consolidé = `read` ; CRUD chantiers/blocs = `update`. **Extension** : le **sponsor** de la direction (`ClientUser.resourceId` = `StrategicDirection.sponsorResourceId`) peut **créer / modifier / soumettre / adapter (nouvelle version) / archiver** le schéma de **sa** direction sans `create`/`update` global (garde HTTP : `read` + assert service). Flags dérivés API : `canEditContent`, `canSubmit`, `canAdaptVersion`, `canArchive`. CTA fiche : Partager (lien), Nouvelle revue, Nouvelle version, Archiver. Revue : tout détenteur de `…review` peut décider ; **auto-validation** du soumissionnaire **interdite par défaut**, activable via option client `allowSelfValidation` (Options stratégie). |
@@ -161,10 +161,16 @@ Clic carte → S2.
 
 1. Breadcrumb / retour « Toutes les directions »
 2. Hero `.stg-hero` + anneau alignement
-3. Bande KPI (données stratégie `kpis` — empty si vide)
+3. Bande KPI (données stratégie `kpis` — empty si vide ; CTA « Ajouter » ; DnD réordonnancement si ≥ 2 ; synchro OKR → KPI)
 4. Sous-onglets URL `?tab=axes|objectifs|alignement|alertes|historique` (défaut `axes`)
-5. Contenu par onglet = mock §1.1
+5. Contenu par onglet = mock §1.1 + compléments livrés (axes retenus, blocs document, promotion OKR)
 6. Actions header : Export PDF · Revue / workflow existant · Modifier (modale identité + édition stratégie)
+
+#### S2bis — Alignement (onglet)
+
+1. **Axes du groupe pour cette direction** : grille de cartes sélectionnables (sous-ensemble `PUT …/axes`) ; compteur X/Y ; Tout rattacher / Tout retirer
+2. **Contribution** : curseurs uniquement sur axes retenus ; sous-ligne = chantiers liés (`strategicAxisIds`)
+3. Maturité 6 dims (`schema-metrics`)
 
 #### S3 — Consolidé groupe (`?view=consolide`)
 
@@ -173,7 +179,7 @@ Clic carte → S2.
 3. Heatmap maturité 6 dimensions
 4. Timeline groupe (liane par direction)
 5. Table portefeuille chantiers (libellés direction/axes — pas d’IDs)
-6. Cartes recouvrements + CTA soft
+6. Cartes recouvrements (signal soft — **sans** CTA inscription revue)
 7. CTA Comparer → `StariumModal` (réutilise logique compare existante + présentation mock côte-à-côte)
 
 ### 4.2 Contrats API proposés (additifs)
@@ -224,8 +230,8 @@ score = round(moyenne(score_A))
 | --- | --- | --- |
 | Direction | Sigle*, Nom*, Sponsor (HR combobox), Rattachement, Périmètre, ETP, Budget k€, Tone | **Livré** |
 | Chantier | Nom*, Pilote, Budget, Avancement, Axe propre (lane), Fenêtre début/fin, Axes groupe (chips), Jalons | **Livré** |
-| Bloc | Titre*, Contenu / légende ; image via upload Document (silo stratégie) | **Livré** |
-| OKR | Objectif*, Responsable, Indicateur cible, Actuel, Avancement | **Livré** |
+| Bloc | Titre* ; type texte / image / **document** ; légende ; pièce via upload S3 (`…/documents`) | **Livré** |
+| OKR | Objectif*, Responsable (HR), Cible, Actuel, Unité, Avancement (+ CTA bande KPI) | **Livré** |
 | Revue | Instance + Note + workflow submit/review ; auto-val optionnelle | **Livré** (hybride CODIR) |
 | Nouvelle version | Motif `archiveReason` → snapshot + `DRAFT` | **Livré** |
 | Archiver | Motif → `APPROVED` → `ARCHIVED` | **Livré** |
@@ -252,10 +258,11 @@ horizonStartYear Int?
 horizonYearCount Int?   @default(3)
 budgetsByYear    Json?  // { "2026": 4200000, ... } montants en cents
 axisContributions Json? // { "<strategicAxisId>": 0..100 }
-contentBlocks    Json?  // [{ kind: 'text'|'image', title, body, documentId? }]
+contentBlocks    Json?  // [{ kind: 'text'|'image'|'document', title, body, documentId? }]
 ```
 
-`majorInitiatives` / `expectedOutcomes` / `risks` / `kpis` : **contrats JSON documentés** (validation class-validator / Zod) alignés mock — pas de migration destructive.
+`majorInitiatives` / `expectedOutcomes` / `risks` / `kpis` : **contrats JSON documentés** (validation class-validator) alignés mock — pas de migration destructive.  
+`kpis[]` : `{ label, value, detail, linkedFromOutcome? }` — si `linkedFromOutcome` (ou libellé = titre OKR), l’UI resynchronise valeur/détail depuis `expectedOutcomes`.
 
 ### 5.3 V2 optionnelle — `StrategicDirectionWorkstream`
 
@@ -298,7 +305,7 @@ Ordre non négociable : **P0 → P1** avant Consolidé (P3 consomme les chantier
 
 ## 8. Récapitulatif
 
-Cette RFC **spécifie et livre** l’adaptation UI/CDC du mock **Directions + Schéma directeur + Consolidé groupe** sur le socle STRAT-005/006, sans module parallèle. Compléments 2026-09-15 : **droits sponsor** (create/update/submit/adapt/archive), **flags dérivés** (`canEditContent` / `canSubmit` / `canAdaptVersion` / `canArchive`), CTA fiche (Partager, Nouvelle version, Archiver), options workflow **`allowSelfValidation`**, gel d’édition hors `DRAFT`/`REJECTED`.
+Cette RFC **spécifie et livre** l’adaptation UI/CDC du mock **Directions + Schéma directeur + Consolidé groupe** sur le socle STRAT-005/006, sans module parallèle. Compléments 2026-09-15 : **droits sponsor** ; **flags dérivés** ; CTA fiche ; options **`allowSelfValidation`** ; gel d’édition hors `DRAFT`/`REJECTED` ; **pièces document** (S3) ; **KPI** (ajout, DnD, synchro OKR) ; **alignement** (sous-ensemble axes groupe pour la direction) ; retrait CTA stub revue croisée.
 
 ---
 
@@ -308,10 +315,11 @@ Cette RFC **spécifie et livre** l’adaptation UI/CDC du mock **Directions + Sc
 2. **Schéma directeur** nommé dans STRAT-006 « hors scope » : ici on **réalise la couche présentation** ; pas de second workflow d’approbation.
 3. **JSON vs table chantiers** : surveiller taille payload et besoin de jointures projets avant P4.
 4. **Sponsor / FTE** : DCP → HR lié + rétention alignée annuaire ; pas de logging des noms en clair hors audit déjà prévu. Prérequis sponsor write : `ClientUser.resourceId` renseigné = `sponsorResourceId`.
-5. **Recouvrements** : faux positifs tokens — UI doit dire « signal », pas « doublon avéré ».
+5. **Recouvrements** : faux positifs tokens — UI doit dire « signal », pas « doublon avéré » ; pas d’inscription ODJ tant que le pont agenda n’existe pas.
 6. **Charts-dynamic-only** : interdiction de hardcoder les % du seed mock en prod.
 7. **Auto-validation** : `allowSelfValidation` OFF par défaut ; réservé démo / mono-utilisateur — ne pas l’activer en gouvernance CODIR stricte sans accord client.
 8. **Partager** : clipboard / Web Share uniquement — **pas** d’ACL ressource `STRATEGIC_DIRECTION_STRATEGY` (hors whitelist RFC-ACL V1).
+9. **Axes retenus** : score d’alignement et alertes de couverture (`schema-metrics`) = **uniquement** les `axisLinks` de la stratégie (Alignement). La matrice consolidé groupe reste sur la vision complète.
 
 ---
 
@@ -368,6 +376,10 @@ Cette RFC **spécifie et livre** l’adaptation UI/CDC du mock **Directions + Sc
 - [x] Flags dérivés + gel UI hors `DRAFT`/`REJECTED` ; CTA Partager / Nouvelle version / Archiver
 - [x] `pnpm audit:ui-ids` et `pnpm audit:modals` verts
 - [x] Aucune série graphique hardcodée
+- [x] Blocs `contentBlocks.kind` `text|image|document` + documents S3
+- [x] Bande KPI : ajout, DnD, synchro depuis OKR
+- [x] Alignement : sélection sous-ensemble axes groupe (`PUT …/axes`) + contributions scoped
+- [x] Recouvrements consolidé : affichage sans CTA stub « revue croisée »
 
 ---
 

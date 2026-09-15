@@ -164,6 +164,33 @@ describe('strategic-direction-strategy-schema-metrics', () => {
     expect(alerts.some((a) => a.title === 'Aucun objectif mesurable')).toBe(false);
   });
 
+  it('n’alerte que sur les axes retenus (pas toute la vision)', () => {
+    const schema = dsiSchema();
+    // Vision a ax1..axN mais seule ax1 est retenue → pas d’alerte sur les autres
+    const retained = VISION_AXES.filter((a) => a.id === 'ax1');
+    const alerts = computeSchemaAlerts({
+      schema,
+      ambition,
+      visionAxes: retained,
+      lastReviewAt: new Date('2026-05-02T00:00:00.000Z'),
+      nowMonthOffset: 8,
+    });
+    const coverage = alerts.filter((a) => a.title.startsWith('Axe groupe non couvert'));
+    expect(coverage.every((a) => a.title.includes(retained[0]!.name))).toBe(true);
+    expect(coverage.some((a) => a.title.includes('Excellence'))).toBe(false);
+  });
+
+  it('signale l’absence d’axes retenus', () => {
+    const alerts = computeSchemaAlerts({
+      schema: dsiSchema(),
+      ambition,
+      visionAxes: [],
+      lastReviewAt: new Date('2026-05-02T00:00:00.000Z'),
+      nowMonthOffset: 8,
+    });
+    expect(alerts.some((a) => a.title === 'Aucun axe du groupe retenu')).toBe(true);
+  });
+
   it('computeSchemaMetrics agrège score + maturité + alertes', () => {
     const result = computeSchemaMetrics({
       schema: dsiSchema(),
