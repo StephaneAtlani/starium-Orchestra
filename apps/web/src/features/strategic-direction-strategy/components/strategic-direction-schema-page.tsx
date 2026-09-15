@@ -8,6 +8,8 @@ import {
   Archive,
   ArrowLeft,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   ClipboardCheck,
   FileText,
   FileUp,
@@ -1015,6 +1017,24 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
     });
   };
 
+  const moveKpi = async (fromIndex: number, toIndex: number) => {
+    if (!schema) return;
+    if (toIndex < 0 || toIndex >= schema.kpis.length || fromIndex === toIndex) return;
+    const list = [...schema.kpis];
+    const [item] = list.splice(fromIndex, 1);
+    if (!item) return;
+    list.splice(toIndex, 0, item);
+    try {
+      await patchKpis(list);
+    } catch (e) {
+      const msg =
+        typeof e === 'object' && e && 'message' in e && typeof (e as { message: unknown }).message === 'string'
+          ? (e as { message: string }).message
+          : 'Réordonnancement impossible.';
+      toast.error(msg);
+    }
+  };
+
   const openKpi = (kpi?: StrategyKpi, index?: number) => {
     if (kpi && index != null) {
       setEditingKpiIndex(index);
@@ -1586,37 +1606,66 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
         </div>
       ) : (
         <div className="stg-kpis">
-          {kpis.map((k, i) => (
-            <button
-              key={`${k.label}-${i}`}
-              type="button"
-              className={cn(
-                'stg-kpi w-full text-left',
-                canUpdate &&
-                  strategy.status !== 'ARCHIVED' &&
-                  strategy.status !== 'SUBMITTED' &&
-                  'cursor-pointer',
-              )}
-              onClick={() => {
-                if (
-                  canUpdate &&
-                  strategy.status !== 'ARCHIVED' &&
-                  strategy.status !== 'SUBMITTED'
-                ) {
-                  openKpi(k, i);
-                }
-              }}
-              aria-label={
-                canUpdate
-                  ? `Modifier l’indicateur ${displayLabel(k.label, 'Indicateur')}`
-                  : undefined
-              }
-            >
-              <div className="l">{displayLabel(k.label, 'Indicateur')}</div>
-              <div className="v">{displayLabel(k.value, '—')}</div>
-              <div className="d">{displayLabel(k.detail, '')}</div>
-            </button>
-          ))}
+          {kpis.map((k, i) => {
+            const editable =
+              canUpdate &&
+              strategy.status !== 'ARCHIVED' &&
+              strategy.status !== 'SUBMITTED';
+            return (
+              <div
+                key={`${k.label}-${i}`}
+                className={cn(
+                  'stg-kpi-wrap',
+                  editable && kpis.length > 1 && 'stg-kpi-wrap--reorder',
+                )}
+              >
+                {editable && kpis.length > 1 ? (
+                  <div className="stg-kpi-reorder" role="group" aria-label="Ordre de l’indicateur">
+                    <button
+                      type="button"
+                      className="stg-kpi-reorder-btn min-h-11 min-w-11"
+                      disabled={i === 0 || updateMutation.isPending}
+                      aria-label={`Déplacer « ${displayLabel(k.label, 'Indicateur')} » vers la gauche`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void moveKpi(i, i - 1);
+                      }}
+                    >
+                      <ChevronLeft className="size-4" aria-hidden />
+                    </button>
+                    <button
+                      type="button"
+                      className="stg-kpi-reorder-btn min-h-11 min-w-11"
+                      disabled={i === kpis.length - 1 || updateMutation.isPending}
+                      aria-label={`Déplacer « ${displayLabel(k.label, 'Indicateur')} » vers la droite`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void moveKpi(i, i + 1);
+                      }}
+                    >
+                      <ChevronRight className="size-4" aria-hidden />
+                    </button>
+                  </div>
+                ) : null}
+                <button
+                  type="button"
+                  className={cn('stg-kpi w-full text-left', editable && 'cursor-pointer')}
+                  onClick={() => {
+                    if (editable) openKpi(k, i);
+                  }}
+                  aria-label={
+                    editable
+                      ? `Modifier l’indicateur ${displayLabel(k.label, 'Indicateur')}`
+                      : undefined
+                  }
+                >
+                  <div className="l">{displayLabel(k.label, 'Indicateur')}</div>
+                  <div className="v">{displayLabel(k.value, '—')}</div>
+                  <div className="d">{displayLabel(k.detail, '')}</div>
+                </button>
+              </div>
+            );
+          })}
           {canUpdate && strategy.status !== 'ARCHIVED' && strategy.status !== 'SUBMITTED' ? (
             <button
               type="button"
