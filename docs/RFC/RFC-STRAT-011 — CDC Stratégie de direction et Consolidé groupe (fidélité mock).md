@@ -2,8 +2,8 @@
 
 | | |
 | --- | --- |
-| **Statut** | ✅ Implémentée (fidélité mock Merge A+B — portefeuille, fiche schéma, consolidé, PDF print) |
-| **Date** | 2026-09-14 |
+| **Statut** | ✅ Implémentée (fidélité mock Merge A+B — portefeuille, fiche schéma, consolidé, PDF print ; droits sponsor + cycle de vie + options workflow) |
+| **Date** | 2026-09-15 |
 | **Parents** | [RFC-STRAT-005](./RFC-STRAT-005%20%E2%80%94%20Stratégie%20par%20direction%20et%20vision%20stratégique.md) · [RFC-STRAT-006](./RFC-STRAT-006%20%E2%80%94%20Stratégie%20de%20direction%20et%20validation%20CODIR) · [RFC-STRAT-003](./RFC-STRAT-003%20%E2%80%94%20Strategic%20Vision%20Frontend%20UI.md) / [RFC-STRAT-009](./RFC-STRAT-009%20%E2%80%94%20Vision%20stratégique%20V1%20%E2%80%94%20Frontend%20cockpit%20et%20UX.md) |
 | **Source design** | *Refonte Portail Client* — `#view-vision` (onglets **Directions** + **Consolidé groupe**) + `#view-dirstrat` (schéma directeur) |
 | **Code mock** | [`ui_kits/app/modules/strategie.js`](./_sources/Design%20system%20et%20CDC/ui_kits/app/modules/strategie.js) · [`strategie-consol.js`](./_sources/Design%20system%20et%20CDC/ui_kits/app/modules/strategie-consol.js) · [`styles/strategie.css`](./_sources/Design%20system%20et%20CDC/ui_kits/app/styles/strategie.css) |
@@ -28,8 +28,11 @@ Clic carte → vue dédiée **`#view-dirstrat`** (« *SIGLE — Schéma directeu
 - Hero (sigle, ambition HTML, meta directeur / rattachement / ETP / budget / revue, anneau alignement)
 - KPI direction (4 cellules libres)
 - Sous-onglets : **Axes stratégiques** (timeline Gantt chantiers + axes propres + blocs texte/image) · **Objectifs** (OKR + budget horizon) · **Alignement** (contribution axes groupe + maturité) · **Alertes** (règles calculées + risques) · **Historique** (revues / versions)
-- Actions : Export PDF 1 page · Nouvelle revue · Modifier la direction
-- Modales : direction · chantier · bloc · OKR · revue · comparateur 2 directions
+- Actions header : Export PDF · **Partager** (lien / Web Share) · Nouvelle revue · **Nouvelle version** (`APPROVED`) · **Archiver** (`APPROVED`) · Modifier la direction
+- Modales : direction · chantier · bloc · OKR · revue · **nouvelle version** (`archiveReason`) · **archiver** · comparateur 2 directions
+- Édition contenu : uniquement `DRAFT` / `REJECTED` (`canEditContent`) ; `SUBMITTED` / `APPROVED` / `ARCHIVED` = lecture seule (CTA version/archive en header)
+- Options client (`/strategic-direction-strategy/options`, CLIENT_ADMIN) : choix validateur · **`allowSelfValidation`** · validateurs autorisés
+- Portfolio : badge **Sponsor** ; CTA créer gated `canCreateStrategy`
 
 ### 1.2 Ce que le produit a déjà (STRAT-005 / 006)
 
@@ -85,7 +88,7 @@ Sidebar inchangée : **Vision stratégique › Stratégie** → portefeuille ; V
 | H7 | Recouvrements = **signal soft** (tokens normalisés, top N) — pas d’écriture automatique en ODJ réunion (CTA toast / stub lien MEET si présent). |
 | H8 | Export PDF V1 = **print CSS** 1 page (comme mock) ; génération serveur PDF = hors lot. |
 | H9 | Graphiques / anneaux / heatmaps : uniquement données API ≥ seuils réels ; sinon empty (règle charts-dynamic-only). |
-| H10 | Permissions inchangées : `strategic_direction_strategy.read|create|update|review` ; lecture consolidé = `read` ; CRUD chantiers/blocs = `update`. |
+| H10 | Permissions : `strategic_direction_strategy.read|create|update|review` ; lecture consolidé = `read` ; CRUD chantiers/blocs = `update`. **Extension** : le **sponsor** de la direction (`ClientUser.resourceId` = `StrategicDirection.sponsorResourceId`) peut **créer / modifier / soumettre / adapter (nouvelle version) / archiver** le schéma de **sa** direction sans `create`/`update` global (garde HTTP : `read` + assert service). Flags dérivés API : `canEditContent`, `canSubmit`, `canAdaptVersion`, `canArchive`. CTA fiche : Partager (lien), Nouvelle revue, Nouvelle version, Archiver. Revue : tout détenteur de `…review` peut décider ; **auto-validation** du soumissionnaire **interdite par défaut**, activable via option client `allowSelfValidation` (Options stratégie). |
 | H11 | Fidélité visuelle : porter `strategie.css` → `apps/web/src/features/strategic-direction-strategy/styles/strategie.css` en remplaçant hex/px hors tokens par variables DS quand divergence. |
 
 ---
@@ -223,7 +226,9 @@ score = round(moyenne(score_A))
 | Chantier | Nom*, Pilote, Budget, Avancement, Axe propre (lane), Fenêtre début/fin, Axes groupe (chips), Jalons | **Livré** |
 | Bloc | Titre*, Contenu / légende ; image via upload Document (silo stratégie) | **Livré** |
 | OKR | Objectif*, Responsable, Indicateur cible, Actuel, Avancement | **Livré** |
-| Revue | Instance + Note + workflow submit/review | **Livré** (hybride CODIR) |
+| Revue | Instance + Note + workflow submit/review ; auto-val optionnelle | **Livré** (hybride CODIR) |
+| Nouvelle version | Motif `archiveReason` → snapshot + `DRAFT` | **Livré** |
+| Archiver | Motif → `APPROVED` → `ARCHIVED` | **Livré** |
 | Comparer | 2 selects directions (labels) + corps `.stg-cmp` complet | **Livré** |
 
 ## 5. Modifications Prisma
@@ -293,7 +298,7 @@ Ordre non négociable : **P0 → P1** avant Consolidé (P3 consomme les chantier
 
 ## 8. Récapitulatif
 
-Cette RFC **spécifie** l’adaptation UI/CDC du mock **Directions + Schéma directeur + Consolidé groupe** sur le socle STRAT-005/006, sans recréer un module parallèle. Livrable documentaire : ce fichier + index. **Code non modifié** à ce stade.
+Cette RFC **spécifie et livre** l’adaptation UI/CDC du mock **Directions + Schéma directeur + Consolidé groupe** sur le socle STRAT-005/006, sans module parallèle. Compléments 2026-09-15 : **droits sponsor** (create/update/submit/adapt/archive), **flags dérivés** (`canEditContent` / `canSubmit` / `canAdaptVersion` / `canArchive`), CTA fiche (Partager, Nouvelle version, Archiver), options workflow **`allowSelfValidation`**, gel d’édition hors `DRAFT`/`REJECTED`.
 
 ---
 
@@ -302,10 +307,11 @@ Cette RFC **spécifie** l’adaptation UI/CDC du mock **Directions + Schéma dir
 1. **Confusion Vision vs Stratégie** : ne pas fusionner l’onglet référentiel Directions (Vision) avec le portefeuille schéma (Stratégie) — deux intentions.
 2. **Schéma directeur** nommé dans STRAT-006 « hors scope » : ici on **réalise la couche présentation** ; pas de second workflow d’approbation.
 3. **JSON vs table chantiers** : surveiller taille payload et besoin de jointures projets avant P4.
-4. **Sponsor / FTE** : DCP → HR lié + rétention alignée annuaire ; pas de logging des noms en clair hors audit déjà prévu.
+4. **Sponsor / FTE** : DCP → HR lié + rétention alignée annuaire ; pas de logging des noms en clair hors audit déjà prévu. Prérequis sponsor write : `ClientUser.resourceId` renseigné = `sponsorResourceId`.
 5. **Recouvrements** : faux positifs tokens — UI doit dire « signal », pas « doublon avéré ».
 6. **Charts-dynamic-only** : interdiction de hardcoder les % du seed mock en prod.
-7. **Monolithe FE** : refactor de `strategic-direction-strategy-page.tsx` obligatoire en P4 pour maintenabilité.
+7. **Auto-validation** : `allowSelfValidation` OFF par défaut ; réservé démo / mono-utilisateur — ne pas l’activer en gouvernance CODIR stricte sans accord client.
+8. **Partager** : clipboard / Web Share uniquement — **pas** d’ACL ressource `STRATEGIC_DIRECTION_STRATEGY` (hors whitelist RFC-ACL V1).
 
 ---
 
@@ -324,7 +330,8 @@ Cette RFC **spécifie** l’adaptation UI/CDC du mock **Directions + Schéma dir
 - Cartes cliquables = `button` / lien réel ; focus-visible ; Tab order hero → onglets → timeline.
 - Labels sur tous champs modales ; `aria-invalid` + `aria-describedby`.
 - Anneau score : texte % visible (pas couleur seule) ; heatmaps = valeur numérique + fond.
-- `aria-live` toasts / alertes chargées ; `prefers-reduced-motion` (pas de translate hover si reduced).
+- `aria-live` toasts / bannières d’état (`SUBMITTED`, `ARCHIVED`) ; `prefers-reduced-motion`.
+- Header actions : overflow mobile via menu « Plus » (cibles ≥ 44px).
 
 ### Design System
 
@@ -335,8 +342,10 @@ Cette RFC **spécifie** l’adaptation UI/CDC du mock **Directions + Schéma dir
 ### Sécurité
 
 - Guards existants ; DTO class-validator ; consolidation ne traverse pas les clients.
-- Audit : création/MAJ direction identité, remplacement initiatives, revue, archive.
-- Pas de sur-exposition : whitelist champs portfolio/consolidation.
+- Write sponsor : garde HTTP `…read` + `assertActorCanWriteStrategy` (jamais `clientId` payload).
+- Revue : `…review` ; anti auto-val sauf `allowSelfValidation` ; tout détenteur `review` peut décider (validateur = notif).
+- Audit : création/MAJ, soumission, revue, adaptation version, archive, settings workflow.
+- Pas de sur-exposition : whitelist champs portfolio/consolidation + flags caps.
 
 ### Interface mobile
 
@@ -344,18 +353,21 @@ Cette RFC **spécifie** l’adaptation UI/CDC du mock **Directions + Schéma dir
 - Timeline : scroll horizontal contrôlé + libellés au-dessus des barres.
 - Matrice consolidée : scroll + sticky colonne direction ; cibles ≥ 44px.
 - Comparateur : stack 1 colonne sous `md`.
+- Fiche : Partager + CTA primaire visibles ; Export / Archiver / Modifier direction dans menu Plus sous `sm`.
 
 ---
 
 ## 11. Critères d’acceptation (global)
 
-- [ ] S1 grille visuelle alignée mock (tokens) alimentée par `GET …/portfolio`
-- [ ] S2 fiche schéma avec 5 onglets et timeline chantiers API
-- [ ] Scores / maturité / alertes = `schema-metrics` (tests formules)
-- [ ] S3 consolidation complète ou empty explicite
-- [ ] Workflow CODIR STRAT-006 préservé
-- [ ] `pnpm audit:ui-ids` et `pnpm audit:modals` verts
-- [ ] Aucune série graphique hardcodée
+- [x] S1 grille visuelle alignée mock (tokens) alimentée par `GET …/portfolio`
+- [x] S2 fiche schéma avec 5 onglets et timeline chantiers API
+- [x] Scores / maturité / alertes = `schema-metrics` (tests formules)
+- [x] S3 consolidation complète ou empty explicite
+- [x] Workflow CODIR STRAT-006 préservé (+ options `allowSelfValidation`)
+- [x] Sponsor : créer / éditer DRAFT / soumettre / nouvelle version / archiver sans `create`/`update` global
+- [x] Flags dérivés + gel UI hors `DRAFT`/`REJECTED` ; CTA Partager / Nouvelle version / Archiver
+- [x] `pnpm audit:ui-ids` et `pnpm audit:modals` verts
+- [x] Aucune série graphique hardcodée
 
 ---
 
@@ -366,3 +378,5 @@ Cette RFC **spécifie** l’adaptation UI/CDC du mock **Directions + Schéma dir
 - Inscription automatique en ODJ réunion (MEET) — CTA soft seulement
 - Modification automatique des projets depuis un chantier
 - Fusion de l’onglet Vision groupe dans cette RFC
+- ACL ressource dédiée schéma directeur (RFC-ACL)
+- Désactivation `StrategicDirection.isActive` via la fiche schéma (≠ archiver la stratégie)

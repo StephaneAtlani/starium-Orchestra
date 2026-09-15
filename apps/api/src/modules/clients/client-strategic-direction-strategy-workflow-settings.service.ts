@@ -29,6 +29,7 @@ const userSelect = {
 
 export type StrategicDirectionStrategyWorkflowSettingsResolved = {
   allowSubmitterToSelectValidator: boolean;
+  allowSelfValidation: boolean;
   authorizedValidatorUserIds: string[];
   authorizedValidatorRoleIds: string[];
   defaultValidatorUserId: string | null;
@@ -48,6 +49,7 @@ function toResolved(
 ): StrategicDirectionStrategyWorkflowSettingsResolved {
   return {
     allowSubmitterToSelectValidator: row.allowSubmitterToSelectValidator,
+    allowSelfValidation: row.allowSelfValidation,
     authorizedValidatorUserIds: row.authorizedValidatorUserIds ?? [],
     authorizedValidatorRoleIds: row.authorizedValidatorRoleIds ?? [],
     defaultValidatorUserId: row.defaultValidatorUserId ?? null,
@@ -312,23 +314,31 @@ export class ClientStrategicDirectionStrategyWorkflowSettingsService {
 
     const nextAllowPick =
       dto.allowSubmitterToSelectValidator ?? before.allowSubmitterToSelectValidator;
-    const nextDefaultValidatorId =
+    let nextDefaultValidatorId =
       dto.defaultValidatorUserId !== undefined
         ? dto.defaultValidatorUserId
         : before.defaultValidatorUserId;
+    const nextAuthorizedUserIds =
+      validatorUserIds ?? before.authorizedValidatorUserIds ?? [];
+    let autoFilledDefault = false;
 
+    // Si sélection soumissionnaire off et pas de défaut : reprendre le 1er autorisé.
     if (!nextAllowPick && !nextDefaultValidatorId) {
-      throw new BadRequestException(
-        'Un validateur par défaut est requis quand la sélection par le soumissionnaire est désactivée',
-      );
+      const autoDefault = nextAuthorizedUserIds[0] ?? null;
+      if (!autoDefault) {
+        throw new BadRequestException(
+          'Un validateur par défaut est requis quand la sélection par le soumissionnaire est désactivée. Choisissez un validateur par défaut ou cochez au moins un validateur autorisé.',
+        );
+      }
+      nextDefaultValidatorId = autoDefault;
+      autoFilledDefault = true;
     }
 
     if (nextDefaultValidatorId) {
       await this.assertActiveClientUsers(clientId, [nextDefaultValidatorId]);
       await this.assertValidatorEligible(clientId, nextDefaultValidatorId, {
         ...before,
-        authorizedValidatorUserIds:
-          validatorUserIds ?? before.authorizedValidatorUserIds,
+        authorizedValidatorUserIds: nextAuthorizedUserIds,
         authorizedValidatorRoleIds:
           validatorRoleIds ?? before.authorizedValidatorRoleIds,
       });
@@ -340,14 +350,17 @@ export class ClientStrategicDirectionStrategyWorkflowSettingsService {
         ...(dto.allowSubmitterToSelectValidator !== undefined && {
           allowSubmitterToSelectValidator: dto.allowSubmitterToSelectValidator,
         }),
+        ...(dto.allowSelfValidation !== undefined && {
+          allowSelfValidation: dto.allowSelfValidation,
+        }),
         ...(validatorUserIds !== undefined && {
           authorizedValidatorUserIds: validatorUserIds,
         }),
         ...(validatorRoleIds !== undefined && {
           authorizedValidatorRoleIds: validatorRoleIds,
         }),
-        ...(dto.defaultValidatorUserId !== undefined && {
-          defaultValidatorUserId: dto.defaultValidatorUserId,
+        ...((dto.defaultValidatorUserId !== undefined || autoFilledDefault) && {
+          defaultValidatorUserId: nextDefaultValidatorId,
         }),
       },
     });

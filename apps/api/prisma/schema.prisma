@@ -2373,6 +2373,8 @@ model StrategicDirectionStrategyWorkflowSettings {
 
   /// Si vrai, le soumissionnaire choisit le validateur à la soumission ; sinon `defaultValidatorUserId` est appliqué.
   allowSubmitterToSelectValidator Boolean @default(true)
+  /// Si vrai, le soumissionnaire peut aussi décider (valider / refuser) sa propre stratégie.
+  allowSelfValidation             Boolean @default(false)
   authorizedValidatorUserIds      String[] @default([])
   authorizedValidatorRoleIds        String[] @default([])
   defaultValidatorUserId            String?

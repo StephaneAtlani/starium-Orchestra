@@ -22,6 +22,7 @@ import {
   useStrategicDirectionStrategyWorkflowSettingsQuery,
 } from '../hooks/use-strategic-direction-strategy-queries';
 import { toast } from '@/lib/toast';
+import { firstDisplayLabel } from '@/lib/display-label';
 
 export function StrategicDirectionStrategyOptionsPage() {
   const { activeClient } = useActiveClient();
@@ -51,9 +52,27 @@ export function StrategicDirectionStrategyOptionsPage() {
   const resolved = settingsQ.data?.resolved;
   const options = settingsQ.data?.options;
   const allowPick = resolved?.allowSubmitterToSelectValidator ?? true;
+  const allowSelfValidation = resolved?.allowSelfValidation ?? false;
   const defaultValidatorId = resolved?.defaultValidatorUserId ?? '';
   const authorizedIds = resolved?.authorizedValidatorUserIds ?? [];
   const potentialValidators = options?.potentialValidators ?? [];
+  const eligibleValidators = options?.eligibleValidators ?? [];
+  const validatorChoices = (() => {
+    const byId = new Map<string, (typeof potentialValidators)[number]>();
+    for (const user of [...potentialValidators, ...eligibleValidators]) {
+      byId.set(user.id, user);
+    }
+    return [...byId.values()].sort((a, b) =>
+      a.displayName.localeCompare(b.displayName, 'fr'),
+    );
+  })();
+  const defaultValidatorUser = validatorChoices.find((u) => u.id === defaultValidatorId);
+  const defaultValidatorLabel = defaultValidatorId
+    ? firstDisplayLabel(
+        [defaultValidatorUser?.displayName, defaultValidatorUser?.email],
+        'Validateur introuvable',
+      )
+    : '';
 
   const patch = (body: Record<string, unknown>) => {
     patchMutation.mutate(body, {
@@ -75,6 +94,14 @@ export function StrategicDirectionStrategyOptionsPage() {
     const next = checked
       ? [...new Set([...authorizedIds, userId])]
       : authorizedIds.filter((id) => id !== userId);
+    // Si circuit « défaut » et pas encore de défaut : le 1er autorisé devient le défaut.
+    if (!allowPick && !defaultValidatorId && next.length > 0) {
+      patch({
+        authorizedValidatorUserIds: next,
+        defaultValidatorUserId: next[0],
+      });
+      return;
+    }
     patch({ authorizedValidatorUserIds: next });
   };
 
@@ -91,7 +118,7 @@ export function StrategicDirectionStrategyOptionsPage() {
         </div>
         <PageHeader
           title="Options — Stratégie de direction"
-          description="Configurez qui valide les stratégies soumises et empêchez l’auto-validation par le soumissionnaire."
+          description="Configurez qui valide les stratégies soumises et si l’auto-validation est autorisée."
         />
 
         {settingsQ.isLoading ? (
@@ -121,39 +148,85 @@ export function StrategicDirectionStrategyOptionsPage() {
                     id="allow-submitter-pick-validator"
                     checked={allowPick}
                     disabled={patchMutation.isPending}
-                    onCheckedChange={(checked) =>
-                      patch({ allowSubmitterToSelectValidator: checked })
-                    }
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        patch({ allowSubmitterToSelectValidator: true });
+                        return;
+                      }
+                      const fallbackDefault =
+                        defaultValidatorId ||
+                        authorizedIds[0] ||
+                        validatorChoices[0]?.id ||
+                        '';
+                      if (!fallbackDefault) {
+                        toast.error(
+                          'Choisissez d’abord un validateur autorisé (ou un compte avec permission revue) avant de désactiver la sélection.',
+                        );
+                        return;
+                      }
+                      patch({
+                        allowSubmitterToSelectValidator: false,
+                        defaultValidatorUserId: fallbackDefault,
+                      });
+                    }}
                     aria-label="Le soumissionnaire choisit le validateur"
                   />
                 </div>
 
-                {!allowPick ? (
-                  <div className="space-y-2">
-                    <Label htmlFor="default-validator">Validateur par défaut</Label>
-                    <Select
-                      value={defaultValidatorId}
-                      onValueChange={(value) => patch({ defaultValidatorUserId: value })}
-                      disabled={patchMutation.isPending || potentialValidators.length === 0}
-                    >
-                      <SelectTrigger id="default-validator" className="w-full">
-                        <SelectValue placeholder="Choisir un validateur" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {potentialValidators.map((user) => (
-                          <SelectItem key={user.id} value={user.id}>
-                            {user.displayName}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {potentialValidators.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">
-                        Aucun utilisateur avec la permission de revue sur ce client.
-                      </p>
-                    ) : null}
+                <div className="flex items-start justify-between gap-4">
+                  <div className="space-y-1">
+                    <Label htmlFor="allow-self-validation">
+                      Autoriser l’auto-validation
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Si activé, le soumissionnaire peut valider ou refuser sa propre stratégie
+                      (utile en démo / mono-utilisateur). Désactivé par défaut (séparation des
+                      rôles).
+                    </p>
                   </div>
-                ) : null}
+                  <Switch
+                    id="allow-self-validation"
+                    checked={allowSelfValidation}
+                    disabled={patchMutation.isPending}
+                    onCheckedChange={(checked) =>
+                      patch({ allowSelfValidation: checked })
+                    }
+                    aria-label="Autoriser l’auto-validation"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="default-validator">Validateur par défaut</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Appliqué automatiquement si le soumissionnaire ne choisit pas le validateur.
+                    Distinct de la liste « autorisés » ci-dessous.
+                  </p>
+                  <Select
+                    value={defaultValidatorId}
+                    onValueChange={(value) =>
+                      patch({ defaultValidatorUserId: value || null })
+                    }
+                    disabled={patchMutation.isPending || validatorChoices.length === 0}
+                  >
+                    <SelectTrigger id="default-validator" className="min-h-11 w-full">
+                      <SelectValue placeholder="Choisir un validateur">
+                        {defaultValidatorId ? defaultValidatorLabel : null}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {validatorChoices.map((user) => (
+                        <SelectItem key={user.id} value={user.id}>
+                          {firstDisplayLabel([user.displayName, user.email], 'Validateur')}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {validatorChoices.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      Aucun utilisateur avec la permission de revue sur ce client.
+                    </p>
+                  ) : null}
+                </div>
               </CardContent>
             </Card>
 
@@ -186,6 +259,13 @@ export function StrategicDirectionStrategyOptionsPage() {
                             disabled={patchMutation.isPending}
                             onCheckedChange={(next) => {
                               if (indeterminateEmpty && next) {
+                                if (!allowPick && !defaultValidatorId) {
+                                  patch({
+                                    authorizedValidatorUserIds: [user.id],
+                                    defaultValidatorUserId: user.id,
+                                  });
+                                  return;
+                                }
                                 patch({ authorizedValidatorUserIds: [user.id] });
                                 return;
                               }

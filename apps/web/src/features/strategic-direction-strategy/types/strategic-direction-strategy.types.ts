@@ -71,8 +71,11 @@ export type StrategicDirectionStrategyLinkedObjectiveDto = {
 };
 
 export type StrategicDirectionStrategyLinksDto = {
+  /** Axes déjà rattachés à la stratégie (liens persistés). */
   axes: StrategicDirectionStrategyLinkedAxisDto[];
   objectives: StrategicDirectionStrategyLinkedObjectiveDto[];
+  /** Axes de la vision alignée — catalogue pour sélection chantier / alignement. */
+  visionAxes?: StrategicDirectionStrategyLinkedAxisDto[];
 };
 
 export type StrategicDirectionStrategyVersionSummaryDto = {
@@ -134,12 +137,14 @@ export type StrategicDirectionStrategyUserSummaryDto = {
 export type StrategicDirectionStrategyWorkflowSettingsResponse = {
   stored: {
     allowSubmitterToSelectValidator: boolean;
+    allowSelfValidation: boolean;
     authorizedValidatorUserIds: string[];
     authorizedValidatorRoleIds: string[];
     defaultValidatorUserId: string | null;
   };
   resolved: {
     allowSubmitterToSelectValidator: boolean;
+    allowSelfValidation: boolean;
     authorizedValidatorUserIds: string[];
     authorizedValidatorRoleIds: string[];
     defaultValidatorUserId: string | null;
@@ -205,6 +210,13 @@ export type StrategicDirectionStrategyDto = {
     horizonLabel: string;
     isActive: boolean;
   };
+  isSponsor?: boolean;
+  canCreateStrategy?: boolean;
+  canUpdateStrategy?: boolean;
+  canEditContent?: boolean;
+  canSubmit?: boolean;
+  canAdaptVersion?: boolean;
+  canArchive?: boolean;
 };
 
 export type StrategicDirectionPortfolioCardDto = {
@@ -228,6 +240,14 @@ export type StrategicDirectionPortfolioCardDto = {
   initiativesCount: number;
   initiativesDone: number;
   lastReviewAt: string | null;
+  sponsorResourceId?: string | null;
+  isSponsor?: boolean;
+  canCreateStrategy?: boolean;
+  canUpdateStrategy?: boolean;
+  canEditContent?: boolean;
+  canSubmit?: boolean;
+  canAdaptVersion?: boolean;
+  canArchive?: boolean;
 };
 
 export type SchemaMetricsDto = {

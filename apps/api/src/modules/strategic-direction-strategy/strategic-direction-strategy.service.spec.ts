@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
@@ -25,6 +25,7 @@ describe('StrategicDirectionStrategyService', () => {
       create: jest.fn(),
       update: jest.fn(),
     },
+    clientUser: { findUnique: jest.fn() },
     user: { findUnique: jest.fn() },
     notification: { create: jest.fn().mockResolvedValue(undefined) },
   };
@@ -34,6 +35,7 @@ describe('StrategicDirectionStrategyService', () => {
     getActive: jest.fn().mockResolvedValue({
       stored: {
         allowSubmitterToSelectValidator: true,
+        allowSelfValidation: false,
         defaultValidatorUserId: null,
         authorizedValidatorUserIds: [],
         authorizedValidatorRoleIds: [],
@@ -42,31 +44,52 @@ describe('StrategicDirectionStrategyService', () => {
     assertValidatorEligible: jest.fn().mockResolvedValue(undefined),
     listEligibleValidators: jest.fn().mockResolvedValue([]),
   };
+  const effectivePermissions = {
+    resolvePermissionCodesForRequest: jest.fn().mockResolvedValue(
+      new Set([
+        'strategic_direction_strategy.create',
+        'strategic_direction_strategy.update',
+      ]),
+    ),
+  };
   let service: StrategicDirectionStrategyService;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    effectivePermissions.resolvePermissionCodesForRequest.mockResolvedValue(
+      new Set([
+        'strategic_direction_strategy.create',
+        'strategic_direction_strategy.update',
+      ]),
+    );
     service = new StrategicDirectionStrategyService(
       prisma as unknown as PrismaService,
       auditLogs as unknown as AuditLogsService,
       workflowSettings as unknown as ClientStrategicDirectionStrategyWorkflowSettingsService,
       emailService as unknown as EmailService,
+      effectivePermissions as unknown as import('../../common/services/effective-permissions.service').EffectivePermissionsService,
     );
   });
+
+  const actorCtx = { actorUserId: 'u1' };
 
   it('create rejette alignedVisionId hors client actif', async () => {
     prisma.strategicDirection.findFirst.mockResolvedValueOnce({ id: 'd1', isActive: true });
     prisma.strategicVision.findFirst.mockResolvedValueOnce(null);
 
     await expect(
-      service.create('c1', {
-        directionId: 'd1',
-        alignedVisionId: 'foreign-v1',
-        title: 'Titre',
-        ambition: 'Ambition',
-        context: 'Contexte',
-        horizonLabel: '2028',
-      }),
+      service.create(
+        'c1',
+        {
+          directionId: 'd1',
+          alignedVisionId: 'foreign-v1',
+          title: 'Titre',
+          ambition: 'Ambition',
+          context: 'Contexte',
+          horizonLabel: '2028',
+        },
+        actorCtx,
+      ),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
@@ -86,15 +109,95 @@ describe('StrategicDirectionStrategyService', () => {
     );
 
     await expect(
-      service.create('c1', {
+      service.create(
+        'c1',
+        {
+          directionId: 'd1',
+          alignedVisionId: 'v1',
+          title: 'Titre',
+          ambition: 'Ambition',
+          context: 'Contexte',
+          horizonLabel: '2028',
+        },
+        actorCtx,
+      ),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('create autorise le sponsor sans permission create', async () => {
+    effectivePermissions.resolvePermissionCodesForRequest.mockResolvedValue(
+      new Set(['strategic_direction_strategy.read']),
+    );
+    prisma.strategicDirection.findFirst
+      .mockResolvedValueOnce({ id: 'd1', isActive: true })
+      .mockResolvedValueOnce({ sponsorResourceId: 'hr1' });
+    prisma.clientUser.findUnique.mockResolvedValueOnce({ resourceId: 'hr1' });
+    prisma.strategicVision.findFirst.mockResolvedValueOnce({
+      id: 'v1',
+      title: 'Vision',
+      horizonLabel: '2028',
+      isActive: true,
+    });
+    prisma.strategicDirectionStrategy.create.mockResolvedValueOnce({
+      id: 's1',
+      clientId: 'c1',
+      directionId: 'd1',
+      alignedVisionId: 'v1',
+      title: 'Titre',
+      ambition: 'Ambition',
+      context: 'Contexte',
+      horizonLabel: '2028',
+      status: 'DRAFT',
+      direction: {
+        id: 'd1',
+        code: 'DSI',
+        name: 'DSI',
+        sponsorResourceId: 'hr1',
+        operatingBudgetCents: null,
+        sponsorResource: null,
+      },
+      alignedVision: { id: 'v1', title: 'Vision', horizonLabel: '2028', isActive: true },
+      validator: null,
+    });
+
+    const created = await service.create(
+      'c1',
+      {
         directionId: 'd1',
         alignedVisionId: 'v1',
         title: 'Titre',
         ambition: 'Ambition',
         context: 'Contexte',
         horizonLabel: '2028',
-      }),
-    ).rejects.toBeInstanceOf(ConflictException);
+      },
+      actorCtx,
+    );
+    expect(created.id).toBe('s1');
+  });
+
+  it('create refuse un non-sponsor sans permission create', async () => {
+    effectivePermissions.resolvePermissionCodesForRequest.mockResolvedValue(
+      new Set(['strategic_direction_strategy.read']),
+    );
+    prisma.strategicDirection.findFirst
+      .mockResolvedValueOnce({ id: 'd1', isActive: true })
+      .mockResolvedValueOnce({ sponsorResourceId: 'hr1' });
+    prisma.clientUser.findUnique.mockResolvedValueOnce({ resourceId: 'hr-other' });
+
+    await expect(
+      service.create(
+        'c1',
+        {
+          directionId: 'd1',
+          alignedVisionId: 'v1',
+          title: 'Titre',
+          ambition: 'Ambition',
+          context: 'Contexte',
+          horizonLabel: '2028',
+        },
+        actorCtx,
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
   it('submit rejette alignedVisionId d’un autre client', async () => {
@@ -113,7 +216,7 @@ describe('StrategicDirectionStrategyService', () => {
     prisma.strategicVision.findFirst.mockResolvedValueOnce(null);
 
     await expect(
-      service.submit('c1', 's1', { alignedVisionId: 'foreign-v1' }),
+      service.submit('c1', 's1', { alignedVisionId: 'foreign-v1' }, actorCtx),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
@@ -187,6 +290,91 @@ describe('StrategicDirectionStrategyService', () => {
     );
   });
 
+  it('review autorise un détenteur de review autre que le validateur désigné', async () => {
+    prisma.strategicDirectionStrategy.findFirst.mockResolvedValueOnce({
+      id: 's1',
+      clientId: 'c1',
+      directionId: 'd1',
+      status: 'SUBMITTED',
+      submittedByUserId: 'submitter-1',
+      validatorUserId: 'validator-1',
+    });
+    prisma.strategicDirectionStrategy.update.mockResolvedValueOnce({
+      id: 's1',
+      title: 'Stratégie',
+      status: 'APPROVED',
+      direction: { id: 'd1', code: 'DSI', name: 'DSI' },
+      alignedVision: { id: 'v1', title: 'Vision', horizonLabel: '2028', isActive: true },
+    });
+
+    const res = await service.review(
+      'c1',
+      's1',
+      { decision: 'APPROVED', reviewInstanceLabel: 'CODIR' },
+      { actorUserId: 'gestionnaire-board' },
+    );
+
+    expect(res.status).toBe('APPROVED');
+    expect(prisma.strategicDirectionStrategy.update).toHaveBeenCalled();
+  });
+
+  it('review refuse l’auto-validation par le soumissionnaire', async () => {
+    prisma.strategicDirectionStrategy.findFirst.mockResolvedValueOnce({
+      id: 's1',
+      clientId: 'c1',
+      directionId: 'd1',
+      status: 'SUBMITTED',
+      submittedByUserId: 'gestionnaire-board',
+      validatorUserId: 'validator-1',
+    });
+
+    await expect(
+      service.review(
+        'c1',
+        's1',
+        { decision: 'APPROVED', reviewInstanceLabel: 'CODIR' },
+        { actorUserId: 'gestionnaire-board' },
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prisma.strategicDirectionStrategy.update).not.toHaveBeenCalled();
+  });
+
+  it('review autorise l’auto-validation si allowSelfValidation est activé', async () => {
+    workflowSettings.getActive.mockResolvedValueOnce({
+      stored: {
+        allowSubmitterToSelectValidator: true,
+        allowSelfValidation: true,
+        defaultValidatorUserId: null,
+        authorizedValidatorUserIds: [],
+        authorizedValidatorRoleIds: [],
+      },
+    });
+    prisma.strategicDirectionStrategy.findFirst.mockResolvedValueOnce({
+      id: 's1',
+      clientId: 'c1',
+      directionId: 'd1',
+      status: 'SUBMITTED',
+      submittedByUserId: 'gestionnaire-board',
+      validatorUserId: 'validator-1',
+    });
+    prisma.strategicDirectionStrategy.update.mockResolvedValueOnce({
+      id: 's1',
+      title: 'Stratégie',
+      status: 'APPROVED',
+      direction: { id: 'd1', code: 'DSI', name: 'DSI' },
+      alignedVision: { id: 'v1', title: 'Vision', horizonLabel: '2028', isActive: true },
+    });
+
+    const res = await service.review(
+      'c1',
+      's1',
+      { decision: 'APPROVED', reviewInstanceLabel: 'CODIR' },
+      { actorUserId: 'gestionnaire-board' },
+    );
+
+    expect(res.status).toBe('APPROVED');
+  });
+
   it('getLinks lève NotFound si stratégie absente', async () => {
     prisma.strategicDirectionStrategy.findFirst.mockResolvedValueOnce(null);
     await expect(service.getLinks('c1', 'missing')).rejects.toBeInstanceOf(NotFoundException);
@@ -196,6 +384,7 @@ describe('StrategicDirectionStrategyService', () => {
     prisma.strategicDirectionStrategy.findFirst.mockResolvedValueOnce({
       id: 's1',
       clientId: 'c1',
+      directionId: 'd1',
       alignedVisionId: 'v1',
       status: 'DRAFT',
     });
@@ -216,7 +405,7 @@ describe('StrategicDirectionStrategyService', () => {
     );
 
     await expect(
-      service.replaceStrategyAxes('c1', 's1', ['ax1', 'ax2']),
+      service.replaceStrategyAxes('c1', 's1', ['ax1', 'ax2'], actorCtx),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
@@ -224,6 +413,7 @@ describe('StrategicDirectionStrategyService', () => {
     prisma.strategicDirectionStrategy.findFirst.mockResolvedValueOnce({
       id: 's1',
       clientId: 'c1',
+      directionId: 'd1',
       alignedVisionId: 'v1',
       status: 'DRAFT',
     });
@@ -251,15 +441,16 @@ describe('StrategicDirectionStrategyService', () => {
       }),
     );
 
-    await expect(service.replaceStrategyObjectives('c1', 's1', ['o1'])).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
+    await expect(
+      service.replaceStrategyObjectives('c1', 's1', ['o1'], actorCtx),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('archive passe une stratégie APPROVED à ARCHIVED', async () => {
     prisma.strategicDirectionStrategy.findFirst.mockResolvedValueOnce({
       id: 's1',
       clientId: 'c1',
+      directionId: 'd1',
       status: 'APPROVED',
     });
     prisma.strategicDirectionStrategy.update.mockResolvedValueOnce({
@@ -270,7 +461,7 @@ describe('StrategicDirectionStrategyService', () => {
       alignedVision: { id: 'v1', title: 'Vision', horizonLabel: '2028', isActive: true },
     });
 
-    await service.archive('c1', 's1', { reason: 'Cycle clôturé' });
+    await service.archive('c1', 's1', { reason: 'Cycle clôturé' }, actorCtx);
     expect(prisma.strategicDirectionStrategy.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -289,11 +480,12 @@ describe('StrategicDirectionStrategyService', () => {
     prisma.strategicDirectionStrategy.findFirst.mockResolvedValueOnce({
       id: 's1',
       clientId: 'c1',
+      directionId: 'd1',
       status: 'DRAFT',
     });
-    await expect(service.archive('c1', 's1', { reason: 'N/A' })).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
+    await expect(
+      service.archive('c1', 's1', { reason: 'N/A' }, actorCtx),
+    ).rejects.toBeInstanceOf(BadRequestException);
     expect(prisma.strategicDirectionStrategy.update).not.toHaveBeenCalled();
   });
 
@@ -301,12 +493,13 @@ describe('StrategicDirectionStrategyService', () => {
     prisma.strategicDirectionStrategy.findFirst.mockResolvedValueOnce({
       id: 's1',
       clientId: 'c1',
+      directionId: 'd1',
       status: 'APPROVED',
     });
 
-    await expect(service.update('c1', 's1', { title: 'Nouveau titre' })).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
+    await expect(
+      service.update('c1', 's1', { title: 'Nouveau titre' }, actorCtx),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it("update d'une stratégie APPROVED archive un snapshot et repasse la stratégie en DRAFT", async () => {
@@ -370,5 +563,117 @@ describe('StrategicDirectionStrategyService', () => {
 
     expect(res.status).toBe('DRAFT');
     expect(prisma.$transaction).toHaveBeenCalled();
+  });
+
+  it('update APPROVED avec seul archiveReason crée une nouvelle version (DRAFT)', async () => {
+    prisma.strategicDirectionStrategy.findFirst.mockResolvedValueOnce({
+      id: 's1',
+      clientId: 'c1',
+      directionId: 'd1',
+      alignedVisionId: 'v1',
+      title: 'Titre actuel',
+      ambition: 'Ambition',
+      context: 'Contexte',
+      statement: 'Statement',
+      strategicPriorities: [],
+      expectedOutcomes: [],
+      kpis: [],
+      majorInitiatives: [],
+      risks: [],
+      horizonLabel: '2028',
+      ownerLabel: 'Owner',
+      status: 'APPROVED',
+      submittedAt: null,
+      submittedByUserId: null,
+      approvedAt: new Date('2026-01-01'),
+      approvedByUserId: 'u1',
+      rejectionReason: null,
+    });
+    prisma.$transaction.mockImplementationOnce(async (fn: (tx: unknown) => Promise<unknown>) =>
+      fn({
+        strategicDirectionStrategy: {
+          create: jest.fn().mockResolvedValue({ id: 'snap-1' }),
+          update: jest.fn().mockResolvedValue({
+            id: 's1',
+            title: 'Titre actuel',
+            ambition: 'Ambition',
+            context: 'Contexte',
+            statement: 'Statement',
+            horizonLabel: '2028',
+            ownerLabel: 'Owner',
+            status: 'DRAFT',
+            direction: { id: 'd1', code: 'DIR', name: 'Direction' },
+            alignedVision: { id: 'v1', title: 'Vision', horizonLabel: '2028', isActive: true },
+          }),
+        },
+        strategicDirectionStrategyAxisLink: {
+          findMany: jest.fn().mockResolvedValue([]),
+          createMany: jest.fn(),
+        },
+        strategicDirectionStrategyObjectiveLink: {
+          findMany: jest.fn().mockResolvedValue([]),
+          createMany: jest.fn(),
+        },
+      }),
+    );
+
+    const res = await service.update(
+      'c1',
+      's1',
+      { archiveReason: 'Nouvelle version CODIR' },
+      { actorUserId: 'u2' },
+    );
+
+    expect(res.status).toBe('DRAFT');
+    expect(prisma.$transaction).toHaveBeenCalled();
+  });
+
+  it('archive autorise le sponsor sans permission update globale', async () => {
+    effectivePermissions.resolvePermissionCodesForRequest.mockResolvedValue(
+      new Set(['strategic_direction_strategy.read']),
+    );
+    prisma.strategicDirectionStrategy.findFirst.mockResolvedValueOnce({
+      id: 's1',
+      clientId: 'c1',
+      directionId: 'd1',
+      status: 'APPROVED',
+    });
+    prisma.strategicDirection.findFirst.mockResolvedValueOnce({
+      id: 'd1',
+      sponsorResourceId: 'hr-sponsor',
+    });
+    prisma.clientUser.findUnique.mockResolvedValueOnce({ resourceId: 'hr-sponsor' });
+    prisma.strategicDirectionStrategy.update.mockResolvedValueOnce({
+      id: 's1',
+      status: 'ARCHIVED',
+      archivedAt: new Date('2026-01-01'),
+      direction: { id: 'd1', code: 'DSI', name: 'DSI' },
+      alignedVision: { id: 'v1', title: 'Vision', horizonLabel: '2028', isActive: true },
+    });
+
+    await service.archive('c1', 's1', { reason: 'Fin de cycle' }, { actorUserId: 'sponsor-1' });
+    expect(prisma.strategicDirectionStrategy.update).toHaveBeenCalled();
+  });
+
+  it('archive refuse un non-sponsor sans permission update', async () => {
+    effectivePermissions.resolvePermissionCodesForRequest.mockResolvedValue(
+      new Set(['strategic_direction_strategy.read']),
+    );
+    prisma.strategicDirectionStrategy.findFirst.mockResolvedValueOnce({
+      id: 's1',
+      clientId: 'c1',
+      directionId: 'd1',
+      status: 'APPROVED',
+    });
+    prisma.strategicDirection.findFirst.mockResolvedValueOnce({
+      id: 'd1',
+      sponsorResourceId: 'hr-sponsor',
+    });
+    prisma.clientUser.findUnique.mockResolvedValueOnce({ resourceId: 'other-hr' });
+
+    await expect(
+      service.archive('c1', 's1', { reason: 'N/A' }, { actorUserId: 'u-other' }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prisma.strategicDirectionStrategy.update).not.toHaveBeenCalled();
   });
 });

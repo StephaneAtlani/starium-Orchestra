@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import { RequestMethod } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
+import { REQUIRE_ANY_PERMISSIONS_KEY } from '../../common/decorators/require-any-permissions.decorator';
 import { REQUIRE_PERMISSIONS_KEY } from '../../common/decorators/require-permissions.decorator';
 import { ActiveClientGuard } from '../../common/guards/active-client.guard';
 import { ModuleAccessGuard } from '../../common/guards/module-access.guard';
@@ -137,10 +138,13 @@ describe('StrategicDirectionStrategyController', () => {
     ).toEqual(['strategic_direction_strategy.read']);
     expect(
       Reflect.getMetadata(
-        REQUIRE_PERMISSIONS_KEY,
+        REQUIRE_ANY_PERMISSIONS_KEY,
         StrategicDirectionStrategyController.prototype.create,
       ),
-    ).toEqual(['strategic_direction_strategy.create']);
+    ).toEqual([
+      'strategic_direction_strategy.create',
+      'strategic_direction_strategy.read',
+    ]);
     expect(
       Reflect.getMetadata(
         REQUIRE_PERMISSIONS_KEY,
@@ -149,16 +153,22 @@ describe('StrategicDirectionStrategyController', () => {
     ).toEqual(['strategic_direction_strategy.read']);
     expect(
       Reflect.getMetadata(
-        REQUIRE_PERMISSIONS_KEY,
+        REQUIRE_ANY_PERMISSIONS_KEY,
         StrategicDirectionStrategyController.prototype.replaceAxes,
       ),
-    ).toEqual(['strategic_direction_strategy.update']);
+    ).toEqual([
+      'strategic_direction_strategy.update',
+      'strategic_direction_strategy.read',
+    ]);
     expect(
       Reflect.getMetadata(
-        REQUIRE_PERMISSIONS_KEY,
+        REQUIRE_ANY_PERMISSIONS_KEY,
         StrategicDirectionStrategyController.prototype.replaceObjectives,
       ),
-    ).toEqual(['strategic_direction_strategy.update']);
+    ).toEqual([
+      'strategic_direction_strategy.update',
+      'strategic_direction_strategy.read',
+    ]);
     expect(
       Reflect.getMetadata(
         REQUIRE_PERMISSIONS_KEY,
@@ -167,28 +177,40 @@ describe('StrategicDirectionStrategyController', () => {
     ).toEqual(['strategic_direction_strategy.read']);
     expect(
       Reflect.getMetadata(
-        REQUIRE_PERMISSIONS_KEY,
+        REQUIRE_ANY_PERMISSIONS_KEY,
         StrategicDirectionStrategyController.prototype.update,
       ),
-    ).toEqual(['strategic_direction_strategy.update']);
+    ).toEqual([
+      'strategic_direction_strategy.update',
+      'strategic_direction_strategy.read',
+    ]);
     expect(
       Reflect.getMetadata(
-        REQUIRE_PERMISSIONS_KEY,
+        REQUIRE_ANY_PERMISSIONS_KEY,
         StrategicDirectionStrategyController.prototype.submit,
       ),
-    ).toEqual(['strategic_direction_strategy.update']);
+    ).toEqual([
+      'strategic_direction_strategy.update',
+      'strategic_direction_strategy.read',
+    ]);
     expect(
       Reflect.getMetadata(
-        REQUIRE_PERMISSIONS_KEY,
+        REQUIRE_ANY_PERMISSIONS_KEY,
         StrategicDirectionStrategyController.prototype.validatorOptions,
       ),
-    ).toEqual(['strategic_direction_strategy.update']);
+    ).toEqual([
+      'strategic_direction_strategy.update',
+      'strategic_direction_strategy.read',
+    ]);
     expect(
       Reflect.getMetadata(
-        REQUIRE_PERMISSIONS_KEY,
+        REQUIRE_ANY_PERMISSIONS_KEY,
         StrategicDirectionStrategyController.prototype.archive,
       ),
-    ).toEqual(['strategic_direction_strategy.update']);
+    ).toEqual([
+      'strategic_direction_strategy.update',
+      'strategic_direction_strategy.read',
+    ]);
     expect(
       Reflect.getMetadata(
         REQUIRE_PERMISSIONS_KEY,

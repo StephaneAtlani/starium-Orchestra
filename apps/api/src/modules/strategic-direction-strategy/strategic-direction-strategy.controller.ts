@@ -10,6 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ActiveClientId } from '../../common/decorators/active-client.decorator';
+import { RequireAnyPermissions } from '../../common/decorators/require-any-permissions.decorator';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
 import { RequestMeta } from '../../common/decorators/request-meta.decorator';
 import { RequestUserId } from '../../common/decorators/request-user.decorator';
@@ -37,7 +38,10 @@ export class StrategicDirectionStrategyController {
   constructor(private readonly service: StrategicDirectionStrategyService) {}
 
   @Get('validator-options')
-  @RequirePermissions('strategic_direction_strategy.update')
+  @RequireAnyPermissions(
+    'strategic_direction_strategy.update',
+    'strategic_direction_strategy.read',
+  )
   validatorOptions(
     @ActiveClientId() clientId: string | undefined,
     @RequestUserId() actorUserId: string | undefined,
@@ -50,8 +54,9 @@ export class StrategicDirectionStrategyController {
   getPortfolio(
     @ActiveClientId() clientId: string | undefined,
     @Query() query: StrategicDirectionStrategyPortfolioQueryDto,
+    @RequestUserId() actorUserId: string | undefined,
   ) {
-    return this.service.getPortfolio(clientId!, query);
+    return this.service.getPortfolio(clientId!, query, actorUserId);
   }
 
   @Get('consolidation')
@@ -73,7 +78,10 @@ export class StrategicDirectionStrategyController {
   }
 
   @Post()
-  @RequirePermissions('strategic_direction_strategy.create')
+  @RequireAnyPermissions(
+    'strategic_direction_strategy.create',
+    'strategic_direction_strategy.read',
+  )
   create(
     @ActiveClientId() clientId: string | undefined,
     @Body() dto: CreateStrategicDirectionStrategyDto,
@@ -96,7 +104,10 @@ export class StrategicDirectionStrategyController {
   }
 
   @Put(':id/axes')
-  @RequirePermissions('strategic_direction_strategy.update')
+  @RequireAnyPermissions(
+    'strategic_direction_strategy.update',
+    'strategic_direction_strategy.read',
+  )
   replaceAxes(
     @ActiveClientId() clientId: string | undefined,
     @Param('id') id: string,
@@ -111,7 +122,10 @@ export class StrategicDirectionStrategyController {
   }
 
   @Put(':id/objectives')
-  @RequirePermissions('strategic_direction_strategy.update')
+  @RequireAnyPermissions(
+    'strategic_direction_strategy.update',
+    'strategic_direction_strategy.read',
+  )
   replaceObjectives(
     @ActiveClientId() clientId: string | undefined,
     @Param('id') id: string,
@@ -143,12 +157,19 @@ export class StrategicDirectionStrategyController {
 
   @Get(':id')
   @RequirePermissions('strategic_direction_strategy.read')
-  getById(@ActiveClientId() clientId: string | undefined, @Param('id') id: string) {
-    return this.service.getById(clientId!, id);
+  getById(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+    @RequestUserId() actorUserId: string | undefined,
+  ) {
+    return this.service.getById(clientId!, id, actorUserId);
   }
 
   @Patch(':id')
-  @RequirePermissions('strategic_direction_strategy.update')
+  @RequireAnyPermissions(
+    'strategic_direction_strategy.update',
+    'strategic_direction_strategy.read',
+  )
   update(
     @ActiveClientId() clientId: string | undefined,
     @Param('id') id: string,
@@ -160,7 +181,10 @@ export class StrategicDirectionStrategyController {
   }
 
   @Post(':id/submit')
-  @RequirePermissions('strategic_direction_strategy.update')
+  @RequireAnyPermissions(
+    'strategic_direction_strategy.update',
+    'strategic_direction_strategy.read',
+  )
   submit(
     @ActiveClientId() clientId: string | undefined,
     @Param('id') id: string,
@@ -172,7 +196,10 @@ export class StrategicDirectionStrategyController {
   }
 
   @Post(':id/archive')
-  @RequirePermissions('strategic_direction_strategy.update')
+  @RequireAnyPermissions(
+    'strategic_direction_strategy.update',
+    'strategic_direction_strategy.read',
+  )
   archive(
     @ActiveClientId() clientId: string | undefined,
     @Param('id') id: string,

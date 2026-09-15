@@ -12,6 +12,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ActiveClientGuard } from '../../common/guards/active-client.guard';
 import { ModuleAccessGuard } from '../../common/guards/module-access.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
+import { RequireAnyPermissions } from '../../common/decorators/require-any-permissions.decorator';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
 import { ActiveClientId } from '../../common/decorators/active-client.decorator';
 import { RequestUserId } from '../../common/decorators/request-user.decorator';
@@ -36,7 +37,10 @@ export class StrategicDirectionStrategyDocumentsController {
   }
 
   @Post('upload')
-  @RequirePermissions('strategic_direction_strategy.update')
+  @RequireAnyPermissions(
+    'strategic_direction_strategy.update',
+    'strategic_direction_strategy.read',
+  )
   @UseInterceptors(PlatformMaxFileInterceptor)
   upload(
     @ActiveClientId() clientId: string | undefined,

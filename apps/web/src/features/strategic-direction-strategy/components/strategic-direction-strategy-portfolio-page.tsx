@@ -121,6 +121,11 @@ export function StrategicDirectionStrategyPortfolioPage() {
     search,
   });
 
+  const canCreateAnySchema = useMemo(() => {
+    if (canCreate) return true;
+    return (portfolioQuery.data ?? []).some((c) => Boolean(c.canCreateStrategy));
+  }, [canCreate, portfolioQuery.data]);
+
   const setView = (next: 'directions' | 'consolide') => {
     const params = new URLSearchParams(searchParams.toString());
     if (next === 'consolide') params.set('view', 'consolide');
@@ -220,7 +225,13 @@ export function StrategicDirectionStrategyPortfolioPage() {
           {portfolioQuery.isSuccess && (portfolioQuery.data?.length ?? 0) === 0 ? (
             <EmptyState
               title="Aucune direction stratégique"
-              description="Créez une direction dans Vision stratégique, puis rédigez son schéma directeur."
+              description={
+                canManageDirections
+                  ? 'Créez une direction dans Vision stratégique, puis rédigez son schéma directeur.'
+                  : canCreateAnySchema
+                    ? 'Aucune direction active pour ce client. Contactez un administrateur si vous êtes sponsor d’une direction.'
+                    : 'Aucune direction visible. Vous n’avez pas les droits pour créer un schéma hors sponsorship.'
+              }
             />
           ) : null}
 
@@ -232,15 +243,33 @@ export function StrategicDirectionStrategyPortfolioPage() {
                   ? 'À créer'
                   : getStrategicDirectionStrategyStatusLabel(card.status ?? 'DRAFT');
                 const versionBit = card.versionLabel ? ` · ${card.versionLabel}` : '';
+                const canOpen = Boolean(card.strategyId);
+                const canCreateThis =
+                  Boolean(card.needsStrategy) &&
+                  (canCreate || Boolean(card.canCreateStrategy));
+                const interactive = canOpen || canCreateThis;
                 return (
                   <button
                     key={card.directionId}
                     type="button"
-                    className="card stg-card text-left"
+                    className={cn(
+                      'card stg-card text-left',
+                      !interactive && 'cursor-default opacity-90',
+                    )}
+                    disabled={!interactive}
+                    aria-label={
+                      canOpen
+                        ? `Ouvrir le schéma ${displayLabel(card.name, 'Direction')}`
+                        : canCreateThis
+                          ? `Créer le schéma ${displayLabel(card.name, 'Direction')}`
+                          : `Schéma non disponible pour ${displayLabel(card.name, 'Direction')}`
+                    }
                     onClick={() => {
                       if (card.strategyId) {
                         router.push(`/strategic-direction-strategy/${card.strategyId}`);
-                      } else {
+                        return;
+                      }
+                      if (canCreateThis) {
                         router.push(
                           `/strategic-direction-strategy/new?directionId=${encodeURIComponent(card.directionId)}`,
                         );
@@ -301,10 +330,18 @@ export function StrategicDirectionStrategyPortfolioPage() {
                       </div>
                     </div>
                     <div className="stg-card-foot">
-                      <Badge variant="secondary">
-                        {statusLabel}
-                        {versionBit}
-                      </Badge>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="secondary">
+                          {statusLabel}
+                          {versionBit}
+                        </Badge>
+                        {card.isSponsor ? (
+                          <Badge variant="outline">Sponsor</Badge>
+                        ) : null}
+                        {canCreateThis ? (
+                          <Badge variant="outline">Créer le schéma</Badge>
+                        ) : null}
+                      </div>
                       <span className="stg-meta">
                         Revue {formatReviewDate(card.lastReviewAt)}
                       </span>

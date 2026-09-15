@@ -88,8 +88,24 @@ export async function parseApiFormError(res: Response): Promise<ApiFormError> {
   } else if (typeof body.message === 'string') {
     message = body.message;
   }
-  if (res.status === 403) message = 'Vous n\'avez pas les droits nécessaires.';
-  if (res.status === 404) message = 'L\'objet demandé est introuvable.';
+  // 403 : garder le message métier API s’il est explicite ; sinon libellé générique (anti-fuite).
+  if (res.status === 403) {
+    const trimmed = message.trim();
+    const isOpaque =
+      !trimmed ||
+      trimmed === defaultMessage ||
+      /^forbidden$/i.test(trimmed) ||
+      /^access denied$/i.test(trimmed);
+    if (isOpaque) message = 'Vous n\'avez pas les droits nécessaires.';
+  }
+  if (res.status === 404) {
+    const trimmed = message.trim();
+    const isOpaque =
+      !trimmed ||
+      trimmed === defaultMessage ||
+      /^not found$/i.test(trimmed);
+    if (isOpaque) message = 'L\'objet demandé est introuvable.';
+  }
   return { status: res.status, message, fieldErrors };
 }
 

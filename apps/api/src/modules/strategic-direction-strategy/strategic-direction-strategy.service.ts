@@ -6,6 +6,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma, StrategicDirectionStrategyStatus, NotificationStatus, NotificationType } from '@prisma/client';
+import { satisfiesPermission } from '@starium-orchestra/rbac-permissions';
+import { EffectivePermissionsService } from '../../common/services/effective-permissions.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { EmailService } from '../email/email.service';
@@ -41,6 +43,26 @@ type StrategicAuditContext = {
 
 type JsonArrayInput = ReadonlyArray<object> | undefined;
 
+type StrategyWriteNeed = 'create' | 'update';
+
+type StrategyWriteCapabilities = {
+  isSponsor: boolean;
+  canCreateStrategy: boolean;
+  canUpdateStrategy: boolean;
+};
+
+type StrategyLifecycleCaps = {
+  canEditContent: boolean;
+  canSubmit: boolean;
+  canAdaptVersion: boolean;
+  canArchive: boolean;
+};
+
+const STRATEGY_PERM = {
+  create: 'strategic_direction_strategy.create',
+  update: 'strategic_direction_strategy.update',
+} as const;
+
 const directionSelect = {
   id: true,
   code: true,
@@ -75,6 +97,7 @@ export class StrategicDirectionStrategyService {
     private readonly auditLogs: AuditLogsService,
     private readonly workflowSettings: ClientStrategicDirectionStrategyWorkflowSettingsService,
     private readonly emailService: EmailService,
+    private readonly effectivePermissions: EffectivePermissionsService,
   ) {}
 
   private async audit(
@@ -97,6 +120,112 @@ export class StrategicDirectionStrategyService {
       userAgent: context?.meta?.userAgent,
       requestId: context?.meta?.requestId,
     });
+  }
+
+  private async resolveActorResourceId(
+    clientId: string,
+    actorUserId: string | undefined,
+  ): Promise<string | null> {
+    if (!actorUserId) return null;
+    const membership = await this.prisma.clientUser.findUnique({
+      where: { userId_clientId: { userId: actorUserId, clientId } },
+      select: { resourceId: true },
+    });
+    return membership?.resourceId ?? null;
+  }
+
+  private async actorHasStrategyPermission(
+    clientId: string,
+    actorUserId: string,
+    need: StrategyWriteNeed,
+  ): Promise<boolean> {
+    const codes = await this.effectivePermissions.resolvePermissionCodesForRequest({
+      userId: actorUserId,
+      clientId,
+    });
+    return satisfiesPermission(codes, STRATEGY_PERM[need]);
+  }
+
+  private async resolveWriteCapabilities(
+    clientId: string,
+    actorUserId: string | undefined,
+    sponsorResourceId: string | null | undefined,
+    actorResourceId?: string | null,
+  ): Promise<StrategyWriteCapabilities> {
+    const resourceId =
+      actorResourceId !== undefined
+        ? actorResourceId
+        : await this.resolveActorResourceId(clientId, actorUserId);
+    const isSponsor = Boolean(
+      resourceId && sponsorResourceId && resourceId === sponsorResourceId,
+    );
+    if (!actorUserId) {
+      return { isSponsor, canCreateStrategy: false, canUpdateStrategy: false };
+    }
+    const [hasCreate, hasUpdate] = await Promise.all([
+      this.actorHasStrategyPermission(clientId, actorUserId, 'create'),
+      this.actorHasStrategyPermission(clientId, actorUserId, 'update'),
+    ]);
+    return {
+      isSponsor,
+      canCreateStrategy: hasCreate || isSponsor,
+      canUpdateStrategy: hasUpdate || isSponsor,
+    };
+  }
+
+  /** Caps dérivés statut + droit d’écriture (RBAC ou sponsor). */
+  private deriveLifecycleCaps(
+    status: StrategicDirectionStrategyStatus | null | undefined,
+    canUpdateStrategy: boolean,
+  ): StrategyLifecycleCaps {
+    const canWrite = canUpdateStrategy;
+    const editable = status === 'DRAFT' || status === 'REJECTED';
+    const approved = status === 'APPROVED';
+    return {
+      canEditContent: canWrite && editable,
+      canSubmit: canWrite && editable,
+      canAdaptVersion: canWrite && approved,
+      canArchive: canWrite && approved,
+    };
+  }
+
+  /**
+   * RBAC create/update **ou** sponsor de la direction
+   * (`ClientUser.resourceId` === `StrategicDirection.sponsorResourceId`).
+   * Le guard HTTP laisse passer via `…read` ; cette assert est la barrière métier.
+   */
+  async assertActorCanWriteStrategy(
+    clientId: string,
+    actorUserId: string | undefined,
+    directionId: string,
+    need: StrategyWriteNeed,
+  ): Promise<void> {
+    if (!actorUserId) {
+      throw new ForbiddenException('Contexte utilisateur manquant');
+    }
+    if (await this.actorHasStrategyPermission(clientId, actorUserId, need)) {
+      return;
+    }
+    const direction = await this.prisma.strategicDirection.findFirst({
+      where: { id: directionId, clientId },
+      select: { sponsorResourceId: true },
+    });
+    if (!direction) {
+      throw new BadRequestException('strategic direction not found for active client');
+    }
+    const caps = await this.resolveWriteCapabilities(
+      clientId,
+      actorUserId,
+      direction.sponsorResourceId,
+    );
+    if (need === 'create' ? caps.canCreateStrategy : caps.canUpdateStrategy) {
+      return;
+    }
+    throw new ForbiddenException(
+      need === 'create'
+        ? 'Seul le sponsor de la direction ou un utilisateur autorisé peut créer ce schéma directeur'
+        : 'Seul le sponsor de la direction ou un utilisateur autorisé peut modifier ce schéma directeur',
+    );
   }
 
   private async resolveDirectionForClient(
@@ -323,28 +452,34 @@ export class StrategicDirectionStrategyService {
   async validatorOptions(clientId: string, actorUserId: string) {
     const { stored } = await this.workflowSettings.getActive(clientId);
     return this.workflowSettings.listEligibleValidators(clientId, stored, {
-      excludeUserId: actorUserId,
+      excludeUserId: stored.allowSelfValidation ? undefined : actorUserId,
     });
   }
 
+  /**
+   * Décision revue : permission `strategic_direction_strategy.review` (garde HTTP).
+   * Le `validatorUserId` sert au routage / notification — tout détenteur de `review`
+   * (ex. Gestionnaire Strategic Board) peut trancher.
+   * Auto-validation interdite sauf si `allowSelfValidation` est activé dans les options.
+   */
   private assertCanReview(
     existing: {
       submittedByUserId: string | null;
       validatorUserId: string | null;
     },
     actorUserId: string | undefined,
+    options?: { allowSelfValidation?: boolean },
   ): void {
     if (!actorUserId) {
       throw new ForbiddenException('Authentification requise');
     }
-    if (existing.submittedByUserId && existing.submittedByUserId === actorUserId) {
+    if (
+      !options?.allowSelfValidation &&
+      existing.submittedByUserId &&
+      existing.submittedByUserId === actorUserId
+    ) {
       throw new ForbiddenException(
         'Le soumissionnaire ne peut pas valider sa propre stratégie',
-      );
-    }
-    if (existing.validatorUserId && existing.validatorUserId !== actorUserId) {
-      throw new ForbiddenException(
-        'Seul le validateur désigné peut décider sur cette stratégie',
       );
     }
   }
@@ -366,11 +501,11 @@ export class StrategicDirectionStrategyService {
   async getLinks(clientId: string, strategyId: string) {
     const strategy = await this.prisma.strategicDirectionStrategy.findFirst({
       where: { id: strategyId, clientId },
-      select: { id: true },
+      select: { id: true, alignedVisionId: true },
     });
     if (!strategy) throw new NotFoundException('Strategic direction strategy not found');
 
-    const [axisLinkRows, objectiveLinkRows] = await Promise.all([
+    const [axisLinkRows, objectiveLinkRows, visionAxisRows] = await Promise.all([
       this.prisma.strategicDirectionStrategyAxisLink.findMany({
         where: { strategyId, clientId },
         include: {
@@ -390,20 +525,38 @@ export class StrategicDirectionStrategyService {
           },
         },
       }),
+      this.prisma.strategicAxis.findMany({
+        where: { clientId, visionId: strategy.alignedVisionId },
+        select: { id: true, name: true, orderIndex: true },
+        orderBy: [{ orderIndex: 'asc' }, { name: 'asc' }],
+      }),
     ]);
 
-    const axes = [...axisLinkRows]
-      .map((row) => ({
-        id: row.axis.id,
-        name: row.axis.name,
-        orderIndex: row.axis.orderIndex,
-      }))
-      .sort((a, b) => {
+    const sortAxes = (
+      list: Array<{ id: string; name: string; orderIndex: number | null }>,
+    ) =>
+      [...list].sort((a, b) => {
         const ao = a.orderIndex ?? 0;
         const bo = b.orderIndex ?? 0;
         if (ao !== bo) return ao - bo;
         return a.name.localeCompare(b.name, 'fr');
       });
+
+    const axes = sortAxes(
+      axisLinkRows.map((row) => ({
+        id: row.axis.id,
+        name: row.axis.name,
+        orderIndex: row.axis.orderIndex,
+      })),
+    );
+
+    const visionAxes = sortAxes(
+      visionAxisRows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        orderIndex: row.orderIndex,
+      })),
+    );
 
     const objectives = [...objectiveLinkRows]
       .map((row) => ({
@@ -414,7 +567,7 @@ export class StrategicDirectionStrategyService {
       }))
       .sort((a, b) => a.title.localeCompare(b.title, 'fr'));
 
-    return { axes, objectives };
+    return { axes, objectives, visionAxes };
   }
 
   async replaceStrategyAxes(
@@ -427,6 +580,12 @@ export class StrategicDirectionStrategyService {
       where: { id: strategyId, clientId },
     });
     if (!existing) throw new NotFoundException('Strategic direction strategy not found');
+    await this.assertActorCanWriteStrategy(
+      clientId,
+      context?.actorUserId,
+      existing.directionId,
+      'update',
+    );
     this.assertStrategyEditableForLinks(existing);
 
     const uniqueAxisIds = [...new Set(strategicAxisIds.filter((id) => id?.trim()))];
@@ -505,6 +664,12 @@ export class StrategicDirectionStrategyService {
       where: { id: strategyId, clientId },
     });
     if (!existing) throw new NotFoundException('Strategic direction strategy not found');
+    await this.assertActorCanWriteStrategy(
+      clientId,
+      context?.actorUserId,
+      existing.directionId,
+      'update',
+    );
     this.assertStrategyEditableForLinks(existing);
 
     const uniqueObjectiveIds = [...new Set(strategicObjectiveIds.filter((id) => id?.trim()))];
@@ -618,18 +783,29 @@ export class StrategicDirectionStrategyService {
       .then((rows) => rows.map((row) => this.mapStrategy(row)));
   }
 
-  async getById(clientId: string, id: string) {
+  async getById(clientId: string, id: string, actorUserId?: string) {
     const strategy = await this.prisma.strategicDirectionStrategy.findFirst({
       where: { id, clientId },
       include: strategyInclude,
     });
     if (!strategy) throw new NotFoundException('Strategic direction strategy not found');
-    return this.mapStrategy(strategy);
+    const mapped = this.mapStrategy(strategy);
+    const caps = await this.resolveWriteCapabilities(
+      clientId,
+      actorUserId,
+      strategy.direction?.sponsorResourceId,
+    );
+    return {
+      ...mapped,
+      ...caps,
+      ...this.deriveLifecycleCaps(strategy.status, caps.canUpdateStrategy),
+    };
   }
 
   async getPortfolio(
     clientId: string,
     query?: { alignedVisionId?: string; search?: string },
+    actorUserId?: string,
   ) {
     if (query?.alignedVisionId) {
       await this.resolveVisionForClient(clientId, query.alignedVisionId);
@@ -669,6 +845,18 @@ export class StrategicDirectionStrategyService {
     if (directions.length === 0) {
       return { items: [] as const };
     }
+
+    const [actorResourceId, actorPermCodes] = await Promise.all([
+      this.resolveActorResourceId(clientId, actorUserId),
+      actorUserId
+        ? this.effectivePermissions.resolvePermissionCodesForRequest({
+            userId: actorUserId,
+            clientId,
+          })
+        : Promise.resolve(new Set<string>()),
+    ]);
+    const hasCreate = satisfiesPermission(actorPermCodes, STRATEGY_PERM.create);
+    const hasUpdate = satisfiesPermission(actorPermCodes, STRATEGY_PERM.update);
 
     const directionIds = directions.map((d) => d.id);
     const strategies = await this.prisma.strategicDirectionStrategy.findMany({
@@ -734,6 +922,21 @@ export class StrategicDirectionStrategyService {
         byDirection.get(direction.id) ?? [],
         query?.alignedVisionId,
       );
+      const isSponsor = Boolean(
+        actorResourceId &&
+          mappedDirection.sponsorResourceId &&
+          actorResourceId === mappedDirection.sponsorResourceId,
+      );
+      const writeCaps = {
+        sponsorResourceId: mappedDirection.sponsorResourceId ?? null,
+        isSponsor,
+        canCreateStrategy: hasCreate || isSponsor,
+        canUpdateStrategy: hasUpdate || isSponsor,
+      };
+      const lifecycleCaps = this.deriveLifecycleCaps(
+        picked?.status ?? null,
+        writeCaps.canUpdateStrategy,
+      );
 
       if (!picked) {
         return {
@@ -757,6 +960,8 @@ export class StrategicDirectionStrategyService {
           initiativesDone: 0,
           score: null as number | null,
           lastReviewAt: null as string | null,
+          ...writeCaps,
+          ...lifecycleCaps,
         };
       }
 
@@ -795,6 +1000,8 @@ export class StrategicDirectionStrategyService {
           .length,
         score,
         lastReviewAt: lastReview?.toISOString() ?? null,
+        ...writeCaps,
+        ...lifecycleCaps,
       };
     });
 
@@ -1060,6 +1267,12 @@ export class StrategicDirectionStrategyService {
     context?: StrategicAuditContext,
   ) {
     await this.resolveDirectionForClient(clientId, dto.directionId, { mustBeActive: true });
+    await this.assertActorCanWriteStrategy(
+      clientId,
+      context?.actorUserId,
+      dto.directionId,
+      'create',
+    );
     await this.resolveVisionForClient(clientId, dto.alignedVisionId);
     const payload: Prisma.StrategicDirectionStrategyUncheckedCreateInput = {
       clientId,
@@ -1127,6 +1340,12 @@ export class StrategicDirectionStrategyService {
       where: { id, clientId },
     });
     if (!existing) throw new NotFoundException('Strategic direction strategy not found');
+    await this.assertActorCanWriteStrategy(
+      clientId,
+      context?.actorUserId,
+      existing.directionId,
+      'update',
+    );
     if (existing.status === 'ARCHIVED') {
       throw new BadRequestException('archived strategy is read-only');
     }
@@ -1166,7 +1385,10 @@ export class StrategicDirectionStrategyService {
     if (dto.contentBlocks !== undefined) {
       data.contentBlocks = this.asJsonValue(dto.contentBlocks);
     }
-    if (Object.keys(data).length === 0) return this.getById(clientId, id);
+    // Adaptation APPROVED : autoriser un body avec seul archiveReason (nouvelle version).
+    if (Object.keys(data).length === 0 && !(isApprovedAdaptation && dto.archiveReason?.trim())) {
+      return this.getById(clientId, id, context?.actorUserId);
+    }
 
     if (existing.status === 'REJECTED') {
       data.status = 'DRAFT';
@@ -1326,6 +1548,12 @@ export class StrategicDirectionStrategyService {
       where: { id, clientId },
     });
     if (!existing) throw new NotFoundException('Strategic direction strategy not found');
+    await this.assertActorCanWriteStrategy(
+      clientId,
+      context?.actorUserId,
+      existing.directionId,
+      'update',
+    );
     await this.resolveDirectionForClient(clientId, existing.directionId, { mustBeActive: true });
     await this.resolveVisionForClient(clientId, dto.alignedVisionId);
     if (dto.alignedVisionId !== existing.alignedVisionId) {
@@ -1357,16 +1585,28 @@ export class StrategicDirectionStrategyService {
     } else if (settings.defaultValidatorUserId) {
       validatorUserId = settings.defaultValidatorUserId;
     } else {
-      throw new BadRequestException(
-        'Validateur par défaut non configuré dans les options du module',
+      // Fallback : 1er autorisé / éligible (≠ soumissionnaire) si défaut non renseigné.
+      const eligible = await this.workflowSettings.listEligibleValidatorUserIds(
+        clientId,
+        settings,
+        { excludeUserId: actorUserId },
       );
+      const authorized = settings.authorizedValidatorUserIds ?? [];
+      const preferred = authorized.find((id) => eligible.includes(id));
+      const fallback = preferred ?? eligible[0];
+      if (!fallback) {
+        throw new BadRequestException(
+          'Validateur par défaut non configuré dans les options du module',
+        );
+      }
+      validatorUserId = fallback;
     }
 
     await this.workflowSettings.assertValidatorEligible(
       clientId,
       validatorUserId,
       settings,
-      { excludeUserId: actorUserId },
+      settings.allowSelfValidation ? undefined : { excludeUserId: actorUserId },
     );
 
     const submitted = await this.prisma.strategicDirectionStrategy.update({
@@ -1477,7 +1717,10 @@ export class StrategicDirectionStrategyService {
     if (existing.status !== 'SUBMITTED') {
       throw new BadRequestException('strategy review is allowed only from SUBMITTED');
     }
-    this.assertCanReview(existing, context?.actorUserId);
+    const { stored: reviewSettings } = await this.workflowSettings.getActive(clientId);
+    this.assertCanReview(existing, context?.actorUserId, {
+      allowSelfValidation: reviewSettings.allowSelfValidation,
+    });
     if (dto.decision === 'REJECTED' && !dto.rejectionReason?.trim()) {
       throw new BadRequestException('rejectionReason is required for REJECTED decision');
     }
@@ -1526,6 +1769,12 @@ export class StrategicDirectionStrategyService {
       where: { id, clientId },
     });
     if (!existing) throw new NotFoundException('Strategic direction strategy not found');
+    await this.assertActorCanWriteStrategy(
+      clientId,
+      context?.actorUserId,
+      existing.directionId,
+      'update',
+    );
     if (existing.status !== 'APPROVED') {
       throw new BadRequestException('only APPROVED strategies can be archived');
     }

@@ -18,10 +18,15 @@ describe('StrategicDirectionStrategyDocumentsService', () => {
     getObjectStream: jest.fn(),
   };
 
+  const strategies = {
+    assertActorCanWriteStrategy: jest.fn().mockResolvedValue(undefined),
+  };
+
   const service = new StrategicDirectionStrategyDocumentsService(
     prisma as never,
     auditLogs as never,
     storage as never,
+    strategies as never,
   );
 
   beforeEach(() => {

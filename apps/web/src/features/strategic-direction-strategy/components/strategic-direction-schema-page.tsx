@@ -5,19 +5,24 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   AlertTriangle,
+  Archive,
   ArrowLeft,
   CheckCircle2,
   ClipboardCheck,
   FileText,
+  GitBranch,
   LayoutGrid,
+  MoreHorizontal,
   Pencil,
   Plus,
   Printer,
+  Share2,
   Target,
   Trash2,
 } from 'lucide-react';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -41,7 +46,9 @@ import type { StrategicDirectionDto } from '@/features/strategic-vision/types/st
 import { StrategyDocumentPicker } from './strategy-document-picker';
 import { StrategyBlockImagePreview } from './strategy-block-image-preview';
 import {
+  useArchiveStrategicDirectionStrategyMutation,
   useReviewStrategicDirectionStrategyMutation,
+  useReplaceStrategicDirectionStrategyAxesMutation,
   useStrategicDirectionOptionsQuery,
   useStrategicDirectionStrategyDetailQuery,
   useStrategicDirectionStrategyLinksQuery,
@@ -52,6 +59,7 @@ import {
   useSubmitStrategicDirectionStrategyMutation,
   useUpdateStrategicDirectionStrategyMutation,
 } from '../hooks/use-strategic-direction-strategy-queries';
+import { resolveSchemaActionCaps } from '../lib/schema-action-caps';
 import {
   getStrategicDirectionStrategyStatusLabel,
   STRATEGIC_DIRECTION_STRATEGY_APPROVE_LABEL,
@@ -65,6 +73,7 @@ import {
   MATURITY_DIMS,
   progressFillColor,
   stgBarPct,
+  stgPersonName,
   stgQuarterLabel,
   stgTone,
 } from '../lib/strategie-ui';
@@ -95,6 +104,8 @@ const AXIS_TONES = [
   { value: 'purple', label: 'Violet' },
   { value: 'teal', label: 'Teal' },
 ] as const;
+
+const TIMELINE_LANE_TONES = ['info', 'purple', 'gold', 'teal', 'success'] as const;
 
 function isTabId(v: string | null): v is TabId {
   return TABS.some((t) => t.id === v);
@@ -240,13 +251,56 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
   const tab: TabId = isTabId(tabParam) ? tabParam : 'axes';
 
   const { has } = usePermissions();
-  const canUpdate = has('strategic_direction_strategy.update');
   const canReview = has('strategic_direction_strategy.review');
-  const canCreate = has('strategic_direction_strategy.create');
   const canManageDirection =
     has('strategic_vision.update') || has('strategic_vision.manage_directions');
 
   const detailQ = useStrategicDirectionStrategyDetailQuery(strategyId);
+  const canUpdateStrategyFlag =
+    has('strategic_direction_strategy.update') ||
+    Boolean(detailQ.data?.canUpdateStrategy);
+  const canCreate =
+    has('strategic_direction_strategy.create') ||
+    Boolean(detailQ.data?.canCreateStrategy);
+  const actionCaps = useMemo(
+    () =>
+      resolveSchemaActionCaps({
+        status: detailQ.data?.status,
+        canUpdateStrategy: canUpdateStrategyFlag,
+        canCreateStrategy: canCreate,
+        isSponsor: detailQ.data?.isSponsor,
+        hasReview: canReview,
+        hasManageDirection: canManageDirection,
+        canEditContent: detailQ.data?.canEditContent,
+        canSubmit: detailQ.data?.canSubmit,
+        canAdaptVersion: detailQ.data?.canAdaptVersion,
+        canArchive: detailQ.data?.canArchive,
+      }),
+    [
+      detailQ.data?.status,
+      detailQ.data?.isSponsor,
+      detailQ.data?.canEditContent,
+      detailQ.data?.canSubmit,
+      detailQ.data?.canAdaptVersion,
+      detailQ.data?.canArchive,
+      canUpdateStrategyFlag,
+      canCreate,
+      canReview,
+      canManageDirection,
+    ],
+  );
+  const {
+    canEditContent,
+    canSubmit,
+    canDecide,
+    canAdaptVersion,
+    canArchive,
+    showReviewEntry,
+    canShare,
+    canExport,
+  } = actionCaps;
+  /** Alias édition contenu (gelé hors DRAFT|REJECTED). */
+  const canUpdate = canEditContent;
   const metricsQ = useStrategicDirectionStrategySchemaMetricsQuery(strategyId);
   const versionsQ = useStrategicDirectionStrategyVersionsQuery(strategyId);
   const linksQ = useStrategicDirectionStrategyLinksQuery(strategyId);
@@ -254,18 +308,24 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
     enabled: canManageDirection,
   });
   const workflowQ = useStrategicDirectionStrategyWorkflowSettingsQuery({
-    enabled: canUpdate || canCreate,
+    enabled: canSubmit || canCreate || canAdaptVersion,
   });
   const validatorsQ = useStrategicDirectionStrategyValidatorOptionsQuery({
-    enabled: canUpdate || canCreate,
+    enabled: canSubmit || canCreate,
   });
 
   const updateMutation = useUpdateStrategicDirectionStrategyMutation();
   const submitMutation = useSubmitStrategicDirectionStrategyMutation();
   const reviewMutation = useReviewStrategicDirectionStrategyMutation();
+  const archiveMutation = useArchiveStrategicDirectionStrategyMutation();
+  const replaceAxesMutation = useReplaceStrategicDirectionStrategyAxesMutation();
 
   const [editOpen, setEditOpen] = useState(false);
   const [directionEditOpen, setDirectionEditOpen] = useState(false);
+  const [adaptOpen, setAdaptOpen] = useState(false);
+  const [archiveOpen, setArchiveOpen] = useState(false);
+  const [adaptReason, setAdaptReason] = useState('');
+  const [archiveReasonDraft, setArchiveReasonDraft] = useState('');
   const [ambitionDraft, setAmbitionDraft] = useState('');
   const [contextDraft, setContextDraft] = useState('');
   const [horizonDraft, setHorizonDraft] = useState('');
@@ -352,7 +412,7 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
     setAmbitionDraft(strategy.ambition ?? '');
     setContextDraft(strategy.context ?? '');
     setHorizonDraft(strategy.horizonLabel ?? '');
-    setOwnerDraft(strategy.ownerLabel ?? '');
+    setOwnerDraft(stgPersonName(strategy.ownerLabel) ?? strategy.ownerLabel ?? '');
     setEditOpen(true);
   };
 
@@ -366,7 +426,8 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
           context: contextDraft.trim(),
           horizonLabel: horizonDraft.trim() || strategy.horizonLabel,
           statement: ambitionDraft.trim() || strategy.statement,
-          ownerLabel: ownerDraft.trim() || undefined,
+          ownerLabel:
+            (stgPersonName(ownerDraft.trim()) ?? ownerDraft.trim()) || undefined,
         },
       });
       toast.success('Schéma directeur mis à jour.');
@@ -465,6 +526,19 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
       list.push(payload);
     }
     try {
+      const linkedIds = (linksQ.data?.axes ?? []).map((a) => a.id);
+      const selectedAxisIds = payload.strategicAxisIds ?? [];
+      const nextLinked = [...new Set([...linkedIds, ...selectedAxisIds])];
+      if (
+        canUpdate &&
+        selectedAxisIds.length > 0 &&
+        nextLinked.length !== linkedIds.length
+      ) {
+        await replaceAxesMutation.mutateAsync({
+          strategyId,
+          strategicAxisIds: nextLinked,
+        });
+      }
       await patchInitiatives(list);
       toast.success(editingInitiativeId ? 'Chantier mis à jour.' : 'Chantier ajouté.');
       setInitiativeOpen(false);
@@ -743,11 +817,20 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
 
   const deleteAxis = async () => {
     if (!schema || editingAxisIndex == null) return;
-    const list = schema.ownAxes.filter((_, i) => i !== editingAxisIndex);
+    await deleteAxisAt(editingAxisIndex);
+  };
+
+  const deleteAxisAt = async (index: number) => {
+    if (!schema) return;
+    const axisName = displayLabel(schema.ownAxes[index]?.name, 'Axe');
+    const list = schema.ownAxes.filter((_, i) => i !== index);
     try {
       await patchOwnAxes(list);
-      toast.success('Axe supprimé.');
-      setAxisOpen(false);
+      toast.success(`Axe « ${axisName} » supprimé.`);
+      if (editingAxisIndex === index) setAxisOpen(false);
+      else if (editingAxisIndex != null && editingAxisIndex > index) {
+        setEditingAxisIndex(editingAxisIndex - 1);
+      }
     } catch (e) {
       const msg =
         typeof e === 'object' && e && 'message' in e && typeof (e as { message: unknown }).message === 'string'
@@ -906,14 +989,128 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
     window.print();
   }, []);
 
+  const handleShare = useCallback(async () => {
+    if (!strategy) return;
+    const url =
+      typeof window !== 'undefined'
+        ? `${window.location.origin}/strategic-direction-strategy/${strategy.id}`
+        : `/strategic-direction-strategy/${strategy.id}`;
+    const title = firstDisplayLabel(
+      [strategy.title, strategy.direction?.name],
+      'Schéma directeur',
+    );
+    try {
+      if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+        await navigator.share({ title, url });
+        return;
+      }
+      await navigator.clipboard.writeText(url);
+      toast.success('Lien copié dans le presse-papiers');
+    } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError') return;
+      try {
+        await navigator.clipboard.writeText(url);
+        toast.success('Lien copié dans le presse-papiers');
+      } catch {
+        toast.error('Impossible de partager le lien');
+      }
+    }
+  }, [strategy]);
+
+  const handleAdaptVersion = async () => {
+    if (!strategy) return;
+    const reason = adaptReason.trim();
+    if (!reason) {
+      toast.error('Indiquez le motif de la nouvelle version.');
+      return;
+    }
+    try {
+      await updateMutation.mutateAsync({
+        strategyId: strategy.id,
+        body: { archiveReason: reason },
+      });
+      toast.success('Nouvelle version ouverte en brouillon.');
+      setAdaptOpen(false);
+      setAdaptReason('');
+    } catch (e) {
+      const msg =
+        typeof e === 'object' && e && 'message' in e && typeof (e as { message: unknown }).message === 'string'
+          ? (e as { message: string }).message
+          : 'Création de version impossible.';
+      toast.error(msg);
+    }
+  };
+
+  const handleArchiveStrategy = async () => {
+    if (!strategy) return;
+    const reason = archiveReasonDraft.trim();
+    if (!reason) {
+      toast.error('Indiquez le motif d’archivage.');
+      return;
+    }
+    try {
+      await archiveMutation.mutateAsync({ strategyId: strategy.id, reason });
+      toast.success('Schéma archivé.');
+      setArchiveOpen(false);
+      setArchiveReasonDraft('');
+    } catch (e) {
+      const msg =
+        typeof e === 'object' && e && 'message' in e && typeof (e as { message: unknown }).message === 'string'
+          ? (e as { message: string }).message
+          : 'Archivage impossible.';
+      toast.error(msg);
+    }
+  };
+
   const alerts = metrics?.alerts ?? [];
   const criticalCount = alerts.filter((a) => a.level === 'danger').length;
 
   const axisNameById = useMemo(() => {
     const map = new Map<string, string>();
+    for (const a of linksQ.data?.visionAxes ?? []) map.set(a.id, a.name);
     for (const a of linksQ.data?.axes ?? []) map.set(a.id, a.name);
     return map;
-  }, [linksQ.data?.axes]);
+  }, [linksQ.data?.axes, linksQ.data?.visionAxes]);
+
+  const visionGroupAxes = useMemo(() => {
+    const fromVision = linksQ.data?.visionAxes ?? [];
+    if (fromVision.length > 0) return fromVision;
+    return linksQ.data?.axes ?? [];
+  }, [linksQ.data?.axes, linksQ.data?.visionAxes]);
+
+  const TIMELINE_TONES = TIMELINE_LANE_TONES;
+
+  /** Lanes Gantt : axes vision alignée en priorité (sinon axes propres / fallback). */
+  const timelineLanes = useMemo(() => {
+    const localOwnAxes = schema?.ownAxes ?? [];
+    if (visionGroupAxes.length > 0) {
+      return visionGroupAxes.map((a, i) => ({
+        id: a.id,
+        name: a.name,
+        tone: TIMELINE_TONES[i % TIMELINE_TONES.length]!,
+        pick: (c: StrategyInitiative) =>
+          c.strategicAxisIds.includes(a.id) ||
+          (c.strategicAxisIds.length === 0 && c.lane === i),
+      }));
+    }
+    const lanes =
+      localOwnAxes.length > 0
+        ? localOwnAxes
+        : [{ id: 'default', name: 'Chantiers', tone: 'info' as const }];
+    return lanes.map((a, i) => ({
+      id: a.id,
+      name: a.name,
+      tone: a.tone || TIMELINE_TONES[i % TIMELINE_TONES.length]!,
+      pick: (c: StrategyInitiative) =>
+        localOwnAxes.length > 0 ? c.lane === i : true,
+    }));
+  }, [visionGroupAxes, schema?.ownAxes]);
+
+  const timelineOrphans = useMemo(() => {
+    const list = schema?.majorInitiatives ?? [];
+    if (visionGroupAxes.length === 0) return [] as StrategyInitiative[];
+    return list.filter((c) => !timelineLanes.some((lane) => lane.pick(c)));
+  }, [visionGroupAxes.length, schema?.majorInitiatives, timelineLanes]);
 
   if (detailQ.isLoading) {
     return (
@@ -972,6 +1169,30 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
   const budgetsByYear = schema?.budgetsByYear ?? {};
   const contributions = schema?.axisContributions ?? {};
 
+  const heroDirector = firstDisplayLabel(
+    [strategy.direction?.sponsorLabel, stgPersonName(strategy.ownerLabel)],
+    'Directeur·rice non renseigné',
+  );
+  const heroParent = strategy.direction?.parentLabel?.trim()
+    ? displayLabel(strategy.direction.parentLabel, 'Direction parente')
+    : 'Aucune';
+  const heroFte = strategy.direction?.fteCount;
+  const operatingBudget = strategy.direction?.operatingBudgetCents;
+  const schemaBudgetSum = Object.values(budgetsByYear).reduce(
+    (s, v) => s + (typeof v === 'number' ? v : 0),
+    0,
+  );
+  const heroBudgetCents =
+    operatingBudget != null && operatingBudget > 0
+      ? operatingBudget
+      : schemaBudgetSum > 0
+        ? schemaBudgetSum
+        : null;
+  const heroStaffing = [
+    heroFte != null ? `${heroFte} ETP` : null,
+    heroBudgetCents != null ? formatEurCents(heroBudgetCents) : null,
+  ].filter(Boolean) as string[];
+
   const alertLevelLabel = (lvl: string) =>
     lvl === 'danger' ? 'Critique' : lvl === 'warning' ? 'À surveiller' : 'Information';
   const alertBadge = (lvl: string) =>
@@ -990,13 +1211,20 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
               className={cn(buttonVariants({ variant: 'outline' }), 'min-h-11')}
             >
               <ArrowLeft className="size-4" aria-hidden />
-              Toutes les directions
+              <span className="max-sm:sr-only">Toutes les directions</span>
             </Link>
-            <Button type="button" variant="outline" className="min-h-11" onClick={handlePrint}>
-              <Printer className="size-4" aria-hidden />
-              Export PDF 1 page
-            </Button>
-            {(canUpdate || canReview) && strategy.status !== 'ARCHIVED' ? (
+            {canShare ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="min-h-11"
+                onClick={() => void handleShare()}
+              >
+                <Share2 className="size-4" aria-hidden />
+                Partager
+              </Button>
+            ) : null}
+            {showReviewEntry ? (
               <Button
                 type="button"
                 variant="outline"
@@ -1007,20 +1235,125 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
                 Nouvelle revue
               </Button>
             ) : null}
-            {canManageDirection ? (
+            {canAdaptVersion ? (
               <Button
                 type="button"
                 variant="outline"
                 className="min-h-11"
-                onClick={() => setDirectionEditOpen(true)}
+                onClick={() => setAdaptOpen(true)}
               >
-                <Pencil className="size-4" aria-hidden />
-                Modifier la direction
+                <GitBranch className="size-4" aria-hidden />
+                Nouvelle version
               </Button>
             ) : null}
+            <div className="hidden flex-wrap items-center gap-2 sm:flex">
+              {canExport ? (
+                <Button type="button" variant="outline" className="min-h-11" onClick={handlePrint}>
+                  <Printer className="size-4" aria-hidden />
+                  Export PDF 1 page
+                </Button>
+              ) : null}
+              {canArchive ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="min-h-11"
+                  onClick={() => setArchiveOpen(true)}
+                >
+                  <Archive className="size-4" aria-hidden />
+                  Archiver
+                </Button>
+              ) : null}
+              {canManageDirection ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="min-h-11"
+                  onClick={() => setDirectionEditOpen(true)}
+                >
+                  <Pencil className="size-4" aria-hidden />
+                  Modifier la direction
+                </Button>
+              ) : null}
+            </div>
+            {(canExport || canArchive || canManageDirection) && (
+              <details className="group/details relative sm:hidden">
+                <summary
+                  className={cn(
+                    buttonVariants({ variant: 'outline', size: 'icon' }),
+                    'min-h-11 min-w-11 [&::-webkit-details-marker]:hidden list-none',
+                  )}
+                  aria-label="Plus d’actions"
+                >
+                  <MoreHorizontal className="size-4" aria-hidden />
+                </summary>
+                <div className="starium-dropdown-panel absolute right-0 z-[120] mt-1 min-w-[14rem] rounded-xl border border-border bg-card py-1.5 shadow-lg">
+                  {canExport ? (
+                    <button
+                      type="button"
+                      className="flex min-h-11 w-full items-center gap-2.5 px-3.5 py-3 text-left text-sm hover:bg-accent"
+                      onClick={handlePrint}
+                    >
+                      <Printer className="size-4 shrink-0 opacity-80" aria-hidden />
+                      Export PDF 1 page
+                    </button>
+                  ) : null}
+                  {canArchive ? (
+                    <button
+                      type="button"
+                      className="flex min-h-11 w-full items-center gap-2.5 px-3.5 py-3 text-left text-sm hover:bg-accent"
+                      onClick={() => setArchiveOpen(true)}
+                    >
+                      <Archive className="size-4 shrink-0 opacity-80" aria-hidden />
+                      Archiver
+                    </button>
+                  ) : null}
+                  {canManageDirection ? (
+                    <button
+                      type="button"
+                      className="flex min-h-11 w-full items-center gap-2.5 px-3.5 py-3 text-left text-sm hover:bg-accent"
+                      onClick={() => setDirectionEditOpen(true)}
+                    >
+                      <Pencil className="size-4 shrink-0 opacity-80" aria-hidden />
+                      Modifier la direction
+                    </button>
+                  ) : null}
+                </div>
+              </details>
+            )}
           </div>
         }
       />
+
+      <div className="space-y-3" aria-live="polite">
+        {strategy.status === 'SUBMITTED' ? (
+          <Alert>
+            <AlertTitle>En revue — contenu gelé</AlertTitle>
+            <AlertDescription className="flex flex-wrap items-center gap-3">
+              <span>Le schéma est soumis ; les modifications sont bloquées jusqu’à la décision.</span>
+              {canDecide ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="min-h-11"
+                  onClick={() => setReviewOpen(true)}
+                >
+                  Décider
+                </Button>
+              ) : null}
+            </AlertDescription>
+          </Alert>
+        ) : null}
+        {strategy.status === 'ARCHIVED' ? (
+          <Alert>
+            <AlertTitle>Schéma archivé — lecture seule</AlertTitle>
+            <AlertDescription>
+              Ce schéma ne peut plus être modifié. Un nouveau schéma peut être créé pour la même
+              direction et vision.
+            </AlertDescription>
+          </Alert>
+        ) : null}
+      </div>
 
       <div className="card stg-hero">
         <div className="stg-hero-sigle" style={{ background: T.bg, color: T.c }}>
@@ -1034,21 +1367,16 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
             </span>
             <span className="stg-hero-sep" aria-hidden />
             <span className="stg-meta">
-              {displayLabel(strategy.ownerLabel ?? strategy.direction?.sponsorLabel, 'Sponsor non renseigné')}{' '}
-              · directeur·rice
+              {heroDirector} · directeur·rice
             </span>
             <span className="stg-hero-sep" aria-hidden />
-            <span className="stg-meta">
-              Rattachée à{' '}
-              {displayLabel(strategy.direction?.parentLabel, 'Direction générale')}
-            </span>
-            <span className="stg-hero-sep" aria-hidden />
-            <span className="stg-meta">
-              {strategy.direction?.fteCount != null
-                ? `${strategy.direction.fteCount} ETP`
-                : '—'}{' '}
-              · {formatEurCents(strategy.direction?.operatingBudgetCents)}
-            </span>
+            <span className="stg-meta">Rattachée à {heroParent}</span>
+            {heroStaffing.length > 0 ? (
+              <>
+                <span className="stg-hero-sep" aria-hidden />
+                <span className="stg-meta">{heroStaffing.join(' · ')}</span>
+              </>
+            ) : null}
             <span className="stg-hero-sep" aria-hidden />
             <span className="stg-meta">
               Dernière revue {formatReviewDate(strategy.approvedAt ?? strategy.updatedAt)}
@@ -1208,7 +1536,10 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
                   {formatEurCents(
                     initiatives.reduce((s, c) => s + (c.budgetCents || 0), 0),
                   )}{' '}
-                  de charge projet · jalons structurants en losange
+                  · lanes ={' '}
+                  {visionGroupAxes.length > 0
+                    ? 'axes stratégiques de la vision'
+                    : 'axes propres de la direction'}
                 </div>
               </div>
               {canUpdate && strategy.status !== 'ARCHIVED' && strategy.status !== 'SUBMITTED' ? (
@@ -1240,87 +1571,137 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
                     ))}
                   </div>
                 </div>
-                {(ownAxes.length > 0 ? ownAxes : [{ id: 'default', name: 'Chantiers', tone: 'info' }]).map(
-                  (axis, laneIdx) => {
-                    const laneInits = ownAxes.length
-                      ? initiatives.filter((c) => c.lane === laneIdx)
-                      : initiatives;
-                    if (laneInits.length === 0) return null;
-                    const t = stgTone(axis.tone);
-                    return (
-                      <div key={axis.id}>
-                        <div className="stg-tl-lane-h">
-                          <i style={{ background: t.c }} aria-hidden />
-                          {displayLabel(axis.name, 'Axe')}
-                        </div>
-                        {[...laneInits]
-                          .sort((a, b) => a.startMonthOffset - b.startMonthOffset)
-                          .map((init) => (
-                            <div key={init.id} className="stg-tl-row stg-tl-lane">
-                              <div>
-                                <button
-                                  type="button"
-                                  className="stg-tl-name text-left"
-                                  onClick={() => canUpdate && openInitiative(init)}
-                                >
-                                  {displayLabel(init.title, 'Chantier')}
-                                </button>
-                                <div className="stg-tl-nsub">
-                                  {displayLabel(init.ownerLabel, 'Pilote non renseigné')} ·{' '}
-                                  {formatEurCents(init.budgetCents)}
-                                </div>
-                              </div>
-                              <div
-                                className="stg-tl-track"
-                                style={{ ['--stg-nq' as string]: 12 }}
+                {timelineLanes.map((axis) => {
+                  const laneInits = initiatives.filter((c) => axis.pick(c));
+                  if (laneInits.length === 0) return null;
+                  const t = stgTone(axis.tone);
+                  return (
+                    <div key={axis.id}>
+                      <div className="stg-tl-lane-h">
+                        <i style={{ background: t.c }} aria-hidden />
+                        {displayLabel(axis.name, 'Axe')}
+                      </div>
+                      {[...laneInits]
+                        .sort((a, b) => a.startMonthOffset - b.startMonthOffset)
+                        .map((init) => (
+                          <div key={init.id} className="stg-tl-row stg-tl-lane">
+                            <div>
+                              <button
+                                type="button"
+                                className="stg-tl-name text-left"
+                                onClick={() => canUpdate && openInitiative(init)}
                               >
-                                <div
-                                  className="stg-tl-bar"
-                                  style={{
-                                    left: `${stgBarPct(init.startMonthOffset, totalMonths).toFixed(2)}%`,
-                                    width: `${stgBarPct(Math.max(1, init.endMonthOffset - init.startMonthOffset), totalMonths).toFixed(2)}%`,
-                                    background: t.c,
-                                  }}
-                                  title={`${displayLabel(init.title, 'Chantier')} · ${init.progressPct}%`}
-                                  onClick={() => canUpdate && openInitiative(init)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter' || e.key === ' ') {
-                                      e.preventDefault();
-                                      if (canUpdate) openInitiative(init);
-                                    }
-                                  }}
-                                  role={canUpdate ? 'button' : undefined}
-                                  tabIndex={canUpdate ? 0 : undefined}
-                                >
-                                  <i style={{ width: `${init.progressPct}%` }} aria-hidden />
-                                  <span>{init.progressPct}%</span>
-                                </div>
-                                {(init.milestones ?? []).map((m, mi) => (
-                                  <div
-                                    key={`${init.id}-ms-${mi}`}
-                                    className="stg-tl-ms"
-                                    style={{
-                                      left: `${stgBarPct(m.monthOffset, totalMonths).toFixed(2)}%`,
-                                    }}
-                                    title={displayLabel(m.label, 'Jalon')}
-                                  />
-                                ))}
-                                <div
-                                  className="stg-tl-now"
-                                  style={{
-                                    left: `${stgBarPct(nowMonthOffset, totalMonths).toFixed(2)}%`,
-                                  }}
-                                  aria-hidden
-                                />
+                                {displayLabel(init.title, 'Chantier')}
+                              </button>
+                              <div className="stg-tl-nsub">
+                                {displayLabel(init.ownerLabel, 'Pilote non renseigné')} ·{' '}
+                                {formatEurCents(init.budgetCents)}
                               </div>
                             </div>
-                          ))}
-                      </div>
-                    );
-                  },
-                )}
+                            <div
+                              className="stg-tl-track"
+                              style={{ ['--stg-nq' as string]: 12 }}
+                            >
+                              <div
+                                className="stg-tl-bar"
+                                style={{
+                                  left: `${stgBarPct(init.startMonthOffset, totalMonths).toFixed(2)}%`,
+                                  width: `${stgBarPct(Math.max(1, init.endMonthOffset - init.startMonthOffset), totalMonths).toFixed(2)}%`,
+                                  background: t.c,
+                                }}
+                                title={`${displayLabel(init.title, 'Chantier')} · ${init.progressPct}%`}
+                                onClick={() => canUpdate && openInitiative(init)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    if (canUpdate) openInitiative(init);
+                                  }
+                                }}
+                                role={canUpdate ? 'button' : undefined}
+                                tabIndex={canUpdate ? 0 : undefined}
+                              >
+                                <i style={{ width: `${init.progressPct}%` }} aria-hidden />
+                                <span>{init.progressPct}%</span>
+                              </div>
+                              {(init.milestones ?? []).map((m, mi) => (
+                                <div
+                                  key={`${init.id}-ms-${mi}`}
+                                  className="stg-tl-ms"
+                                  style={{
+                                    left: `${stgBarPct(m.monthOffset, totalMonths).toFixed(2)}%`,
+                                  }}
+                                  title={displayLabel(m.label, 'Jalon')}
+                                />
+                              ))}
+                              <div
+                                className="stg-tl-now"
+                                style={{
+                                  left: `${stgBarPct(nowMonthOffset, totalMonths).toFixed(2)}%`,
+                                }}
+                                aria-hidden
+                              />
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  );
+                })}
+                {timelineOrphans.length > 0 ? (
+                  <div>
+                    <div className="stg-tl-lane-h">
+                      <i style={{ background: 'var(--neutral-400)' }} aria-hidden />
+                      Hors axes vision
+                    </div>
+                    {[...timelineOrphans]
+                      .sort((a, b) => a.startMonthOffset - b.startMonthOffset)
+                      .map((init) => (
+                        <div key={init.id} className="stg-tl-row stg-tl-lane">
+                          <div>
+                            <button
+                              type="button"
+                              className="stg-tl-name text-left"
+                              onClick={() => canUpdate && openInitiative(init)}
+                            >
+                              {displayLabel(init.title, 'Chantier')}
+                            </button>
+                            <div className="stg-tl-nsub">
+                              {displayLabel(init.ownerLabel, 'Pilote non renseigné')} ·{' '}
+                              {formatEurCents(init.budgetCents)}
+                            </div>
+                          </div>
+                          <div
+                            className="stg-tl-track"
+                            style={{ ['--stg-nq' as string]: 12 }}
+                          >
+                            <div
+                              className="stg-tl-bar"
+                              style={{
+                                left: `${stgBarPct(init.startMonthOffset, totalMonths).toFixed(2)}%`,
+                                width: `${stgBarPct(Math.max(1, init.endMonthOffset - init.startMonthOffset), totalMonths).toFixed(2)}%`,
+                                background: 'var(--neutral-500)',
+                              }}
+                              title={`${displayLabel(init.title, 'Chantier')} · ${init.progressPct}%`}
+                              onClick={() => canUpdate && openInitiative(init)}
+                              role={canUpdate ? 'button' : undefined}
+                              tabIndex={canUpdate ? 0 : undefined}
+                            >
+                              <i style={{ width: `${init.progressPct}%` }} aria-hidden />
+                              <span>{init.progressPct}%</span>
+                            </div>
+                            <div
+                              className="stg-tl-now"
+                              style={{
+                                left: `${stgBarPct(nowMonthOffset, totalMonths).toFixed(2)}%`,
+                              }}
+                              aria-hidden
+                            />
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                ) : null}
                 <div className="stg-tl-legend">
-                  {ownAxes.map((a) => (
+                  {timelineLanes.map((a) => (
                     <span key={a.id} className="k">
                       <i style={{ background: stgTone(a.tone).c }} aria-hidden />
                       {displayLabel(a.name, 'Axe')}
@@ -1349,7 +1730,12 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
 
           <section className="stg-sec">
             <div className="stg-sec-head">
-              <div className="stg-sec-t">Axes propres de la direction</div>
+              <div>
+                <div className="stg-sec-t">Axes propres de la direction</div>
+                <div className="stg-sec-sub">
+                  Organisation locale (lanes métier) — distincte des axes vision affichés sur le Gantt.
+                </div>
+              </div>
               {canUpdate && strategy.status !== 'ARCHIVED' && strategy.status !== 'SUBMITTED' ? (
                 <Button
                   type="button"
@@ -1365,73 +1751,112 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
             </div>
             {ownAxes.length === 0 ? (
               <div className="card">
-                <div className="stg-empty">
-                  Aucun axe propre. Ajoutez des lanes pour organiser la timeline.
+                <div className="stg-empty flex flex-col items-center gap-3 py-8">
+                  <p className="text-sm text-muted-foreground text-center max-w-md">
+                    Aucun axe propre. Optionnel : lanes métier locales (le Gantt utilise les axes
+                    vision).
+                  </p>
+                  {canUpdate &&
+                  strategy.status !== 'ARCHIVED' &&
+                  strategy.status !== 'SUBMITTED' ? (
+                    <Button
+                      type="button"
+                      className="min-h-11"
+                      onClick={() => openAxis()}
+                    >
+                      <Plus className="mr-2 size-4" aria-hidden />
+                      Ajouter un axe propre
+                    </Button>
+                  ) : null}
                 </div>
               </div>
             ) : (
-              <div className="card stg-contrib">
-                {ownAxes.map((a, i) => {
-                  const laneInits = initiatives.filter((c) => c.lane === i);
-                  const n = laneInits.length;
-                  const pct =
-                    n > 0
-                      ? Math.round(
-                          laneInits.reduce((s, c) => s + (c.progressPct || 0), 0) / n,
-                        )
-                      : 0;
-                  return (
-                    <div key={a.id}>
-                      <button
-                        type="button"
-                        className={cn(
-                          'stg-contrib-row w-full text-left',
-                          canUpdate &&
-                            strategy.status !== 'ARCHIVED' &&
-                            strategy.status !== 'SUBMITTED' &&
-                            'cursor-pointer',
-                        )}
-                        onClick={() => {
-                          if (
-                            canUpdate &&
-                            strategy.status !== 'ARCHIVED' &&
-                            strategy.status !== 'SUBMITTED'
-                          ) {
-                            openAxis(a, i);
-                          }
-                        }}
-                        aria-label={
-                          canUpdate
-                            ? `Modifier l’axe ${displayLabel(a.name, 'Axe')}`
-                            : undefined
-                        }
+              <div className="card space-y-1 p-3 sm:p-4">
+                <ul className="divide-y divide-border/60" role="list">
+                  {ownAxes.map((a, i) => {
+                    const laneInits = initiatives.filter((c) => c.lane === i);
+                    const n = laneInits.length;
+                    const pct =
+                      n > 0
+                        ? Math.round(
+                            laneInits.reduce((s, c) => s + (c.progressPct || 0), 0) / n,
+                          )
+                        : 0;
+                    const axisLabel = displayLabel(a.name, 'Axe');
+                    const editable =
+                      canUpdate &&
+                      strategy.status !== 'ARCHIVED' &&
+                      strategy.status !== 'SUBMITTED';
+                    return (
+                      <li
+                        key={a.id}
+                        className="flex flex-col gap-3 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:gap-4"
                       >
-                        <div className="l">{displayLabel(a.name, 'Axe')}</div>
-                        <div className="t">
-                          <i
-                            style={{
-                              width: `${pct}%`,
-                              background: stgTone(a.tone).c,
-                            }}
-                          />
+                        <div className="min-w-0 flex-1 space-y-1.5">
+                          <div className="flex items-center gap-2">
+                            <i
+                              className="size-2.5 shrink-0 rounded-sm"
+                              style={{ background: stgTone(a.tone).c }}
+                              aria-hidden
+                            />
+                            <span className="truncate font-semibold text-foreground">
+                              {axisLabel}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div
+                              className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-muted"
+                              role="presentation"
+                            >
+                              <div
+                                className="h-full rounded-full"
+                                style={{
+                                  width: `${pct}%`,
+                                  background: stgTone(a.tone).c,
+                                }}
+                              />
+                            </div>
+                            <span className="shrink-0 text-xs font-semibold tabular-nums text-muted-foreground">
+                              {pct}%
+                            </span>
+                          </div>
+                          <p className="text-xs font-semibold text-muted-foreground">
+                            {n
+                              ? `${n} chantier${n > 1 ? 's' : ''} sur cette lane`
+                              : 'aucun chantier'}
+                          </p>
                         </div>
-                        <div className="p">{pct}%</div>
-                      </button>
-                      <div
-                        style={{
-                          fontSize: 11,
-                          color: 'var(--neutral-500)',
-                          fontWeight: 600,
-                          margin: '-6px 0 2px',
-                        }}
-                      >
-                        {n
-                          ? `${n} chantier${n > 1 ? 's' : ''}`
-                          : 'aucun chantier'}
-                      </div>
-                    </div>
-                  );
-                })}
+                        {editable ? (
+                          <div className="flex shrink-0 flex-wrap items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="min-h-11 sm:min-h-9"
+                              onClick={() => openAxis(a, i)}
+                              aria-label={`Modifier l’axe ${axisLabel}`}
+                            >
+                              <Pencil className="mr-1.5 size-4" aria-hidden />
+                              Modifier
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="min-h-11 sm:min-h-9 text-destructive border-destructive/40"
+                              disabled={updateMutation.isPending}
+                              onClick={() => void deleteAxisAt(i)}
+                              aria-label={`Supprimer l’axe ${axisLabel}`}
+                            >
+                              <Trash2 className="mr-1.5 size-4" aria-hidden />
+                              Supprimer
+                            </Button>
+                          </div>
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ul>
               </div>
             )}
           </section>
@@ -1824,26 +2249,48 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
                   confrontée aux chantiers réellement rattachés.
                 </div>
               </div>
-              {canUpdate && (linksQ.data?.axes.length ?? 0) > 0 ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  className="min-h-11 sm:min-h-9"
-                  disabled={updateMutation.isPending}
-                  onClick={() => void saveContributions()}
-                >
-                  Enregistrer les contributions
-                </Button>
+              {canUpdate && visionGroupAxes.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  {(linksQ.data?.axes.length ?? 0) === 0 ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="min-h-11 sm:min-h-9"
+                      disabled={replaceAxesMutation.isPending}
+                      onClick={() => {
+                        void replaceAxesMutation
+                          .mutateAsync({
+                            strategyId,
+                            strategicAxisIds: visionGroupAxes.map((a) => a.id),
+                          })
+                          .then(() => toast.success('Axes du groupe rattachés.'))
+                          .catch(() => toast.error('Rattachement impossible.'));
+                      }}
+                    >
+                      Rattacher les axes de la vision
+                    </Button>
+                  ) : null}
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="min-h-11 sm:min-h-9"
+                    disabled={updateMutation.isPending}
+                    onClick={() => void saveContributions()}
+                  >
+                    Enregistrer les contributions
+                  </Button>
+                </div>
               ) : null}
             </div>
-            {(linksQ.data?.axes.length ?? 0) === 0 && Object.keys(contributions).length === 0 ? (
+            {visionGroupAxes.length === 0 ? (
               <EmptyState
-                title="Aucun axe lié"
-                description="Liez la stratégie aux axes de la vision pour afficher l’alignement."
+                title="Aucun axe dans la vision"
+                description="Créez des axes dans Vision stratégique pour l’alignement."
               />
             ) : (
               <div className="card stg-contrib">
-                {(linksQ.data?.axes ?? []).map((a) => {
+                {visionGroupAxes.map((a) => {
                   const v = canUpdate
                     ? (contribDraft[a.id] ?? contributions[a.id] ?? 0)
                     : (contributions[a.id] ?? 0);
@@ -1892,19 +2339,6 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
                     </div>
                   );
                 })}
-                {(linksQ.data?.axes.length ?? 0) === 0
-                  ? Object.entries(contributions).map(([axisId, v]) => (
-                      <div key={axisId} className="stg-contrib-row">
-                        <div className="l">
-                          {displayLabel(axisNameById.get(axisId), 'Axe du groupe')}
-                        </div>
-                        <div className="t">
-                          <i style={{ width: `${v}%`, background: contribFillColor(v) }} />
-                        </div>
-                        <div className="p">{v}%</div>
-                      </div>
-                    ))
-                  : null}
               </div>
             )}
           </section>
@@ -2083,7 +2517,7 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
                   ({getStrategicDirectionStrategyStatusLabel(strategy.status).toLowerCase()})
                 </div>
               </div>
-              {(canUpdate || canReview) && strategy.status !== 'ARCHIVED' ? (
+              {showReviewEntry ? (
                 <Button
                   type="button"
                   variant="outline"
@@ -2159,7 +2593,7 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
               {name} — schéma directeur {displayLabel(strategy.horizonLabel, '')}
             </h1>
             <div className="s">
-              {displayLabel(strategy.ownerLabel, 'Sponsor non renseigné')} ·{' '}
+              {heroDirector} ·{' '}
               {getStrategicDirectionStrategyStatusLabel(strategy.status)} · alignement {score}%
             </div>
           </div>
@@ -2502,12 +2936,12 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
           <fieldset className="starium-form-field">
             <legend className="starium-form-label">Axes du groupe</legend>
             <div className="flex flex-wrap gap-2" role="group" aria-label="Axes du groupe">
-              {(linksQ.data?.axes ?? []).length === 0 ? (
+              {visionGroupAxes.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  Aucun axe vision lié — rattachez la stratégie aux axes du groupe.
+                  Aucun axe dans la vision alignée. Créez des axes dans Vision stratégique.
                 </p>
               ) : (
-                (linksQ.data?.axes ?? []).map((a) => {
+                visionGroupAxes.map((a) => {
                   const selected = initiativeDraft.strategicAxisIds.includes(a.id);
                   return (
                     <button
@@ -3155,7 +3589,7 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
             >
               Annuler
             </Button>
-            {(strategy.status === 'DRAFT' || strategy.status === 'REJECTED') && canUpdate ? (
+            {(strategy.status === 'DRAFT' || strategy.status === 'REJECTED') && canSubmit ? (
               <Button
                 type="button"
                 className="min-h-11"
@@ -3165,7 +3599,7 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
                 {STRATEGIC_DIRECTION_STRATEGY_SUBMIT_LABEL}
               </Button>
             ) : null}
-            {strategy.status === 'SUBMITTED' && canReview ? (
+            {strategy.status === 'SUBMITTED' && canDecide ? (
               <>
                 <Button
                   type="button"
@@ -3242,7 +3676,7 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
               </div>
             </>
           )}
-          {strategy.status === 'SUBMITTED' && canReview ? (
+          {strategy.status === 'SUBMITTED' && canDecide ? (
             <div className="starium-form-field">
               <label className="starium-form-label" htmlFor="stg-rev-reject">
                 Motif de refus (si refus)
@@ -3257,10 +3691,104 @@ export function StrategicDirectionSchemaPage({ strategyId }: Props) {
           ) : null}
           {strategy.status === 'APPROVED' ? (
             <p className="text-sm text-muted-foreground">
-              Ce schéma est déjà validé. Utilisez l’adaptation via le formulaire complet si une
-              nouvelle version est nécessaire.
+              Ce schéma est déjà validé. Utilisez le bouton « Nouvelle version » dans l’en-tête pour
+              ouvrir un brouillon éditable, ou « Archiver » pour le désactiver.
             </p>
           ) : null}
+        </div>
+      </StariumModal>
+
+      <StariumModal
+        open={adaptOpen}
+        onOpenChange={setAdaptOpen}
+        title="Nouvelle version du schéma"
+        description="Archive un snapshot de la version validée et rouvre un brouillon éditable."
+        icon={GitBranch}
+        size="md"
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11"
+              onClick={() => setAdaptOpen(false)}
+            >
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              className="min-h-11"
+              disabled={updateMutation.isPending || !adaptReason.trim()}
+              onClick={() => void handleAdaptVersion()}
+            >
+              Créer la version
+            </Button>
+          </>
+        }
+      >
+        <div className="starium-form space-y-4">
+          <div className="starium-form-field">
+            <label className="starium-form-label" htmlFor="stg-adapt-reason">
+              Motif de la nouvelle version
+            </label>
+            <Textarea
+              id="stg-adapt-reason"
+              className="min-h-20"
+              value={adaptReason}
+              onChange={(e) => setAdaptReason(e.target.value)}
+              aria-invalid={!adaptReason.trim() ? true : undefined}
+              placeholder="Ex. : révision suite CODIR mars 2026"
+            />
+          </div>
+        </div>
+      </StariumModal>
+
+      <StariumModal
+        open={archiveOpen}
+        onOpenChange={setArchiveOpen}
+        title="Archiver le schéma"
+        description="Le schéma passera en lecture seule. Un nouveau schéma pourra être créé pour la même direction et vision."
+        icon={Archive}
+        size="md"
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11"
+              onClick={() => setArchiveOpen(false)}
+            >
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              className="min-h-11"
+              disabled={archiveMutation.isPending || !archiveReasonDraft.trim()}
+              onClick={() => void handleArchiveStrategy()}
+            >
+              Archiver
+            </Button>
+          </>
+        }
+      >
+        <div className="starium-form space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Différent de « Nouvelle version » : l’archivage désactive ce schéma sans ouvrir de
+            brouillon.
+          </p>
+          <div className="starium-form-field">
+            <label className="starium-form-label" htmlFor="stg-archive-reason">
+              Motif d’archivage
+            </label>
+            <Textarea
+              id="stg-archive-reason"
+              className="min-h-20"
+              value={archiveReasonDraft}
+              onChange={(e) => setArchiveReasonDraft(e.target.value)}
+              aria-invalid={!archiveReasonDraft.trim() ? true : undefined}
+              placeholder="Ex. : fin de cycle stratégique"
+            />
+          </div>
         </div>
       </StariumModal>
 

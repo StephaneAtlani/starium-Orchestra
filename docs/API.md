@@ -571,6 +571,8 @@ Propriétés inconnues dans le body → **400** (`forbidNonWhitelisted`).
 | /api/audit-logs   | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard |
 | /api/test-rbac    | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard |
 | /api/clients/active/budget-workflow-settings | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read` / `budgets.update`) |
+| /api/clients/active/strategic-direction-strategy-workflow-settings (GET) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.read` **ou** `…update`) |
+| /api/clients/active/strategic-direction-strategy-workflow-settings (PATCH) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard + **ClientAdminOrPlatformAdminGuard** |
 | /api/budget-exercises, /api/budgets, /api/budget-envelopes, /api/budget-lines (CRUD) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read` / `budgets.create` / `budgets.update`) |
 | /api/budgets/:budgetId/decision-history | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read`) — historique décisionnel (RFC-032, lecture `AuditLog` filtrée) |
 | /api/general-ledger-accounts (CRUD) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.general-ledger-accounts.read` / `.create` / `.update`) |
@@ -596,19 +598,19 @@ Propriétés inconnues dans le body → **400** (`forbidNonWhitelisted`).
 | /api/strategic-vision/objectives/:objectiveId/links (POST/PATCH/DELETE) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_vision.manage_links`) |
 | /api/chatbot/* (message, conversations, explore, categories, entries, feedback) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard (isolation `clientId` + `userId` sur conversations ; pas de ModuleAccessGuard) — RFC-AI-001 |
 | /api/strategic-direction-strategies (GET) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.read`) |
-| /api/strategic-direction-strategies (POST) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.create`) |
+| /api/strategic-direction-strategies (POST) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.create` **ou** `…read` + assert sponsor service) |
 | /api/strategic-direction-strategies/:id/links (GET) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.read`) |
-| /api/strategic-direction-strategies/:id/axes (PUT) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.update`) |
-| /api/strategic-direction-strategies/:id/objectives (PUT) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.update`) |
+| /api/strategic-direction-strategies/:id/axes (PUT) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.update` **ou** `…read` + assert sponsor) |
+| /api/strategic-direction-strategies/:id/objectives (PUT) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.update` **ou** `…read` + assert sponsor) |
 | /api/strategic-direction-strategies/:id (GET) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.read`) |
-| /api/strategic-direction-strategies/:id (PATCH) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.update`) |
+| /api/strategic-direction-strategies/:id (PATCH) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.update` **ou** `…read` + assert sponsor) |
 | /api/strategic-direction-strategies/:id/versions (GET) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.read`) |
 | /api/strategic-direction-strategies/:id/compare/:otherId (GET) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.read`) |
-| /api/strategic-direction-strategies/:id/submit | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.update`) |
-| /api/strategic-direction-strategies/:id/archive | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.update`) |
+| /api/strategic-direction-strategies/:id/submit | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.update` **ou** `…read` + assert sponsor) |
+| /api/strategic-direction-strategies/:id/archive | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.update` **ou** `…read` + assert sponsor) |
 | /api/strategic-direction-strategies/:id/review | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.review`) |
 | /api/strategic-direction-strategies/:strategyId/documents (GET) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.read`) |
-| /api/strategic-direction-strategies/:strategyId/documents/upload (POST) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.update`) |
+| /api/strategic-direction-strategies/:strategyId/documents/upload (POST) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.update` **ou** `…read` + assert sponsor) |
 | /api/strategic-direction-strategies/:strategyId/documents/:documentId/download (GET) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.read`) |
 | /api/governance-cycles (GET, POST) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`governance_cycles.read` / `governance_cycles.create`) — module `governance_cycles` |
 | /api/governance-cycles/calendar-events (GET) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | `governance_cycles.read` — agrégat calendrier points projet + instances (RFC-PROJ-013-9 C1) ; `from`/`to` ISO ; isolation client + projets autorisés |
@@ -978,7 +980,19 @@ Référentiel direction métier client-scopé (RFC-STRAT-005), orthogonal aux ax
 
 ## 5.7 Strategic direction strategy workflow — `/api/strategic-direction-strategies`
 
-Workflow RFC-STRAT-006 (phase 2) client-scopé, sans duplication d’axes/objectifs. Extension **RFC-STRAT-011** : portefeuille cartes, métriques schéma directeur, consolidé groupe (score / maturité / alertes / recouvrements calculés côté API).
+Workflow RFC-STRAT-006 (phase 2) client-scopé, sans duplication d’axes/objectifs. Extension **RFC-STRAT-011** : portefeuille cartes, métriques schéma directeur, consolidé groupe (score / maturité / alertes / recouvrements calculés côté API) ; droits sponsor + flags dérivés ; options circuit (`allowSelfValidation`).
+
+### Options circuit client
+
+- **GET /api/clients/active/strategic-direction-strategy-workflow-settings**
+  - Permission : `strategic_direction_strategy.read` **ou** `…update`
+  - Réponse `{ stored, resolved, options }` : `allowSubmitterToSelectValidator`, **`allowSelfValidation`** (défaut `false`), `defaultValidatorUserId`, listes autorisées, `potentialValidators` / `eligibleValidators` (users avec `…review`, libellés métier).
+- **PATCH /api/clients/active/strategic-direction-strategy-workflow-settings**
+  - **CLIENT_ADMIN** ou **PLATFORM_ADMIN** uniquement
+  - Body partiel : `allowSubmitterToSelectValidator?`, `allowSelfValidation?`, `defaultValidatorUserId?`, `authorizedValidatorUserIds?`, `authorizedValidatorRoleIds?`
+  - Audit : `strategic_direction_strategy.workflow_settings.updated`
+
+### Alignement / portfolio
 
 - **Alignement cockpit** — une stratégie porte déjà une `alignedVisionId` obligatoire. Les liaisons **`StrategicDirectionStrategyAxisLink`** et **`StrategicDirectionStrategyObjectiveLink`** matérialisent un sous-ensemble d’axes / objectifs de cette vision utilisé pour le pilotage CODIR :
 
@@ -989,7 +1003,7 @@ Workflow RFC-STRAT-006 (phase 2) client-scopé, sans duplication d’axes/object
 - **GET /api/strategic-direction-strategies/portfolio** (STRAT-011)
   - Permission : `strategic_direction_strategy.read`
   - Query : `alignedVisionId?`, `search?`
-  - Réponse `{ items: PortfolioCard[] }` : direction (code, name, accentTone, sponsorLabel, parentLabel, fteCount, operatingBudgetCents) + stratégie courante (id, status, versionLabel, horizon, score, chantiers, revue). Carte sans stratégie → `strategyId: null`, badge « À créer ». Score / anneau uniquement si calculable (pas de faux graphique).
+  - Réponse `{ items: PortfolioCard[] }` : direction (code, name, accentTone, sponsorLabel, parentLabel, fteCount, operatingBudgetCents, `sponsorResourceId`) + stratégie courante + flags actor `isSponsor`, `canCreateStrategy`, `canUpdateStrategy`, et dérivés statut `canEditContent`, `canSubmit`, `canAdaptVersion`, `canArchive` (RBAC **ou** sponsor de la direction). Carte sans stratégie → `strategyId: null`, badge « À créer ».
 - **GET /api/strategic-direction-strategies/consolidation** (STRAT-011)
   - Permission : `strategic_direction_strategy.read`
   - Query : `alignedVisionId?` (défaut = vision active du client)
@@ -1006,7 +1020,8 @@ Workflow RFC-STRAT-006 (phase 2) client-scopé, sans duplication d’axes/object
   - Permission : `strategic_direction_strategy.read`
   - Query optionnelle : `directionId=<strategicDirectionId>`, `alignedVisionId=<visionId>`, `status=<DRAFT|SUBMITTED|APPROVED|REJECTED|ARCHIVED>`, `search=<titre|ambition|direction>`, `includeArchived=true` (liste par défaut : **sans** les entrées `ARCHIVED`, sauf filtre explicite `status=ARCHIVED` qui les inclut).
 - **POST /api/strategic-direction-strategies**
-  - Permission : `strategic_direction_strategy.create`
+  - Permission : `strategic_direction_strategy.create` **ou** `…read` si l’acteur est **sponsor** de `directionId` (`ClientUser.resourceId` = `sponsorResourceId`)
+  - Body : `directionId`, `alignedVisionId`, `title`, `ambition`, `context`, `horizonLabel`, …
   - Crée un brouillon (`DRAFT`) ; `directionId` est porté par le body, `clientId` vient du contexte actif.
   - Champs V1 + schéma 011 : `directionId`, `alignedVisionId`, `title`, `ambition`, `context`, `horizonLabel`, `ownerLabel?`, `statement?`, `strategicPriorities?`, `expectedOutcomes?`, `kpis?`, `majorInitiatives?`, `risks?`, `ownAxes?`, `horizonStartYear?`, `horizonYearCount?`, `budgetsByYear?`, `axisContributions?`, `contentBlocks?`.
   - Retourne `409 Conflict` s’il existe déjà une stratégie **active** `(clientId, directionId, alignedVisionId)` (statut différent de `ARCHIVED`).
@@ -1038,7 +1053,7 @@ Workflow RFC-STRAT-006 (phase 2) client-scopé, sans duplication d’axes/object
   - Body : `{ "strategicObjectiveIds": ["…"] }` ; règle de périmètre axes décrite ci-dessus. Réponse 200 : `GET …/links`.
 - **GET /api/strategic-direction-strategies/:id**
   - Permission : `strategic_direction_strategy.read`
-  - Réponse enrichie STRAT-011 : `schema` (payload JSON normalisé mock : `ownAxes`, chantiers structurés, OKR, blocs, budgets, contributions) + relation `direction` (tone, sponsorLabel, parentLabel, ETP, budget fonctionnement).
+  - Réponse enrichie STRAT-011 : `schema` (payload JSON normalisé mock : `ownAxes`, chantiers structurés, OKR, blocs, budgets, contributions) + relation `direction` (tone, sponsorLabel, parentLabel, ETP, budget fonctionnement) + flags `isSponsor`, `canCreateStrategy`, `canUpdateStrategy`, `canEditContent`, `canSubmit`, `canAdaptVersion`, `canArchive`.
 - **GET /api/strategic-direction-strategies/:id/versions**
   - Permission : `strategic_direction_strategy.read`
   - Liste les versions de la **famille** `(clientId, directionId, alignedVisionId)` : snapshots `ARCHIVED` ordonnés chronologiquement + version courante ; chaque entrée expose `versionNumber`, `versionLabel` (libellé FR lisible, ex. `v2 · archivée 06/07/26`), `status`, `title`, `isCurrent`, horodatages.
@@ -1060,7 +1075,7 @@ Workflow RFC-STRAT-006 (phase 2) client-scopé, sans duplication d’axes/object
   - Permission : `strategic_direction_strategy.update`
   - Passe une stratégie **`APPROVED`** en **`ARCHIVED`** (horodatage `archivedAt`) ; lecture seule ensuite. Permet d’ouvrir un **nouveau** cycle pour la même tripletta `(client, direction, vision)` grâce à l’unicité partielle en base (une seule stratégie non archivée par tripletta).
 - **POST /api/strategic-direction-strategies/:id/review**
-  - Permission : `strategic_direction_strategy.review`
+  - Permission : `strategic_direction_strategy.review` — tout détenteur peut décider (le `validatorUserId` sert au routage / notif à la soumission). **403** si l’acteur est le soumissionnaire (`submittedByUserId`), **sauf** si l’option client `allowSelfValidation` est activée (`GET|PATCH /api/clients/active/strategic-direction-strategy-workflow-settings`).
   - Body :
 
 ```ts
@@ -1069,6 +1084,13 @@ Workflow RFC-STRAT-006 (phase 2) client-scopé, sans duplication d’axes/object
   rejectionReason?: string; // requis si REJECTED
 }
 ```
+
+**Adaptation vs archive** (STRAT-011) :
+- **Nouvelle version** : `PATCH /api/strategic-direction-strategies/:id` avec `archiveReason` (seul champ accepté) sur une stratégie `APPROVED` → snapshot `ARCHIVED` + stratégie courante repassée en `DRAFT`. Sponsor ou `…update`.
+- **Archiver** : `POST …/:id/archive` (motif) — désactive le schéma `APPROVED` en `ARCHIVED` sans brouillon. Sponsor ou `…update`.
+- **Partager** : action UI (Web Share / presse-papiers) — pas d’endpoint dédié ni ACL ressource.
+
+**Flags dérivés** (détail + cartes portfolio) : `canEditContent`, `canSubmit`, `canAdaptVersion`, `canArchive` (calculés depuis `canUpdateStrategy` + statut), en plus de `isSponsor`, `canCreateStrategy`, `canUpdateStrategy`.
 
 Statuts : `DRAFT` -> `SUBMITTED` -> `APPROVED | REJECTED` ; depuis `APPROVED`, deux options :
 - `POST …/archive` pour archiver explicitement la version approuvée ;

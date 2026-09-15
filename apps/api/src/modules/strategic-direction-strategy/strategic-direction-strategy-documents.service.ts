@@ -9,6 +9,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import type { AuditContext } from '../budget-management/types/audit-context';
 import { ProcurementObjectStorageService } from '../procurement/s3/procurement-object-storage.service';
+import { StrategicDirectionStrategyService } from './strategic-direction-strategy.service';
 
 const ALLOWED_MIME = new Set([
   'image/png',
@@ -34,12 +35,13 @@ export class StrategicDirectionStrategyDocumentsService {
     private readonly prisma: PrismaService,
     private readonly auditLogs: AuditLogsService,
     private readonly storage: ProcurementObjectStorageService,
+    private readonly strategies: StrategicDirectionStrategyService,
   ) {}
 
   private async assertStrategyInScope(clientId: string, strategyId: string) {
     const strategy = await this.prisma.strategicDirectionStrategy.findFirst({
       where: { id: strategyId, clientId },
-      select: { id: true, status: true },
+      select: { id: true, status: true, directionId: true },
     });
     if (!strategy) throw new NotFoundException('Strategic direction strategy not found');
     return strategy;
@@ -79,10 +81,16 @@ export class StrategicDirectionStrategyDocumentsService {
     if (!context.actorUserId) {
       throw new ForbiddenException('Contexte utilisateur manquant');
     }
+    const strategy = await this.assertStrategyInScope(clientId, strategyId);
+    await this.strategies.assertActorCanWriteStrategy(
+      clientId,
+      context.actorUserId,
+      strategy.directionId,
+      'update',
+    );
     if (!file?.buffer?.length) {
       throw new UnprocessableEntityException('Fichier requis');
     }
-    await this.assertStrategyInScope(clientId, strategyId);
 
     const mime = (file.mimetype ?? '').toLowerCase();
     if (!ALLOWED_MIME.has(mime)) {

@@ -25,6 +25,7 @@ import { usePermissions } from '@/hooks/use-permissions';
 import {
   useCreateStrategicDirectionStrategyMutation,
   useStrategicDirectionOptionsQuery,
+  useStrategicDirectionStrategyPortfolioQuery,
   useStrategicVisionOptionsQuery,
 } from '../hooks/use-strategic-direction-strategy-queries';
 
@@ -35,10 +36,33 @@ export function StrategicDirectionStrategyCreatePage() {
   const visionFromQuery = searchParams.get('alignedVisionId') ?? '';
 
   const { has } = usePermissions();
-  const canCreate = has('strategic_direction_strategy.create');
+  const canCreateGlobal = has('strategic_direction_strategy.create');
+  const canRead = has('strategic_direction_strategy.read');
 
-  const directionsQ = useStrategicDirectionOptionsQuery({ enabled: canCreate });
-  const visionsQ = useStrategicVisionOptionsQuery({ enabled: canCreate });
+  const portfolioQ = useStrategicDirectionStrategyPortfolioQuery(
+    {},
+    { enabled: canRead },
+  );
+  const creatableDirectionIds = useMemo(() => {
+    if (canCreateGlobal) return null;
+    return new Set(
+      (portfolioQ.data ?? [])
+        .filter((card) => card.canCreateStrategy)
+        .map((card) => card.directionId),
+    );
+  }, [canCreateGlobal, portfolioQ.data]);
+
+  const canAccessCreate =
+    canCreateGlobal ||
+    (canRead &&
+      (creatableDirectionIds?.has(directionFromQuery) ||
+        (creatableDirectionIds?.size ?? 0) > 0 ||
+        portfolioQ.isLoading));
+
+  const directionsQ = useStrategicDirectionOptionsQuery({
+    enabled: canAccessCreate,
+  });
+  const visionsQ = useStrategicVisionOptionsQuery({ enabled: canAccessCreate });
   const createMutation = useCreateStrategicDirectionStrategyMutation();
 
   const defaultVisionId = useMemo(() => {
@@ -58,14 +82,17 @@ export function StrategicDirectionStrategyCreatePage() {
   const visionId = alignedVisionId || defaultVisionId;
 
   const selectedVision = (visionsQ.data ?? []).find((v) => v.id === visionId);
-  const selectedDirection = (directionsQ.data ?? []).find((d) => d.id === directionId);
+  const directionOptions = (directionsQ.data ?? []).filter(
+    (d) => canCreateGlobal || creatableDirectionIds?.has(d.id),
+  );
+  const selectedDirection = directionOptions.find((d) => d.id === directionId);
 
-  if (!canCreate) {
+  if (!canAccessCreate) {
     return (
       <PageContainer>
         <EmptyState
           title="Création non autorisée"
-          description="Vous n’avez pas la permission de créer une stratégie de direction."
+          description="Vous n’avez pas la permission de créer une stratégie de direction. Les sponsors peuvent créer le schéma de leur propre direction."
           action={
             <Link
               href="/strategic-direction-strategy"
@@ -79,10 +106,32 @@ export function StrategicDirectionStrategyCreatePage() {
     );
   }
 
-  if (directionsQ.isLoading || visionsQ.isLoading) {
+  if (directionsQ.isLoading || visionsQ.isLoading || portfolioQ.isLoading) {
     return (
       <PageContainer>
         <LoadingState />
+      </PageContainer>
+    );
+  }
+
+  if (
+    !canCreateGlobal &&
+    directionOptions.length === 0
+  ) {
+    return (
+      <PageContainer>
+        <EmptyState
+          title="Aucune direction à créer"
+          description="Vous n’êtes sponsor d’aucune direction sans schéma, ou la fiche RH n’est pas liée à votre compte."
+          action={
+            <Link
+              href="/strategic-direction-strategy"
+              className={cn(buttonVariants({ variant: 'outline' }), 'min-h-11')}
+            >
+              Retour au portefeuille
+            </Link>
+          }
+        />
       </PageContainer>
     );
   }
@@ -166,7 +215,7 @@ export function StrategicDirectionStrategyCreatePage() {
                 <SelectValue placeholder="Choisir une direction" />
               </SelectTrigger>
               <SelectContent>
-                {(directionsQ.data ?? []).map((d) => (
+                {directionOptions.map((d) => (
                   <SelectItem key={d.id} value={d.id}>
                     {displayLabel(d.code, 'Direction')} — {displayLabel(d.name, 'Direction')}
                   </SelectItem>

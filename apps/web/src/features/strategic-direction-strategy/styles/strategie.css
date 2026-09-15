@@ -78,25 +78,38 @@ main.starium-workspace-sheet:has(.stg-root) {
 .stg-root .stg-badge.bdg-gold{background:var(--brand-gold-050);color:var(--brand-gold-700)}
 .stg-root .stg-badge.bdg-neutral{background:var(--neutral-100);color:var(--neutral-500)}
 
-/* Sous-onglets mock (app.css .bud-subtabs) — piste neutre, pilule blanche active */
+/* Sous-onglets schéma — souligné or, sans fond de piste */
 .stg-root .bud-subtabs,
 #view-dirstrat .bud-subtabs{
-  display:flex;align-items:center;gap:4px;flex-wrap:wrap;
-  background:var(--neutral-100);border-radius:var(--radius-md);padding:4px;
+  display:flex;align-items:center;gap:2px;flex-wrap:wrap;
+  background:transparent;border:none;border-radius:0;padding:0;
   margin:18px 0 16px;width:fit-content;max-width:100%;
+  box-shadow:none;
 }
 .stg-root .bud-subtab,
 #view-dirstrat .bud-subtab{
   display:inline-flex;align-items:center;gap:7px;min-height:44px;
-  padding:8px 16px;border-radius:var(--radius-sm);border:none;background:transparent;
-  font-family:var(--font-sans);font-size:13px;font-weight:700;
-  color:var(--neutral-500);cursor:pointer;
+  padding:9px 14px;border-radius:0;border:none;
+  border-bottom:2.5px solid transparent;background:transparent;
+  font-family:var(--font-sans);font-size:13.5px;font-weight:600;
+  color:var(--neutral-500);cursor:pointer;white-space:nowrap;
+  transition:color 120ms,border-bottom-color 120ms;
 }
-.stg-root .bud-subtab:hover{color:var(--brand-ink)}
-.stg-root .bud-subtab.active{
-  background:var(--neutral-0);color:var(--brand-ink);box-shadow:var(--shadow-1);
+.stg-root .bud-subtab:hover,
+#view-dirstrat .bud-subtab:hover{
+  color:var(--brand-ink);
+  background:transparent;
+  border-bottom-color:var(--neutral-300);
 }
-.stg-root .bud-subtab:focus-visible{
+.stg-root .bud-subtab.active,
+#view-dirstrat .bud-subtab.active,
+.stg-root .bud-subtab.active:hover,
+#view-dirstrat .bud-subtab.active:hover{
+  background:transparent;color:var(--brand-gold-700);
+  border-bottom-color:var(--brand-gold);box-shadow:none;
+}
+.stg-root .bud-subtab:focus-visible,
+#view-dirstrat .bud-subtab:focus-visible{
   outline:2px solid var(--brand-gold);outline-offset:2px;
 }
 .stg-root .bud-subtab .stg-tabn{
@@ -106,7 +119,7 @@ main.starium-workspace-sheet:has(.stg-root) {
   font-size:10.5px;font-weight:800;font-variant-numeric:tabular-nums;
 }
 .stg-root .bud-subtab.active .stg-tabn{
-  background:var(--neutral-100);color:var(--brand-ink);
+  background:var(--brand-gold-050);color:var(--brand-gold-700);
 }
 .stg-root .bud-subtab .stg-tabn.crit,
 .stg-root .bud-subtab.active .stg-tabn.crit{
@@ -117,25 +130,15 @@ main.starium-workspace-sheet:has(.stg-root) {
 #view-dirstrat .pg-head{flex-wrap:wrap;gap:12px}
 #view-dirstrat .pg-head>div:first-child{min-width:220px;flex:1}
 
-/* Header flat mock (pas de carte blanche PageHeader) */
-#view-dirstrat > .starium-page-header{
-  background:transparent;
-  border:none;
-  box-shadow:none;
-  border-radius:0;
-  padding-left:0;
-  padding-right:0;
-  padding-top:0;
-}
-
 /* ─── En-tête direction ─── */
-.stg-hero{padding:24px 26px;margin-bottom:16px;display:flex;align-items:flex-start;gap:18px;flex-wrap:wrap}
+.stg-hero{padding:24px 26px;margin-top:16px;margin-bottom:16px;display:flex;align-items:flex-start;gap:18px;flex-wrap:wrap}
 .stg-hero-id{flex:1;min-width:240px}
 .stg-hero-sigle{width:56px;height:56px;border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;flex-shrink:0}
 .stg-hero h2{font-size:21px;font-weight:800;color:var(--brand-ink);letter-spacing:-.01em}
 .stg-hero-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}
 .stg-hero-meta .stg-meta{font-size:12.5px;color:var(--neutral-600);font-weight:600}
-.stg-hero-sep{width:1px;height:13px;background:var(--neutral-200)}
+.stg-hero-meta .stg-badge{flex-shrink:0}
+.stg-hero-sep{display:inline-block;width:1px;height:13px;background:var(--neutral-200);flex-shrink:0;align-self:center}
 .stg-ambition{font-size:16px;font-weight:600;line-height:1.6;color:var(--brand-ink);text-wrap:pretty}
 .stg-ambition .hl{color:var(--brand-gold-700);font-weight:800}
 .stg-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px}

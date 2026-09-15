@@ -21,6 +21,17 @@ export function formatEurCents(cents: number | null | undefined): string {
   return `${Math.round(n)} €`;
 }
 
+/** « Prénom Nom — email@… » → nom seul (hero / listes). */
+export function stgPersonName(label: string | null | undefined): string | null {
+  if (typeof label !== 'string') return null;
+  const trimmed = label.trim();
+  if (!trimmed) return null;
+  if (/^\S+@\S+$/.test(trimmed)) return null;
+  const withEmail = trimmed.match(/^(.+?)\s+[—–-]\s+\S+@\S+$/);
+  if (withEmail?.[1]) return withEmail[1].trim() || null;
+  return trimmed;
+}
+
 export function formatReviewDate(iso: string | null | undefined): string {
   if (!iso) return '—';
   const d = new Date(iso);
