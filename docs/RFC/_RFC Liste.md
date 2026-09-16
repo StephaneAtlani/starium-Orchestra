@@ -371,6 +371,7 @@ Module `meetings` en **surcouche** : il orchestre le rituel (template, périmèt
 | RFC | Nom | État | Commentaire |
 | --- | --- | --- | --- |
 | **RFC-014** | Admin Studio | 📝 Draft / partiel | [RFC](./RFC-014%20%E2%80%94%20Admin%20Studio.md) |
+| **RFC-ADM-001** | Référentiels plateforme (Admin Studio) | 📝 Draft | Moteur générique listes + valeurs plateforme : CRUD / archive `AdminReferenceList` / `AdminReferenceValue`, API `/api/platform/reference-lists` + lecture `/api/reference-lists/:code/values`, UI `/admin/reference-lists` (`PLATFORM_ADMIN`) — [RFC](./RFC-ADM-001%20%E2%80%94%20R%C3%A9f%C3%A9rentiels%20plateforme%20(Admin%20Studio).md) |
 | **RFC-014-1** | UX/UI et Design System de l’application | 📝 Draft | Design system, layout, patterns pages — [RFC](./RFC-014-1%20%E2%80%94%20UX-UI%20et%20Design%20System%20de%20l%E2%80%99application.md) |
 | **RFC-014-2** | Login, bootstrap, navigation par rôle | 📝 Draft / partiel | Shell auth + navigation — [RFC](./RFC-014-2%20%E2%80%94%20Login%2C%20bootstrap%20applicatif%2C%20navigation%20et%20affichage%20par%20r%C3%B4le.md) |
 
