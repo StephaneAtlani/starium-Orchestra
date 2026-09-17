@@ -198,8 +198,8 @@ export class ComplianceService {
    */
   async frameworksSummary(clientId: string): Promise<ComplianceFrameworkSummary[]> {
     const frameworks = await this.prisma.complianceFramework.findMany({
-      where: { clientId },
-      orderBy: [{ isActive: 'desc' }, { name: 'asc' }, { version: 'asc' }],
+      where: { clientId, isActive: true },
+      orderBy: [{ name: 'asc' }, { version: 'asc' }],
       select: {
         id: true,
         name: true,
@@ -1137,8 +1137,50 @@ export class ComplianceService {
   }
 
   /**
+   * Active / désactive une instance client (conserve historiques & évaluations).
+   * Les KPI / cartes dashboard ne comptent que les référentiels `isActive`.
+   */
+  async setClientFrameworkActive(
+    clientId: string,
+    frameworkId: string,
+    isActive: boolean,
+    context?: AuditContext,
+  ) {
+    const current = await this.prisma.complianceFramework.findFirst({
+      where: { id: frameworkId, clientId },
+    });
+    if (!current) {
+      throw new NotFoundException('Référentiel introuvable');
+    }
+    if (current.isActive === isActive) {
+      return current;
+    }
+
+    const updated = await this.prisma.complianceFramework.update({
+      where: { id: current.id },
+      data: { isActive },
+    });
+
+    await this.auditLogs.create({
+      clientId,
+      userId: context?.actorUserId,
+      action: COMPLIANCE_AUDIT_ACTION.FRAMEWORK_UPDATED,
+      resourceType: COMPLIANCE_AUDIT_RESOURCE_TYPE.COMPLIANCE_FRAMEWORK,
+      resourceId: updated.id,
+      oldValue: { isActive: current.isActive, name: current.name, version: current.version },
+      newValue: { isActive: updated.isActive, name: updated.name, version: updated.version },
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    });
+
+    return updated;
+  }
+
+  /**
    * Active un référentiel catalogue plateforme pour le client :
    * copie framework + exigences (instance client isolée pour les évaluations).
+   * Si une instance inactive existe déjà (même name+version), la réactive sans recopier.
    */
   async activatePlatformFrameworkForClient(
     clientId: string,
@@ -1166,9 +1208,12 @@ export class ComplianceService {
       },
     });
     if (existing) {
-      throw new ConflictException(
-        `« ${source.name} » (${source.version}) est déjà activé pour ce client`,
-      );
+      if (existing.isActive) {
+        throw new ConflictException(
+          `« ${source.name} » (${source.version}) est déjà activé pour ce client`,
+        );
+      }
+      return this.setClientFrameworkActive(clientId, existing.id, true, context);
     }
 
     const created = await this.prisma.$transaction(async (tx) => {

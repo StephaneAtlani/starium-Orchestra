@@ -27,6 +27,7 @@ import { ListComplianceRequirementsQueryDto } from './dto/list-compliance-requir
 import { ListComplianceStatusQueryDto } from './dto/list-compliance-status.query.dto';
 
 import { ActivateComplianceFrameworkDto } from './dto/activate-compliance-framework.dto';
+import { PatchClientComplianceFrameworkDto } from './dto/patch-client-compliance-framework.dto';
 
 @Controller('compliance')
 @UseGuards(JwtAuthGuard, ActiveClientGuard, ModuleAccessGuard, PermissionsGuard)
@@ -44,6 +45,25 @@ export class ComplianceController {
   @RequirePermissions('compliance.read')
   listFrameworks(@ActiveClientId() clientId: string | undefined) {
     return this.compliance.listFrameworks(clientId!);
+  }
+
+  /** Active / désactive une instance client (`isActive`) — historique conservé. */
+  @Patch('frameworks/:id')
+  @RequirePermissions('compliance.update')
+  patchFramework(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+    @Body() dto: PatchClientComplianceFrameworkDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.compliance.setClientFrameworkActive(
+      clientId!,
+      id,
+      dto.isActive,
+      context,
+    );
   }
 
   /** Avancement par référentiel (cartes « Référentiels réglementaires »). */
