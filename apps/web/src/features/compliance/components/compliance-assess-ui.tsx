@@ -1,5 +1,6 @@
 'use client';
 
+import { useId, useState } from 'react';
 import {
   AlertCircle,
   BookOpen,
@@ -13,12 +14,6 @@ import {
   Pencil,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 import type { ComplianceAssessmentStatusApi } from '../api/compliance.api';
 import type { ComplianceUiStatus } from './compliance-status-display';
 
@@ -140,37 +135,43 @@ export function assessHeadingAndTooltip(
 }
 
 function ComplianceInfoTip({
-  title,
   description,
   ariaLabel,
 }: {
-  title: string | null;
-  description: string | null;
+  description: string;
   ariaLabel: string;
 }) {
-  if (!title && !description) return null;
+  const [open, setOpen] = useState(false);
+  const tipId = useId();
+
   return (
-    <TooltipProvider delay={200}>
-      <Tooltip>
-        <TooltipTrigger
-          type="button"
-          className="inline-flex size-11 shrink-0 items-center justify-center rounded-[var(--control-radius,999px)] text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 sm:size-9"
-          aria-label={ariaLabel}
+    <div
+      className="relative shrink-0"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
+      <button
+        type="button"
+        className="inline-flex size-11 shrink-0 items-center justify-center rounded-[var(--control-radius,999px)] text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 sm:size-9"
+        aria-label={ariaLabel}
+        aria-expanded={open}
+        aria-controls={open ? tipId : undefined}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setOpen(false)}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <Info className="size-4" aria-hidden />
+      </button>
+      {open ? (
+        <div
+          id={tipId}
+          role="tooltip"
+          className="absolute right-0 top-[calc(100%+6px)] z-30 w-[min(calc(100vw-3rem),22rem)] max-h-[min(50dvh,20rem)] overflow-y-auto rounded-[var(--radius-md)] border border-border bg-card p-3 text-left text-xs font-medium leading-relaxed text-foreground shadow-[var(--shadow-3)]"
         >
-          <Info className="size-4" aria-hidden />
-        </TooltipTrigger>
-        <TooltipContent
-          side="bottom"
-          align="end"
-          className="max-w-sm space-y-1.5 whitespace-normal text-left leading-relaxed"
-        >
-          {title ? <p className="font-bold">{title}</p> : null}
-          {description ? (
-            <p className={cn('font-medium', title && 'opacity-90')}>{description}</p>
-          ) : null}
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+          {description}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -193,7 +194,7 @@ export function ComplianceAssessHeader({
   );
 
   return (
-    <header className="shrink-0 border-b border-border/70 bg-background px-5 pr-14 pb-4 pt-5 sm:px-6">
+    <header className="relative z-10 shrink-0 overflow-visible border-b border-border/70 bg-background px-5 pr-14 pb-4 pt-5 sm:px-6">
       <div className="flex flex-wrap items-center gap-2">
         <span className="inline-flex max-w-full truncate rounded-md bg-muted px-2 py-0.5 text-[11px] font-extrabold uppercase tracking-wide text-muted-foreground">
           {frameworkName}
@@ -212,7 +213,6 @@ export function ComplianceAssessHeader({
         )}
         {tooltipDescription ? (
           <ComplianceInfoTip
-            title={null}
             description={tooltipDescription}
             ariaLabel="Voir la description de l’exigence"
           />
