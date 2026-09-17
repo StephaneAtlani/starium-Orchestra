@@ -1,4 +1,19 @@
-import { IsBoolean, IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength } from 'class-validator';
+import {
+  ArrayMaxSize,
+  ArrayUnique,
+  IsArray,
+  IsBoolean,
+  IsDateString,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+  MinLength,
+} from 'class-validator';
+import { ComplianceCampaignModality } from '@prisma/client';
 
 export class CreateComplianceCampaignDto {
   @IsString()
@@ -26,4 +41,26 @@ export class CreateComplianceCampaignDto {
   @IsOptional()
   @IsBoolean()
   createSnapshot?: boolean;
+
+  /** Clés de domaine (`category`) à inclure dans la revue. */
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @ArrayMaxSize(200)
+  @IsString({ each: true })
+  @MaxLength(200, { each: true })
+  scopeDomainKeys?: string[];
+
+  @IsOptional()
+  @IsEnum(ComplianceCampaignModality)
+  modality?: ComplianceCampaignModality;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  ownerUserId?: string;
+
+  @IsOptional()
+  @IsDateString()
+  dueAt?: string;
 }

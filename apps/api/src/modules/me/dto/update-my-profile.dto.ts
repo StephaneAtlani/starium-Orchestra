@@ -30,4 +30,10 @@ export class UpdateMyProfileDto {
   @IsString()
   @MaxLength(200)
   office?: string | null;
+
+  /** Locale textes conformité (ex. fr, en). null = défaut fr. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(12)
+  complianceContentLocale?: string | null;
 }

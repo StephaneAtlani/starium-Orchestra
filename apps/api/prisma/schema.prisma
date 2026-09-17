@@ -589,6 +589,8 @@ model User {
   office                               String?
   /// MIME image (ex. image/jpeg) si une photo est enregistrée sur disque
   avatarMimeType                       String?
+  /// Locale préférée pour les textes d’exigences conformité (CISO). null = fr.
+  complianceContentLocale              String?
   platformRole                         PlatformRole?
   createdAt                            DateTime                        @default(now())
   updatedAt                            DateTime                        @updatedAt
@@ -702,6 +704,7 @@ model User {
   complianceContributionsAssigned      ComplianceContribution[]
   complianceGapsOwned                  ComplianceGap[]             @relation("ComplianceGapOwner")
   complianceStatusesOwned               ComplianceStatus[]          @relation("ComplianceStatusOwner")
+  complianceCampaignsOwned             ComplianceCampaign[]        @relation("ComplianceCampaignOwner")
 }
 
 /// Adresse e-mail déclarée par l’utilisateur (affichage / futur envoi). Une par user + email normalisé.
@@ -3735,6 +3738,12 @@ enum ComplianceCampaignStatus {
   ARCHIVED
 }
 
+enum ComplianceCampaignModality {
+  SELF_ASSESSMENT
+  INTERNAL_AUDIT
+  EXTERNAL_AUDIT
+}
+
 enum ComplianceNaRequestStatus {
   PENDING
   APPROVED
@@ -3776,30 +3785,37 @@ enum ComplianceGapCriticality {
 
 /// Campagne / revue de conformité (COMP.V2) — photographie sur un référentiel client figé.
 model ComplianceCampaign {
-  id                     String                   @id @default(cuid())
+  id                     String                     @id @default(cuid())
   clientId               String
   frameworkId            String
   /// Nom métier affiché (jamais l'id).
   name                   String
-  status                 ComplianceCampaignStatus @default(DRAFT)
+  status                 ComplianceCampaignStatus   @default(DRAFT)
   /// Copie figée à l'ouverture (version/périmètre inchangés ensuite).
   frozenFrameworkName    String
   frozenFrameworkVersion String
-  reviewFrequencyMonths  Int                      @default(12)
+  reviewFrequencyMonths  Int                        @default(12)
+  /// Clés de domaine (`category`) retenues pour la revue — JSON string[].
+  scopeDomainKeys        Json?
+  modality               ComplianceCampaignModality @default(SELF_ASSESSMENT)
+  ownerUserId            String?
+  dueAt                  DateTime?
   openedAt               DateTime?
   closedAt               DateTime?
   closeNote              String?
   createdByUserId        String?
-  createdAt              DateTime                 @default(now())
-  updatedAt              DateTime                 @updatedAt
+  createdAt              DateTime                   @default(now())
+  updatedAt              DateTime                   @updatedAt
 
   client     Client                        @relation(fields: [clientId], references: [id], onDelete: Cascade)
   framework  ComplianceFramework           @relation(fields: [frameworkId], references: [id], onDelete: Restrict)
+  owner      User?                         @relation("ComplianceCampaignOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
   snapshots  ComplianceCampaignSnapshot[]
 
   @@index([clientId])
   @@index([clientId, frameworkId])
   @@index([clientId, status])
+  @@index([ownerUserId])
 }
 
 /// Instantané immuable d'une campagne (évaluations + preuves au moment de la coupure).
@@ -3826,6 +3842,8 @@ model ComplianceRequirement {
   title       String
   description String?
   category    String?
+  /// Textes multi-locale CISO : { "fr": { "title", "description" }, "en": { … } }
+  translations Json?
   sortOrder   Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

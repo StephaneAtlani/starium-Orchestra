@@ -1,50 +1,65 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ClipboardCheck } from 'lucide-react';
+import { Check, Pencil, Play } from 'lucide-react';
 import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { EmptyState } from '@/components/feedback/empty-state';
 import { LoadingState } from '@/components/feedback/loading-state';
+import { ErrorState } from '@/components/feedback/error-state';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
+import { useClientMembers } from '@/features/client-rbac/hooks/use-client-members';
+import type { ClientMember } from '@/features/client-rbac/api/user-roles';
 import { toast } from '@/lib/toast';
-import { displayLabel } from '@/lib/display-label';
+import { displayLabel, firstDisplayLabel } from '@/lib/display-label';
+import { cn } from '@/lib/utils';
 import {
-  closeComplianceCampaign,
-  confirmCampaignEvaluationsImport,
   createComplianceCampaign,
-  createComplianceCampaignSnapshot,
-  getComplianceCampaign,
-  getComplianceCampaignEvaluationsTemplate,
-  getComplianceCampaignSnapshot,
-  downloadComplianceCampaignSnapshotZip,
-  listComplianceCampaigns,
-  previewCampaignEvaluationsImport,
-  type CampaignEvalImportPreviewApi,
-  type ComplianceCampaignStatusApi,
+  getComplianceFrameworkOverview,
+  type ComplianceCampaignModalityApi,
+  type ComplianceFrameworkDomainApi,
 } from '../api/compliance.api';
 
-const STATUS_LABEL: Record<ComplianceCampaignStatusApi, string> = {
-  DRAFT: 'Brouillon',
-  OPEN: 'Ouverte',
-  CLOSED: 'Clôturée',
-  ARCHIVED: 'Archivée',
-};
+const MODALITY_OPTIONS: Array<{
+  value: ComplianceCampaignModalityApi;
+  label: string;
+}> = [
+  { value: 'SELF_ASSESSMENT', label: 'Auto-évaluation' },
+  { value: 'INTERNAL_AUDIT', label: 'Audit interne' },
+  { value: 'EXTERNAL_AUDIT', label: 'Audit externe' },
+];
 
-function formatDate(iso: string | null): string {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '—';
-  return new Intl.DateTimeFormat('fr-FR', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  }).format(d);
+function memberLabel(m: ClientMember): string {
+  const name = [m.firstName, m.lastName].filter(Boolean).join(' ').trim();
+  const base = name || m.email;
+  const job = m.jobTitle?.trim();
+  return job ? `${base} — ${job}` : base;
+}
+
+function defaultDueDateIso(): string {
+  const d = new Date();
+  d.setMonth(d.getMonth() + 3);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function defaultCampaignName(frameworkLabel: string): string {
+  const year = new Date().getFullYear();
+  const label = frameworkLabel.trim() || 'conformité';
+  return `Revue ${label} — ${year}`;
 }
 
 export function ComplianceStartReviewModal({
@@ -62,51 +77,67 @@ export function ComplianceStartReviewModal({
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id;
   const queryClient = useQueryClient();
+  const { data: members = [], isLoading: membersLoading } = useClientMembers();
 
-  const [importCampaignId, setImportCampaignId] = useState<string | null>(null);
-  const [csvContent, setCsvContent] = useState('');
-  const [preview, setPreview] = useState<CampaignEvalImportPreviewApi | null>(
-    null,
+  const [name, setName] = useState('');
+  const [selectedDomainKeys, setSelectedDomainKeys] = useState<Set<string>>(
+    new Set(),
   );
-  const [detailCampaignId, setDetailCampaignId] = useState<string | null>(null);
-  const [snapshotView, setSnapshotView] = useState<{
-    campaignId: string;
-    snapshotId: string;
-  } | null>(null);
+  const [ownerUserId, setOwnerUserId] = useState('');
+  const [dueAt, setDueAt] = useState(defaultDueDateIso);
+  const [modality, setModality] =
+    useState<ComplianceCampaignModalityApi>('SELF_ASSESSMENT');
+  const [initialized, setInitialized] = useState(false);
 
-  const listQ = useQuery({
-    queryKey: ['compliance', 'campaigns', clientId, frameworkId],
-    queryFn: () => listComplianceCampaigns(authFetch, frameworkId),
+  const overviewQ = useQuery({
+    queryKey: [
+      'compliance',
+      'framework',
+      clientId,
+      frameworkId,
+      'overview',
+      'start-review',
+    ],
+    queryFn: () => getComplianceFrameworkOverview(authFetch, frameworkId),
     enabled: open && Boolean(clientId) && Boolean(frameworkId),
   });
 
-  const detailQ = useQuery({
-    queryKey: [
-      'compliance',
-      'campaign-detail',
-      clientId,
-      detailCampaignId,
-    ],
-    queryFn: () => getComplianceCampaign(authFetch, detailCampaignId!),
-    enabled: Boolean(detailCampaignId) && Boolean(clientId),
-  });
+  const domains = overviewQ.data?.domains ?? [];
 
-  const snapQ = useQuery({
-    queryKey: [
-      'compliance',
-      'campaign-snapshot',
-      clientId,
-      snapshotView?.campaignId,
-      snapshotView?.snapshotId,
-    ],
-    queryFn: () =>
-      getComplianceCampaignSnapshot(
-        authFetch,
-        snapshotView!.campaignId,
-        snapshotView!.snapshotId,
-      ),
-    enabled: Boolean(snapshotView) && Boolean(clientId),
-  });
+  useEffect(() => {
+    if (!open) {
+      setInitialized(false);
+      return;
+    }
+    if (initialized || !overviewQ.data) return;
+    setName(defaultCampaignName(frameworkLabel));
+    setSelectedDomainKeys(new Set(overviewQ.data.domains.map((d) => d.key)));
+    setDueAt(defaultDueDateIso());
+    setModality('SELF_ASSESSMENT');
+    setOwnerUserId((prev) => {
+      if (prev && members.some((m) => m.id === prev)) return prev;
+      return members[0]?.id ?? '';
+    });
+    setInitialized(true);
+  }, [open, initialized, overviewQ.data, frameworkLabel, members]);
+
+  useEffect(() => {
+    if (!open || !initialized || ownerUserId) return;
+    if (members[0]?.id) setOwnerUserId(members[0].id);
+  }, [open, initialized, members, ownerUserId]);
+
+  const selectedCount = useMemo(() => {
+    return domains
+      .filter((d) => selectedDomainKeys.has(d.key))
+      .reduce((sum, d) => sum + d.requirementCount, 0);
+  }, [domains, selectedDomainKeys]);
+
+  const ownerMember = members.find((m) => m.id === ownerUserId);
+  const canSubmit =
+    name.trim().length > 0 &&
+    selectedDomainKeys.size > 0 &&
+    selectedCount > 0 &&
+    !overviewQ.isLoading;
 
   const invalidate = async () => {
     await queryClient.invalidateQueries({
@@ -118,460 +149,266 @@ export function ComplianceStartReviewModal({
     await queryClient.invalidateQueries({
       queryKey: ['compliance', 'framework', clientId, frameworkId, 'overview'],
     });
-    if (detailCampaignId) {
-      await queryClient.invalidateQueries({
-        queryKey: [
-          'compliance',
-          'campaign-detail',
-          clientId,
-          detailCampaignId,
-        ],
-      });
-    }
   };
 
   const startMut = useMutation({
     mutationFn: () =>
       createComplianceCampaign(authFetch, {
         frameworkId,
+        name: name.trim(),
         openImmediately: true,
         createSnapshot: true,
+        scopeDomainKeys: Array.from(selectedDomainKeys),
+        modality,
+        ownerUserId: ownerUserId || undefined,
+        dueAt: dueAt ? new Date(`${dueAt}T12:00:00`).toISOString() : undefined,
       }),
     onSuccess: async (camp) => {
       toast.success(
         `Revue démarrée — ${displayLabel(camp.name, 'Campagne')}`,
       );
       await invalidate();
+      onOpenChange(false);
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const closeMut = useMutation({
-    mutationFn: (id: string) =>
-      closeComplianceCampaign(authFetch, id, { createSnapshot: true }),
-    onSuccess: async (camp) => {
-      toast.success('Revue clôturée (instantané créé)');
-      const last = camp.snapshots[0];
-      if (last) {
-        setDetailCampaignId(camp.id);
-        setSnapshotView({ campaignId: camp.id, snapshotId: last.id });
-      }
-      await invalidate();
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
+  const toggleDomain = (key: string) => {
+    setSelectedDomainKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
-  const snapMut = useMutation({
-    mutationFn: (campaignId: string) =>
-      createComplianceCampaignSnapshot(authFetch, campaignId, {
-        label: `Instantané ${new Date().toISOString().slice(0, 16)}`,
-      }),
-    onSuccess: async (snap, campaignId) => {
-      toast.success('Instantané créé');
-      setDetailCampaignId(campaignId);
-      setSnapshotView({ campaignId, snapshotId: snap.id });
-      await invalidate();
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const previewMut = useMutation({
-    mutationFn: () =>
-      previewCampaignEvaluationsImport(
-        authFetch,
-        importCampaignId!,
-        csvContent,
-      ),
-    onSuccess: (data) => {
-      setPreview(data);
-      if (data.errorCount > 0) {
-        toast.error(`${data.errorCount} ligne(s) en erreur`);
-      } else {
-        toast.success(`${data.validCount} ligne(s) prêtes`);
-      }
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const confirmMut = useMutation({
-    mutationFn: () =>
-      confirmCampaignEvaluationsImport(authFetch, importCampaignId!, {
-        fingerprint: preview!.fingerprint,
-        csvContent,
-      }),
-    onSuccess: async (data) => {
-      toast.success(`${data.imported} évaluation(s) importée(s)`);
-      setPreview(null);
-      setCsvContent('');
-      setImportCampaignId(null);
-      await invalidate();
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const templateMut = useMutation({
-    mutationFn: () => getComplianceCampaignEvaluationsTemplate(authFetch),
-    onSuccess: (data) => {
-      const blob = new Blob([data.csv], { type: 'text/csv;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = data.filename;
-      a.click();
-      URL.revokeObjectURL(url);
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const exportZipMut = useMutation({
-    mutationFn: () =>
-      downloadComplianceCampaignSnapshotZip(
-        authFetch,
-        snapshotView!.campaignId,
-        snapshotView!.snapshotId,
-      ),
-    onSuccess: ({ blob, filename }) => {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast.success('Dossier d’audit téléchargé');
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
+  const fwName = firstDisplayLabel(
+    [overviewQ.data?.framework.name, frameworkLabel],
+    'Référentiel',
+  );
 
   return (
     <StariumModal
       open={open}
-      onOpenChange={(next) => {
-        onOpenChange(next);
-        if (!next) {
-          setImportCampaignId(null);
-          setPreview(null);
-          setCsvContent('');
-          setDetailCampaignId(null);
-          setSnapshotView(null);
-        }
-      }}
-      title="Lancer une revue"
-      description={`Campagne d’audit sur ${frameworkLabel} — fige la version et photographie les évaluations.`}
-      icon={ClipboardCheck}
+      onOpenChange={onOpenChange}
+      title="Lancer une revue de conformité"
+      description={`Campagne d'évaluation — ${fwName}`}
+      icon={Pencil}
       size="lg"
       footer={
         <>
+          <span
+            className="mr-auto text-[12.5px] font-semibold text-muted-foreground tabular-nums"
+            aria-live="polite"
+          >
+            {selectedCount > 0
+              ? `${selectedCount} exigence${selectedCount > 1 ? 's' : ''} sélectionnée${selectedCount > 1 ? 's' : ''}`
+              : 'Aucune exigence sélectionnée'}
+          </span>
           <Button
             type="button"
             variant="outline"
             className="min-h-11 sm:min-h-9"
             onClick={() => onOpenChange(false)}
           >
-            Fermer
+            Annuler
           </Button>
           <Button
             type="button"
-            className="min-h-11 sm:min-h-9"
-            disabled={startMut.isPending}
+            className="min-h-11 gap-2 sm:min-h-9"
+            disabled={!canSubmit || startMut.isPending}
             onClick={() => startMut.mutate()}
           >
-            {startMut.isPending ? 'Création…' : 'Démarrer la revue'}
+            <Play className="size-4" aria-hidden />
+            Lancer la revue
           </Button>
         </>
       }
     >
-      <div className="space-y-6">
-        <p className="text-sm text-muted-foreground">
-          La revue ouvre une campagne, fige le nom et la version du référentiel,
-          et crée un instantané initial. Vous pouvez ensuite importer un CSV
-          d’évaluations (atomique) et consulter les instantanés.
-        </p>
-
-        <section aria-labelledby="campaigns-list-heading" className="space-y-2">
-          <h3 id="campaigns-list-heading" className="text-sm font-semibold">
-            Revues de ce référentiel
-          </h3>
-          {listQ.isLoading ? (
-            <LoadingState rows={2} />
-          ) : (listQ.data ?? []).length === 0 ? (
-            <EmptyState
-              title="Aucune revue"
-              description="Démarrez une revue pour figer l’état d’évaluation actuel."
+      {overviewQ.isLoading ? (
+        <LoadingState rows={4} />
+      ) : overviewQ.isError ? (
+        <ErrorState
+          message={
+            overviewQ.error instanceof Error
+              ? overviewQ.error.message
+              : 'Impossible de charger le référentiel.'
+          }
+          onRetry={() => void overviewQ.refetch()}
+        />
+      ) : domains.length === 0 ? (
+        <EmptyState
+          title="Aucun domaine à évaluer"
+          description="Ce référentiel ne contient pas encore d’exigences."
+        />
+      ) : (
+        <div className="starium-form flex flex-col gap-5">
+          <div className="space-y-1.5">
+            <Label htmlFor="rv-name">
+              Intitulé de la campagne{' '}
+              <span className="text-destructive" aria-hidden>
+                *
+              </span>
+            </Label>
+            <Input
+              id="rv-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Ex. : Revue annuelle ISO 27001"
+              maxLength={200}
+              required
+              aria-required
             />
-          ) : (
-            <ul className="space-y-2">
-              {(listQ.data ?? []).map((c) => (
-                <li
-                  key={c.id}
-                  className="flex flex-col gap-2 rounded-lg border border-border/70 bg-muted/30 p-3"
-                >
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0 space-y-1">
-                      <p className="truncate font-medium">
-                        {displayLabel(c.name, 'Revue')}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {displayLabel(c.frozenFrameworkName, 'Référentiel')} (
-                        {displayLabel(c.frozenFrameworkVersion, '—')}) ·{' '}
-                        {c._count.snapshots} instantané
-                        {c._count.snapshots > 1 ? 's' : ''} · ouverte{' '}
-                        {formatDate(c.openedAt)}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 flex-wrap items-center gap-2">
-                      <Badge variant="secondary">
-                        {STATUS_LABEL[c.status]}
-                      </Badge>
-                      {c._count.snapshots > 0 ||
-                      c.status === 'OPEN' ||
-                      c.status === 'CLOSED' ? (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="min-h-11 sm:min-h-9"
-                          onClick={() => {
-                            setDetailCampaignId(
-                              detailCampaignId === c.id ? null : c.id,
-                            );
-                            setSnapshotView(null);
-                          }}
-                        >
-                          {detailCampaignId === c.id
-                            ? 'Masquer'
-                            : 'Instantanés'}
-                        </Button>
-                      ) : null}
-                      {c.status === 'OPEN' ? (
-                        <>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="min-h-11 sm:min-h-9"
-                            disabled={snapMut.isPending}
-                            onClick={() => snapMut.mutate(c.id)}
-                          >
-                            Photographier
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="min-h-11 sm:min-h-9"
-                            onClick={() => {
-                              setImportCampaignId(c.id);
-                              setPreview(null);
-                            }}
-                          >
-                            Import CSV
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="min-h-11 sm:min-h-9"
-                            disabled={closeMut.isPending}
-                            onClick={() => closeMut.mutate(c.id)}
-                          >
-                            Clôturer
-                          </Button>
-                        </>
-                      ) : null}
-                    </div>
-                  </div>
+          </div>
 
-                  {detailCampaignId === c.id ? (
-                    <div className="space-y-2 border-t border-border/60 pt-2">
-                      {detailQ.isLoading ? (
-                        <LoadingState rows={1} />
-                      ) : (detailQ.data?.snapshots ?? []).length === 0 ? (
-                        <p className="text-sm text-muted-foreground">
-                          Aucun instantané pour cette revue.
-                        </p>
-                      ) : (
-                        <ul className="space-y-1">
-                          {(detailQ.data?.snapshots ?? []).map((s) => (
-                            <li
-                              key={s.id}
-                              className="flex flex-wrap items-center justify-between gap-2"
-                            >
-                              <span className="text-sm">
-                                {displayLabel(s.label, 'Instantané')} ·{' '}
-                                {formatDate(s.createdAt)}
-                              </span>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="min-h-11 sm:min-h-9"
-                                onClick={() =>
-                                  setSnapshotView({
-                                    campaignId: c.id,
-                                    snapshotId: s.id,
-                                  })
-                                }
-                              >
-                                Consulter
-                              </Button>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  ) : null}
-                </li>
+          <fieldset className="space-y-1.5">
+            <legend className="text-sm font-medium leading-none">
+              Périmètre à évaluer
+            </legend>
+            <div
+              className="flex max-h-56 flex-col gap-[7px] overflow-y-auto pr-0.5"
+              role="group"
+              aria-label="Domaines du référentiel"
+            >
+              {domains.map((domain) => (
+                <DomainScopeRow
+                  key={domain.key}
+                  domain={domain}
+                  selected={selectedDomainKeys.has(domain.key)}
+                  onToggle={() => toggleDomain(domain.key)}
+                />
               ))}
-            </ul>
-          )}
-        </section>
-
-        {snapshotView ? (
-          <section
-            aria-labelledby="snap-heading"
-            className="space-y-2 rounded-lg border border-border/70 p-3"
-            aria-live="polite"
-          >
-            <h3 id="snap-heading" className="text-sm font-semibold">
-              Instantané
-              {snapQ.data
-                ? ` — ${displayLabel(snapQ.data.label, 'sans libellé')}`
-                : ''}
-            </h3>
-            {snapQ.isLoading ? (
-              <LoadingState rows={2} />
-            ) : snapQ.isError ? (
-              <p className="text-sm text-destructive">
-                {snapQ.error instanceof Error
-                  ? snapQ.error.message
-                  : 'Impossible de charger l’instantané.'}
-              </p>
-            ) : snapQ.data ? (
-              <p className="text-sm text-muted-foreground">
-                {snapQ.data.payload.totals?.requirementCount ?? 0} exigences ·
-                score{' '}
-                {snapQ.data.payload.totals?.compliancePercent == null
-                  ? 'Non calculable'
-                  : `${snapQ.data.payload.totals.compliancePercent} %`}{' '}
-                · C {snapQ.data.payload.totals?.compliantCount ?? 0} · P{' '}
-                {snapQ.data.payload.totals?.partiallyCompliantCount ?? 0} · É{' '}
-                {snapQ.data.payload.totals?.nonCompliantCount ?? 0} · N.É.{' '}
-                {snapQ.data.payload.totals?.notAssessedCount ?? 0}
-              </p>
-            ) : null}
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                className="min-h-11 sm:min-h-9"
-                disabled={!snapQ.data || exportZipMut.isPending}
-                onClick={() => exportZipMut.mutate()}
-              >
-                {exportZipMut.isPending
-                  ? 'Préparation…'
-                  : 'Télécharger le dossier ZIP'}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="min-h-11 sm:min-h-9"
-                onClick={() => setSnapshotView(null)}
-              >
-                Masquer le détail
-              </Button>
             </div>
-          </section>
-        ) : null}
+          </fieldset>
 
-        {importCampaignId ? (
-          <section
-            aria-labelledby="import-heading"
-            className="space-y-3 rounded-lg border border-border/70 p-3"
-          >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 id="import-heading" className="text-sm font-semibold">
-                Import CSV d’évaluations
-              </h3>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="min-h-11 sm:min-h-9"
-                disabled={templateMut.isPending}
-                onClick={() => templateMut.mutate()}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="rv-owner">Responsable de la revue</Label>
+              <Select
+                value={ownerUserId || undefined}
+                onValueChange={(v) => setOwnerUserId(v ?? '')}
+                disabled={membersLoading || members.length === 0}
               >
-                Télécharger le modèle
-              </Button>
+                <SelectTrigger id="rv-owner" className="w-full min-h-11">
+                  <SelectValue placeholder="Choisir un responsable">
+                    {ownerUserId
+                      ? memberLabel(
+                          ownerMember ?? {
+                            id: ownerUserId,
+                            email: 'Membre',
+                            firstName: null,
+                            lastName: null,
+                            role: 'CLIENT_USER',
+                            status: 'ACTIVE',
+                          },
+                        )
+                      : null}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {members.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {memberLabel(m)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <div className="starium-form-field space-y-1">
-              <Label htmlFor="csv-eval-import">Contenu CSV</Label>
-              <Textarea
-                id="csv-eval-import"
-                className="min-h-32 font-mono text-xs"
-                value={csvContent}
-                onChange={(e) => {
-                  setCsvContent(e.target.value);
-                  setPreview(null);
-                }}
-                placeholder="code;status;comment;lastAssessmentDate;evidenceNote"
+            <div className="space-y-1.5">
+              <Label htmlFor="rv-due">Échéance</Label>
+              <Input
+                id="rv-due"
+                type="date"
+                value={dueAt}
+                onChange={(e) => setDueAt(e.target.value)}
+                className="min-h-11"
               />
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                className="min-h-11 sm:min-h-9"
-                disabled={!csvContent.trim() || previewMut.isPending}
-                onClick={() => previewMut.mutate()}
-              >
-                Aperçu
-              </Button>
-              <Button
-                type="button"
-                className="min-h-11 sm:min-h-9"
-                disabled={
-                  !preview ||
-                  preview.errorCount > 0 ||
-                  preview.validCount === 0 ||
-                  confirmMut.isPending
-                }
-                onClick={() => confirmMut.mutate()}
-              >
-                Confirmer l’import
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                className="min-h-11 sm:min-h-9"
-                onClick={() => {
-                  setImportCampaignId(null);
-                  setPreview(null);
-                }}
-              >
-                Annuler
-              </Button>
+          </div>
+
+          <fieldset className="space-y-1.5">
+            <legend className="text-sm font-medium leading-none">
+              Modalité
+            </legend>
+            <div
+              className="grid grid-cols-1 gap-2 sm:grid-cols-3"
+              role="radiogroup"
+              aria-label="Modalité de la revue"
+            >
+              {MODALITY_OPTIONS.map((opt) => {
+                const selected = modality === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    onClick={() => setModality(opt.value)}
+                    className={cn(
+                      'min-h-11 rounded-[var(--radius-md)] border-[1.5px] px-3 py-2.5 text-center text-[12.5px] font-bold transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
+                      selected
+                        ? 'border-[color:var(--brand-gold)] bg-[color:var(--brand-gold-050)] text-foreground shadow-[0_0_0_3px_color-mix(in_srgb,var(--brand-gold)_14%,transparent)]'
+                        : 'border-border bg-card text-foreground hover:bg-muted/40',
+                    )}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
             </div>
-            {preview ? (
-              <p className="text-sm text-muted-foreground" aria-live="polite">
-                {preview.validCount} valide(s) · {preview.errorCount} erreur(s)
-                sur {preview.totalRows} ligne(s)
-              </p>
-            ) : null}
-            {preview && preview.errorCount > 0 ? (
-              <ul className="max-h-40 space-y-1 overflow-y-auto text-sm">
-                {preview.rows
-                  .filter((r) => r.error)
-                  .slice(0, 20)
-                  .map((r) => (
-                    <li key={`${r.line}-${r.code}`} className="text-destructive">
-                      Ligne {r.line} ({r.code || '—'}) : {r.error}
-                    </li>
-                  ))}
-              </ul>
-            ) : null}
-          </section>
-        ) : null}
-      </div>
+          </fieldset>
+        </div>
+      )}
     </StariumModal>
+  );
+}
+
+function DomainScopeRow({
+  domain,
+  selected,
+  onToggle,
+}: {
+  domain: ComplianceFrameworkDomainApi;
+  selected: boolean;
+  onToggle: () => void;
+}) {
+  const label = displayLabel(domain.label, 'Domaine');
+  const count = domain.requirementCount;
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={selected}
+      onClick={onToggle}
+      className={cn(
+        'flex min-h-11 w-full items-center gap-[11px] rounded-[var(--radius-md)] border-[1.5px] px-[13px] py-[11px] text-left transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
+        selected
+          ? 'border-[color:var(--brand-gold)] bg-[color:var(--brand-gold-050)]'
+          : 'border-border bg-card hover:bg-muted/40',
+      )}
+    >
+      <span
+        className={cn(
+          'flex size-5 shrink-0 items-center justify-center rounded-[6px] border-[1.5px]',
+          selected
+            ? 'border-[color:var(--brand-gold)] bg-[color:var(--brand-gold)] text-[color:var(--brand-ink)]'
+            : 'border-border text-transparent',
+        )}
+        aria-hidden
+      >
+        <Check className="size-3.5 stroke-[3]" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[13px] font-bold text-foreground">
+          {label}
+        </span>
+        <span className="block text-[11.5px] text-muted-foreground">
+          {count} exigence{count > 1 ? 's' : ''}
+        </span>
+      </span>
+      <span className="shrink-0 text-xs font-extrabold tabular-nums text-muted-foreground">
+        {count}
+      </span>
+    </button>
   );
 }

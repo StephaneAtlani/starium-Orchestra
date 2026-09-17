@@ -46,6 +46,20 @@ export class PlatformComplianceFrameworksController {
     return this.cisoImport.backfillCatalogMeta(actorUserId, meta, 'fr');
   }
 
+  /** Remplit translations multi-locale depuis les YAML CISO (catalogue + instances client). */
+  @Post('backfill-requirement-translations')
+  backfillRequirementTranslations(
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta()
+    meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    return this.cisoImport.backfillRequirementTranslations(
+      actorUserId,
+      meta,
+      'fr',
+    );
+  }
+
   @Get(':id')
   get(@Param('id') id: string) {
     return this.compliance.getPlatformFramework(id);

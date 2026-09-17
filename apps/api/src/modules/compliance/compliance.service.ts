@@ -1,11 +1,13 @@
 import {
   BadRequestException,
   ConflictException,
+  GoneException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import {
   ComplianceAssessmentStatus,
+  ComplianceCampaignModality,
   ComplianceCampaignStatus,
   ComplianceContributionStatus,
   ComplianceEvidenceAssessment,
@@ -22,6 +24,11 @@ import {
   COMPLIANCE_AUDIT_ACTION,
   COMPLIANCE_AUDIT_RESOURCE_TYPE,
 } from './compliance-audit.constants';
+import {
+  listAvailableRequirementLocales,
+  normalizeComplianceLocale,
+  resolveRequirementDisplayTexts,
+} from './compliance-requirement-locale';
 import { CreateComplianceFrameworkDto } from './dto/create-compliance-framework.dto';
 import { UpdateComplianceFrameworkDto } from './dto/update-compliance-framework.dto';
 import { CreateComplianceRequirementDto } from './dto/create-compliance-requirement.dto';
@@ -535,9 +542,21 @@ export class ComplianceService {
     }
   }
 
+  async resolveUserContentLocale(
+    userId: string | undefined,
+  ): Promise<string> {
+    if (!userId) return 'fr';
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { complianceContentLocale: true },
+    });
+    return normalizeComplianceLocale(user?.complianceContentLocale);
+  }
+
   async listRequirements(
     clientId: string,
     query: ListComplianceRequirementsQueryDto,
+    contentLocale?: string | null,
   ) {
     const where: Prisma.ComplianceRequirementWhereInput = {
       framework: { clientId },
@@ -548,7 +567,7 @@ export class ComplianceService {
     if (query.frameworkId) {
       await this.assertFrameworkScope(clientId, query.frameworkId);
     }
-    return this.prisma.complianceRequirement.findMany({
+    const rows = await this.prisma.complianceRequirement.findMany({
       where,
       include: {
         framework: { select: { id: true, name: true, version: true, isActive: true } },
@@ -563,9 +582,29 @@ export class ComplianceService {
       },
       orderBy: [{ frameworkId: 'asc' }, { sortOrder: 'asc' }, { code: 'asc' }],
     });
+    const locale = normalizeComplianceLocale(contentLocale);
+    return rows.map((r) => {
+      const texts = resolveRequirementDisplayTexts({
+        title: r.title,
+        description: r.description,
+        translations: r.translations,
+        locale,
+      });
+      return {
+        ...r,
+        title: texts.title,
+        description: texts.description,
+        contentLocale: texts.locale,
+        availableLocales: listAvailableRequirementLocales(r.translations),
+      };
+    });
   }
 
-  async getRequirementDetail(clientId: string, requirementId: string) {
+  async getRequirementDetail(
+    clientId: string,
+    requirementId: string,
+    contentLocale?: string | null,
+  ) {
     const req = await this.prisma.complianceRequirement.findFirst({
       where: { id: requirementId, framework: { clientId } },
       include: {
@@ -573,6 +612,21 @@ export class ComplianceService {
       },
     });
     if (!req) throw new NotFoundException('Exigence introuvable');
+
+    const locale = normalizeComplianceLocale(contentLocale);
+    const texts = resolveRequirementDisplayTexts({
+      title: req.title,
+      description: req.description,
+      translations: req.translations,
+      locale,
+    });
+    const requirement = {
+      ...req,
+      title: texts.title,
+      description: texts.description,
+      contentLocale: texts.locale,
+      availableLocales: listAvailableRequirementLocales(req.translations),
+    };
 
     const [status, evidences, linkedRisks, naRequest, contributions, gaps] =
       await Promise.all([
@@ -631,7 +685,7 @@ export class ComplianceService {
     ]);
 
     return {
-      requirement: req,
+      requirement,
       status: status
         ? {
             ...status,
@@ -849,24 +903,24 @@ export class ComplianceService {
 
   /**
    * Règles COMP-001-A : commentaire obligatoire ; conforme ⇒ ≥1 preuve/observation.
-   * Appelé avant create/update de statut.
+   * NOT_APPLICABLE = évaluation directe (justification = commentaire), sans circuit demande.
    */
   async assertEvaluationTransition(
     clientId: string,
     requirementId: string,
     dto: PatchComplianceStatusDto,
   ): Promise<void> {
-    if (dto.status === ComplianceAssessmentStatus.NOT_APPLICABLE) {
-      throw new BadRequestException(
-        'La non-applicabilité passe par le circuit de demande / approbation (pas d’évaluation directe)',
-      );
-    }
-
     const comment = dto.comment?.trim() ?? '';
     if (!comment) {
       throw new BadRequestException(
-        'Un commentaire d’analyse est obligatoire pour enregistrer une évaluation',
+        dto.status === ComplianceAssessmentStatus.NOT_APPLICABLE
+          ? 'Une justification est obligatoire pour marquer l’exigence non applicable'
+          : 'Un commentaire d’analyse est obligatoire pour enregistrer une évaluation',
       );
+    }
+
+    if (dto.status === ComplianceAssessmentStatus.NOT_APPLICABLE) {
+      return;
     }
 
     if (dto.status === ComplianceAssessmentStatus.COMPLIANT) {
@@ -889,208 +943,48 @@ export class ComplianceService {
     }
   }
 
+  /** Circuit demande NA retiré — utiliser l’évaluation directe NOT_APPLICABLE. */
   async requestNotApplicable(
-    clientId: string,
-    requirementId: string,
-    dto: RequestComplianceNaDto,
-    context?: AuditContext,
-  ) {
-    const req = await this.prisma.complianceRequirement.findFirst({
-      where: { id: requirementId, framework: { clientId } },
-      select: { id: true },
-    });
-    if (!req) throw new NotFoundException('Exigence introuvable');
-
-    const existingStatus = await this.prisma.complianceStatus.findUnique({
-      where: { clientId_requirementId: { clientId, requirementId } },
-    });
-    if (existingStatus?.status === ComplianceAssessmentStatus.NOT_APPLICABLE) {
-      throw new BadRequestException('Exigence déjà non applicable');
-    }
-
-    const existing = await this.prisma.complianceNaRequest.findUnique({
-      where: { clientId_requirementId: { clientId, requirementId } },
-    });
-    if (existing?.status === ComplianceNaRequestStatus.PENDING) {
-      throw new BadRequestException(
-        'Une demande de non-applicabilité est déjà en attente',
-      );
-    }
-
-    const justification = dto.justification.trim();
-    const row = existing
-      ? await this.prisma.complianceNaRequest.update({
-          where: { id: existing.id },
-          data: {
-            status: ComplianceNaRequestStatus.PENDING,
-            justification,
-            requestedByUserId: context?.actorUserId ?? null,
-            requestedAt: new Date(),
-            reviewedByUserId: null,
-            reviewedAt: null,
-            reviewNote: null,
-          },
-        })
-      : await this.prisma.complianceNaRequest.create({
-          data: {
-            clientId,
-            requirementId,
-            status: ComplianceNaRequestStatus.PENDING,
-            justification,
-            requestedByUserId: context?.actorUserId ?? null,
-          },
-        });
-
-    await this.auditLogs.create({
-      clientId,
-      userId: context?.actorUserId,
-      action: COMPLIANCE_AUDIT_ACTION.NA_REQUESTED,
-      resourceType: COMPLIANCE_AUDIT_RESOURCE_TYPE.COMPLIANCE_NA_REQUEST,
-      resourceId: row.id,
-      newValue: { requirementId, justification },
-      ipAddress: context?.meta?.ipAddress,
-      userAgent: context?.meta?.userAgent,
-      requestId: context?.meta?.requestId,
-    });
-
-    return row;
+    _clientId: string,
+    _requirementId: string,
+    _dto: RequestComplianceNaDto,
+    _context?: AuditContext,
+  ): Promise<never> {
+    throw new GoneException(
+      'Le circuit de demande de non-applicabilité est retiré. Enregistrez le statut Non applicable avec une justification.',
+    );
   }
 
   async approveNotApplicable(
-    clientId: string,
-    requirementId: string,
-    dto: ReviewComplianceNaDto,
-    context?: AuditContext,
-  ) {
-    const na = await this.requirePendingNa(clientId, requirementId);
-    const reviewNote = dto.reviewNote?.trim() || null;
-
-    const result = await this.prisma.$transaction(async (tx) => {
-      const updatedNa = await tx.complianceNaRequest.update({
-        where: { id: na.id },
-        data: {
-          status: ComplianceNaRequestStatus.APPROVED,
-          reviewedByUserId: context?.actorUserId ?? null,
-          reviewedAt: new Date(),
-          reviewNote,
-        },
-      });
-
-      const existing = await tx.complianceStatus.findUnique({
-        where: { clientId_requirementId: { clientId, requirementId } },
-      });
-      const statusRow = existing
-        ? await tx.complianceStatus.update({
-            where: { id: existing.id },
-            data: {
-              status: ComplianceAssessmentStatus.NOT_APPLICABLE,
-              comment: na.justification,
-              lastAssessmentDate: new Date(),
-            },
-          })
-        : await tx.complianceStatus.create({
-            data: {
-              clientId,
-              requirementId,
-              status: ComplianceAssessmentStatus.NOT_APPLICABLE,
-              comment: na.justification,
-              lastAssessmentDate: new Date(),
-            },
-          });
-
-      return { updatedNa, statusRow };
-    });
-
-    await this.auditLogs.create({
-      clientId,
-      userId: context?.actorUserId,
-      action: COMPLIANCE_AUDIT_ACTION.NA_APPROVED,
-      resourceType: COMPLIANCE_AUDIT_RESOURCE_TYPE.COMPLIANCE_NA_REQUEST,
-      resourceId: result.updatedNa.id,
-      oldValue: { status: na.status },
-      newValue: {
-        status: result.updatedNa.status,
-        reviewNote,
-        assessmentStatus: result.statusRow.status,
-      },
-      ipAddress: context?.meta?.ipAddress,
-      userAgent: context?.meta?.userAgent,
-      requestId: context?.meta?.requestId,
-    });
-
-    return result.updatedNa;
+    _clientId: string,
+    _requirementId: string,
+    _dto: ReviewComplianceNaDto,
+    _context?: AuditContext,
+  ): Promise<never> {
+    throw new GoneException(
+      'Le circuit de demande de non-applicabilité est retiré. Enregistrez le statut Non applicable avec une justification.',
+    );
   }
 
   async rejectNotApplicable(
-    clientId: string,
-    requirementId: string,
-    dto: ReviewComplianceNaDto,
-    context?: AuditContext,
-  ) {
-    const na = await this.requirePendingNa(clientId, requirementId);
-    const reviewNote = dto.reviewNote?.trim();
-    if (!reviewNote) {
-      throw new BadRequestException(
-        'Un motif de refus est obligatoire',
-      );
-    }
-
-    const updated = await this.prisma.complianceNaRequest.update({
-      where: { id: na.id },
-      data: {
-        status: ComplianceNaRequestStatus.REJECTED,
-        reviewedByUserId: context?.actorUserId ?? null,
-        reviewedAt: new Date(),
-        reviewNote,
-      },
-    });
-
-    await this.auditLogs.create({
-      clientId,
-      userId: context?.actorUserId,
-      action: COMPLIANCE_AUDIT_ACTION.NA_REJECTED,
-      resourceType: COMPLIANCE_AUDIT_RESOURCE_TYPE.COMPLIANCE_NA_REQUEST,
-      resourceId: updated.id,
-      oldValue: { status: na.status },
-      newValue: { status: updated.status, reviewNote },
-      ipAddress: context?.meta?.ipAddress,
-      userAgent: context?.meta?.userAgent,
-      requestId: context?.meta?.requestId,
-    });
-
-    return updated;
+    _clientId: string,
+    _requirementId: string,
+    _dto: ReviewComplianceNaDto,
+    _context?: AuditContext,
+  ): Promise<never> {
+    throw new GoneException(
+      'Le circuit de demande de non-applicabilité est retiré. Enregistrez le statut Non applicable avec une justification.',
+    );
   }
 
   async cancelNotApplicableRequest(
-    clientId: string,
-    requirementId: string,
-    context?: AuditContext,
-  ) {
-    const na = await this.requirePendingNa(clientId, requirementId);
-    const updated = await this.prisma.complianceNaRequest.update({
-      where: { id: na.id },
-      data: {
-        status: ComplianceNaRequestStatus.CANCELLED,
-        reviewedByUserId: context?.actorUserId ?? null,
-        reviewedAt: new Date(),
-        reviewNote: 'Annulée par le demandeur',
-      },
-    });
-
-    await this.auditLogs.create({
-      clientId,
-      userId: context?.actorUserId,
-      action: COMPLIANCE_AUDIT_ACTION.NA_CANCELLED,
-      resourceType: COMPLIANCE_AUDIT_RESOURCE_TYPE.COMPLIANCE_NA_REQUEST,
-      resourceId: updated.id,
-      oldValue: { status: na.status },
-      newValue: { status: updated.status },
-      ipAddress: context?.meta?.ipAddress,
-      userAgent: context?.meta?.userAgent,
-      requestId: context?.meta?.requestId,
-    });
-
-    return updated;
+    _clientId: string,
+    _requirementId: string,
+    _context?: AuditContext,
+  ): Promise<never> {
+    throw new GoneException(
+      'Le circuit de demande de non-applicabilité est retiré. Enregistrez le statut Non applicable avec une justification.',
+    );
   }
 
   private mapContribution(c: {
@@ -2177,6 +2071,7 @@ export class ComplianceService {
             title: r.title,
             description: r.description,
             category: r.category,
+            translations: r.translations ?? undefined,
             sortOrder: r.sortOrder,
           })),
         });
@@ -2258,6 +2153,15 @@ export class ComplianceService {
       include: {
         _count: { select: { snapshots: true } },
         framework: { select: { id: true, name: true, version: true } },
+        owner: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            jobTitle: true,
+          },
+        },
       },
     });
   }
@@ -2268,6 +2172,15 @@ export class ComplianceService {
       include: {
         _count: { select: { snapshots: true } },
         framework: { select: { id: true, name: true, version: true } },
+        owner: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            jobTitle: true,
+          },
+        },
         snapshots: {
           orderBy: { createdAt: 'desc' },
           select: {
@@ -2298,8 +2211,52 @@ export class ComplianceService {
     const openImmediately = dto.openImmediately === true;
     const name =
       dto.name?.trim() ||
-      `Revue ${framework.name} ${new Date().toISOString().slice(0, 10)}`;
+      `Revue ${framework.name} — ${new Date().getFullYear()}`;
     const freq = dto.reviewFrequencyMonths ?? 12;
+    const modality = dto.modality ?? ComplianceCampaignModality.SELF_ASSESSMENT;
+
+    let scopeDomainKeys: string[] | null = null;
+    if (dto.scopeDomainKeys !== undefined) {
+      const cleaned = dto.scopeDomainKeys
+        .map((k) => k.trim())
+        .filter((k) => k.length > 0);
+      if (cleaned.length === 0) {
+        throw new BadRequestException(
+          'Sélectionnez au moins un domaine à évaluer',
+        );
+      }
+      const categories = await this.prisma.complianceRequirement.findMany({
+        where: { frameworkId: framework.id },
+        select: { category: true },
+        distinct: ['category'],
+      });
+      const allowed = new Set(
+        categories.map((c) =>
+          c.category?.trim() ? c.category.trim() : UNCATEGORIZED_DOMAIN_KEY,
+        ),
+      );
+      for (const key of cleaned) {
+        if (!allowed.has(key)) {
+          throw new BadRequestException(
+            'Un domaine du périmètre est invalide pour ce référentiel',
+          );
+        }
+      }
+      scopeDomainKeys = cleaned;
+    }
+
+    if (dto.ownerUserId) {
+      await this.assertAssigneeOnClient(clientId, dto.ownerUserId);
+    }
+
+    let dueAt: Date | null = null;
+    if (dto.dueAt) {
+      const parsed = new Date(dto.dueAt);
+      if (Number.isNaN(parsed.getTime())) {
+        throw new BadRequestException('Échéance invalide');
+      }
+      dueAt = parsed;
+    }
 
     const created = await this.prisma.complianceCampaign.create({
       data: {
@@ -2312,6 +2269,10 @@ export class ComplianceService {
         frozenFrameworkName: framework.name,
         frozenFrameworkVersion: framework.version,
         reviewFrequencyMonths: freq,
+        scopeDomainKeys: scopeDomainKeys ?? Prisma.JsonNull,
+        modality,
+        ownerUserId: dto.ownerUserId ?? null,
+        dueAt,
         openedAt: openImmediately ? new Date() : null,
         createdByUserId: context?.actorUserId ?? null,
       },
@@ -2328,6 +2289,10 @@ export class ComplianceService {
         status: created.status,
         frameworkName: framework.name,
         frameworkVersion: framework.version,
+        modality: created.modality,
+        scopeDomainCount: scopeDomainKeys?.length ?? null,
+        ownerUserId: created.ownerUserId,
+        dueAt: created.dueAt?.toISOString() ?? null,
       },
       ipAddress: context?.meta?.ipAddress,
       userAgent: context?.meta?.userAgent,
@@ -2836,38 +2801,6 @@ export class ComplianceService {
       for (const row of valid) {
         const requirementId = row.requirementId!;
         const status = row.status!;
-
-        if (status === ComplianceAssessmentStatus.NOT_APPLICABLE) {
-          const justification = row.comment.trim();
-          const existingNa = await tx.complianceNaRequest.findUnique({
-            where: { clientId_requirementId: { clientId, requirementId } },
-          });
-          if (existingNa) {
-            await tx.complianceNaRequest.update({
-              where: { id: existingNa.id },
-              data: {
-                status: ComplianceNaRequestStatus.PENDING,
-                justification,
-                requestedByUserId: context?.actorUserId ?? null,
-                requestedAt: new Date(),
-                reviewedByUserId: null,
-                reviewedAt: null,
-                reviewNote: null,
-              },
-            });
-          } else {
-            await tx.complianceNaRequest.create({
-              data: {
-                clientId,
-                requirementId,
-                status: ComplianceNaRequestStatus.PENDING,
-                justification,
-                requestedByUserId: context?.actorUserId ?? null,
-              },
-            });
-          }
-          continue;
-        }
 
         if (status === ComplianceAssessmentStatus.COMPLIANT) {
           const evidences = await tx.complianceEvidence.findMany({

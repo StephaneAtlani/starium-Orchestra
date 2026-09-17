@@ -225,6 +225,109 @@ export class CisoLibraryImportService {
     };
   }
 
+  /**
+   * Remplit `translations` (+ title/description FR) depuis les YAML CISO
+   * pour le catalogue plateforme et propage aux instances client (même name+version+code).
+   */
+  async backfillRequirementTranslations(
+    actorUserId?: string,
+    meta?: { ipAddress?: string; userAgent?: string; requestId?: string },
+    preferredLocale: string | null = 'fr',
+  ): Promise<{
+    frameworksScanned: number;
+    requirementsUpdated: number;
+    clientRequirementsUpdated: number;
+    skippedMissingFile: number;
+  }> {
+    const locale = preferredLocale?.trim().toLowerCase() || 'fr';
+    await this.ensureLocalRepo();
+
+    const frameworks = await this.prisma.complianceFramework.findMany({
+      where: { clientId: null, sourceLibraryPath: { not: null } },
+      select: { id: true, name: true, version: true, sourceLibraryPath: true },
+    });
+
+    let requirementsUpdated = 0;
+    let clientRequirementsUpdated = 0;
+    let skippedMissingFile = 0;
+
+    for (const fw of frameworks) {
+      if (!fw.sourceLibraryPath) continue;
+      let yamlText: string;
+      try {
+        yamlText = await this.readLibraryFile(fw.sourceLibraryPath);
+      } catch {
+        skippedMissingFile += 1;
+        continue;
+      }
+      const parsed = this.parseLibraryYaml(yamlText, locale);
+      if (!parsed.framework) {
+        skippedMissingFile += 1;
+        continue;
+      }
+
+      for (const req of parsed.framework.requirements) {
+        const updated = await this.prisma.complianceRequirement.updateMany({
+          where: { frameworkId: fw.id, code: req.code },
+          data: {
+            title: req.title,
+            description: req.description,
+            category: req.category,
+            translations: req.translations,
+          },
+        });
+        requirementsUpdated += updated.count;
+
+        const clientFws = await this.prisma.complianceFramework.findMany({
+          where: {
+            clientId: { not: null },
+            name: fw.name,
+            version: fw.version,
+          },
+          select: { id: true },
+        });
+        if (clientFws.length === 0) continue;
+        const clientUpdated = await this.prisma.complianceRequirement.updateMany({
+          where: {
+            frameworkId: { in: clientFws.map((c) => c.id) },
+            code: req.code,
+          },
+          data: {
+            title: req.title,
+            description: req.description,
+            category: req.category,
+            translations: req.translations,
+          },
+        });
+        clientRequirementsUpdated += clientUpdated.count;
+      }
+    }
+
+    if (requirementsUpdated > 0 || clientRequirementsUpdated > 0) {
+      await this.auditLogs.createPlatform({
+        userId: actorUserId,
+        action: COMPLIANCE_AUDIT_ACTION.FRAMEWORK_UPDATED,
+        resourceType: COMPLIANCE_AUDIT_RESOURCE_TYPE.COMPLIANCE_FRAMEWORK,
+        resourceId: frameworks[0]?.id ?? null,
+        newValue: {
+          source: 'ciso-requirement-translations-backfill',
+          requirementsUpdated,
+          clientRequirementsUpdated,
+        },
+        ipAddress: meta?.ipAddress,
+        userAgent: meta?.userAgent,
+        requestId: meta?.requestId,
+      });
+    }
+
+    return {
+      frameworksScanned: frameworks.length,
+      requirementsUpdated,
+      clientRequirementsUpdated,
+      skippedMissingFile,
+    };
+  }
+
   /** Remplit uniquement les champs méta absents ; retourne true si une écriture a eu lieu. */
   private async patchMissingCatalogMeta(
     existing: {
@@ -302,7 +405,7 @@ export class CisoLibraryImportService {
       throw new BadRequestException('Maximum 30 référentiels par import');
     }
 
-    const locale = preferredLocale?.trim().toLowerCase() || null;
+    const locale = preferredLocale?.trim().toLowerCase() || 'fr';
 
     await this.ensureLocalRepo();
 
@@ -411,6 +514,7 @@ export class CisoLibraryImportService {
                 title: r.title,
                 description: r.description,
                 category: r.category,
+                translations: r.translations,
                 sortOrder: i,
               })),
             });
@@ -813,6 +917,10 @@ export class CisoLibraryImportService {
         title: string;
         description: string | null;
         category: string | null;
+        translations: Record<
+          string,
+          { title: string; description: string | null }
+        >;
       }>;
     } | null;
   } {
@@ -824,7 +932,7 @@ export class CisoLibraryImportService {
     const effectiveLocale =
       preferredLocale ||
       (docLocale && docLocale !== 'fr' ? 'fr' : docLocale) ||
-      null;
+      'fr';
     const provider = asString(doc.provider);
 
     const libraryLocalized = this.pickLocalizedText(
@@ -886,6 +994,7 @@ export class CisoLibraryImportService {
       title: string;
       description: string | null;
       category: string | null;
+      translations: Record<string, { title: string; description: string | null }>;
     }> = [];
     const usedCodes = new Set<string>();
 
@@ -909,15 +1018,31 @@ export class CisoLibraryImportService {
       const nodeTr = node.translations as
         | Record<string, { name?: unknown; description?: unknown }>
         | undefined;
-      const localized = this.pickLocalizedText(
+      const translations = this.collectNodeTranslations(
         asString(node.name),
         asString(node.description),
         nodeTr,
-        effectiveLocale,
+        docLocale,
       );
-      const titleRaw = localized.name || localized.description || unique;
+      const preferred =
+        this.pickLocalizedText(
+          asString(node.name),
+          asString(node.description),
+          nodeTr,
+          effectiveLocale,
+        );
+      const frPick = this.pickLocalizedText(
+        asString(node.name),
+        asString(node.description),
+        nodeTr,
+        'fr',
+      );
+      const display = frPick.name || frPick.description
+        ? frPick
+        : preferred;
+      const titleRaw = display.name || display.description || unique;
       const title = titleRaw.slice(0, 500);
-      const description = localized.description?.slice(0, 4000) ?? null;
+      const description = display.description?.slice(0, 4000) ?? null;
       const parentUrn =
         typeof node.parent_urn === 'string' ? node.parent_urn : null;
       const category = parentUrn ? nameByUrn.get(parentUrn) ?? null : null;
@@ -927,6 +1052,7 @@ export class CisoLibraryImportService {
         title,
         description,
         category: category?.slice(0, 200) ?? null,
+        translations,
       });
     }
 
@@ -941,5 +1067,46 @@ export class CisoLibraryImportService {
         requirements,
       },
     };
+  }
+
+  private collectNodeTranslations(
+    baseName: string | null,
+    baseDescription: string | null,
+    translations:
+      | Record<string, { name?: unknown; description?: unknown }>
+      | undefined,
+    docLocale: string | null,
+  ): Record<string, { title: string; description: string | null }> {
+    const out: Record<string, { title: string; description: string | null }> =
+      {};
+
+    const put = (
+      lang: string,
+      name: string | null,
+      description: string | null,
+    ) => {
+      const key = lang.trim().toLowerCase();
+      if (!key) return;
+      const titleRaw = (name || description || '').trim();
+      if (!titleRaw && !description?.trim()) return;
+      out[key] = {
+        title: titleRaw.slice(0, 500) || description!.trim().slice(0, 500),
+        description: description?.trim().slice(0, 4000) || null,
+      };
+    };
+
+    if (docLocale) {
+      put(docLocale, baseName, baseDescription);
+    } else if (baseName || baseDescription) {
+      put('en', baseName, baseDescription);
+    }
+
+    if (translations) {
+      for (const [lang, t] of Object.entries(translations)) {
+        put(lang, asString(t?.name), asString(t?.description));
+      }
+    }
+
+    return out;
   }
 }

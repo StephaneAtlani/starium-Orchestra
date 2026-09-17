@@ -93,20 +93,26 @@ export function isSavableAssessmentStatus(
   status: ComplianceUiStatus,
 ): status is Extract<
   ComplianceAssessmentStatusApi,
-  'COMPLIANT' | 'PARTIALLY_COMPLIANT' | 'NON_COMPLIANT'
+  'COMPLIANT' | 'PARTIALLY_COMPLIANT' | 'NON_COMPLIANT' | 'NOT_APPLICABLE'
 > {
   return (
     status === 'COMPLIANT' ||
     status === 'PARTIALLY_COMPLIANT' ||
-    status === 'NON_COMPLIANT'
+    status === 'NON_COMPLIANT' ||
+    status === 'NOT_APPLICABLE'
   );
 }
 
 const SHORT_TITLE_MAX = 96;
 
+function truncateHeading(text: string, max = SHORT_TITLE_MAX): string {
+  if (text.length <= max) return text;
+  return `${text.slice(0, max).trimEnd()}…`;
+}
+
 /**
- * h2 = intitulé court (si le title est un pavé → code).
- * (i) = description au hover dès qu’elle existe (même si title === description).
+ * h2 = texte métier tronqué (description, sinon title) — jamais le code si un texte existe.
+ * (i) = texte intégral dès qu’il y a troncature, ou description distincte du title court.
  */
 export function assessHeadingAndTooltip(
   title: string,
@@ -123,13 +129,14 @@ export function assessHeadingAndTooltip(
     return { heading: c, tooltipDescription: null };
   }
 
-  const longTitle = Boolean(t && t.length > SHORT_TITLE_MAX);
+  // Title court distinct de la description → h2 = title, (i) = description
+  if (t && d && t !== d && t.length <= SHORT_TITLE_MAX) {
+    return { heading: t, tooltipDescription: d };
+  }
 
-  // Pavé en title → code en h2 ; sinon le title
-  const heading = longTitle ? c : t;
-
-  // Description dans le (i) si présente ; sinon pavé title sans description
-  const tooltipDescription = d ?? (longTitle ? t : null);
+  const source = d || t!;
+  const heading = truncateHeading(source);
+  const tooltipDescription = heading.endsWith('…') ? source : null;
 
   return { heading, tooltipDescription };
 }
@@ -175,23 +182,38 @@ function ComplianceInfoTip({
   );
 }
 
-/** Badges + titre court en h2 ; (i) = description au hover. */
+/** Badges + titre court en h2 ; (i) = description au hover ; sélecteur de langue optionnel. */
 export function ComplianceAssessHeader({
   frameworkName,
   code,
   title,
   description,
+  availableLocales,
+  contentLocale,
+  onContentLocaleChange,
+  localePending,
 }: {
   frameworkName: string;
   code: string;
   title: string;
   description: string | null | undefined;
+  availableLocales?: string[];
+  contentLocale?: string;
+  onContentLocaleChange?: (locale: string) => void;
+  localePending?: boolean;
 }) {
   const { heading, tooltipDescription } = assessHeadingAndTooltip(
     title,
     description,
     code,
   );
+
+  const locales =
+    availableLocales && availableLocales.length > 0
+      ? availableLocales
+      : ['fr'];
+  const activeLocale = contentLocale?.trim().toLowerCase() || 'fr';
+  const showLocaleSelect = Boolean(onContentLocaleChange) && locales.length > 1;
 
   return (
     <header className="relative z-10 shrink-0 overflow-visible border-b border-border/70 bg-background px-5 pr-14 pb-4 pt-5 sm:px-6">
@@ -202,10 +224,28 @@ export function ComplianceAssessHeader({
         <span className="inline-flex rounded-md bg-muted px-2 py-0.5 text-[11px] font-extrabold tabular-nums text-muted-foreground">
           {code}
         </span>
+        {showLocaleSelect ? (
+          <label className="ml-auto flex min-h-11 items-center gap-2 sm:min-h-9">
+            <span className="sr-only">Langue du texte de l’exigence</span>
+            <select
+              className="h-11 min-w-[7.5rem] rounded-[var(--control-radius,999px)] border border-input bg-background px-3 text-sm font-medium text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 sm:h-9"
+              value={locales.includes(activeLocale) ? activeLocale : locales[0]}
+              disabled={localePending}
+              aria-label="Langue du texte de l’exigence"
+              onChange={(e) => onContentLocaleChange?.(e.target.value)}
+            >
+              {locales.map((loc) => (
+                <option key={loc} value={loc}>
+                  {localeOptionLabel(loc)}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
       </div>
       <div className="mt-2.5 flex min-w-0 items-start gap-2">
         {heading ? (
-          <h2 className="min-w-0 flex-1 text-lg font-extrabold leading-snug tracking-tight text-foreground sm:text-xl">
+          <h2 className="min-w-0 flex-1 line-clamp-2 text-lg font-extrabold leading-snug tracking-tight text-foreground sm:text-xl">
             {heading}
           </h2>
         ) : (
@@ -220,6 +260,25 @@ export function ComplianceAssessHeader({
       </div>
     </header>
   );
+}
+
+function localeOptionLabel(locale: string): string {
+  switch (locale.toLowerCase()) {
+    case 'fr':
+      return 'Français';
+    case 'en':
+      return 'English';
+    case 'de':
+      return 'Deutsch';
+    case 'es':
+      return 'Español';
+    case 'it':
+      return 'Italiano';
+    case 'nl':
+      return 'Nederlands';
+    default:
+      return locale.toUpperCase();
+  }
 }
 
 export function ComplianceStatusCards({

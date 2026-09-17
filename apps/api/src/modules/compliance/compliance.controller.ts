@@ -293,20 +293,24 @@ export class ComplianceController {
 
   @Get('requirements')
   @RequirePermissions('compliance.read')
-  listRequirements(
+  async listRequirements(
     @ActiveClientId() clientId: string | undefined,
     @Query() query: ListComplianceRequirementsQueryDto,
+    @RequestUserId() actorUserId: string | undefined,
   ) {
-    return this.compliance.listRequirements(clientId!, query);
+    const locale = await this.compliance.resolveUserContentLocale(actorUserId);
+    return this.compliance.listRequirements(clientId!, query, locale);
   }
 
   @Get('requirements/:id')
   @RequirePermissions('compliance.read')
-  getRequirement(
+  async getRequirement(
     @ActiveClientId() clientId: string | undefined,
     @Param('id') id: string,
+    @RequestUserId() actorUserId: string | undefined,
   ) {
-    return this.compliance.getRequirementDetail(clientId!, id);
+    const locale = await this.compliance.resolveUserContentLocale(actorUserId);
+    return this.compliance.getRequirementDetail(clientId!, id, locale);
   }
 
   @Post('requirements/:id/na-request')

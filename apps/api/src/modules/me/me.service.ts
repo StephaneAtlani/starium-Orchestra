@@ -56,10 +56,11 @@ export interface MeProfile {
   jobTitle: string | null;
   company: string | null;
   office: string | null;
-  /** Indique si un fichier image est disponible via GET /me/avatar */
+  /** Locale textes exigences conformité (null/absent = fr). */
+  complianceContentLocale: string | null;
   hasAvatar: boolean;
   platformRole: 'PLATFORM_ADMIN' | null;
-  /** false si la connexion email/mot de passe est désactivée (ex. Microsoft SSO). */
+  /** false si la connexion email/mot de passe est désactivée (ex. après connexion Microsoft). */
   passwordLoginEnabled: boolean;
 }
 
@@ -300,6 +301,7 @@ export class MeService {
         company: true,
         office: true,
         avatarMimeType: true,
+        complianceContentLocale: true,
         platformRole: true,
         passwordLoginEnabled: true,
       },
@@ -319,6 +321,7 @@ export class MeService {
       jobTitle: user.jobTitle,
       company: user.company,
       office: user.office,
+      complianceContentLocale: user.complianceContentLocale,
       hasAvatar,
       platformRole: user.platformRole as 'PLATFORM_ADMIN' | null,
       passwordLoginEnabled: user.passwordLoginEnabled,
@@ -366,6 +369,12 @@ export class MeService {
     }
     if (dto.office !== undefined) {
       data.office = this.trimOrNull(dto.office) ?? null;
+    }
+    if (dto.complianceContentLocale !== undefined) {
+      const raw = this.trimOrNull(dto.complianceContentLocale);
+      data.complianceContentLocale = raw
+        ? raw.toLowerCase().slice(0, 12)
+        : null;
     }
 
     if (Object.keys(data).length === 0) {

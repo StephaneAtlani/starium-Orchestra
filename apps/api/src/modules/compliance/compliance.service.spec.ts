@@ -1,4 +1,4 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, GoneException, NotFoundException } from '@nestjs/common';
 import { ComplianceAssessmentStatus } from '@prisma/client';
 import {
   ComplianceService,
@@ -777,71 +777,39 @@ describe('ComplianceService', () => {
       );
     });
 
-    it('refuse le statut NOT_APPLICABLE en évaluation directe', async () => {
+    it('accepte NOT_APPLICABLE en évaluation directe avec justification', async () => {
       await expect(
         service.assertEvaluationTransition('c1', 'req-1', {
           status: ComplianceAssessmentStatus.NOT_APPLICABLE,
           comment: 'Hors périmètre',
         }),
+      ).resolves.toBeUndefined();
+    });
+
+    it('refuse NOT_APPLICABLE sans justification', async () => {
+      await expect(
+        service.assertEvaluationTransition('c1', 'req-1', {
+          status: ComplianceAssessmentStatus.NOT_APPLICABLE,
+          comment: '  ',
+        }),
       ).rejects.toBeInstanceOf(BadRequestException);
     });
 
-    it('crée une demande NA en attente sans changer le statut', async () => {
-      prisma.complianceRequirement.findFirst.mockResolvedValue({ id: 'req-1' });
-      prisma.complianceStatus.findUnique.mockResolvedValue(null);
-      prisma.complianceNaRequest.findUnique.mockResolvedValue(null);
-      prisma.complianceNaRequest.create.mockResolvedValue({
-        id: 'na-1',
-        status: 'PENDING',
-        justification: 'Hors SI',
-      });
-
-      const out = await service.requestNotApplicable(
-        'c1',
-        'req-1',
-        { justification: 'Hors SI' },
-        { actorUserId: 'u1' },
-      );
-      expect(out.id).toBe('na-1');
-      expect(prisma.complianceStatus.create).not.toHaveBeenCalled();
-      expect(auditLogs.create).toHaveBeenCalledWith(
-        expect.objectContaining({ action: 'compliance.na.requested' }),
-      );
+    it('refuse le circuit demande NA (Gone)', async () => {
+      await expect(
+        service.requestNotApplicable(
+          'c1',
+          'req-1',
+          { justification: 'Hors SI' },
+          { actorUserId: 'u1' },
+        ),
+      ).rejects.toBeInstanceOf(GoneException);
     });
 
-    it('approuve une NA et pose le statut NOT_APPLICABLE', async () => {
-      prisma.complianceRequirement.findFirst.mockResolvedValue({ id: 'req-1' });
-      prisma.complianceNaRequest.findUnique.mockResolvedValue({
-        id: 'na-1',
-        status: 'PENDING',
-        justification: 'Hors SI',
-      });
-      prisma.$transaction.mockImplementation(async (fn: (tx: typeof prisma) => Promise<unknown>) =>
-        fn(prisma),
-      );
-      prisma.complianceNaRequest.update.mockResolvedValue({
-        id: 'na-1',
-        status: 'APPROVED',
-      });
-      prisma.complianceStatus.findUnique.mockResolvedValue(null);
-      prisma.complianceStatus.create.mockResolvedValue({
-        id: 'st-1',
-        status: ComplianceAssessmentStatus.NOT_APPLICABLE,
-      });
-
-      const out = await service.approveNotApplicable(
-        'c1',
-        'req-1',
-        {},
-        { actorUserId: 'u2' },
-      );
-      expect(out.status).toBe('APPROVED');
-      expect(prisma.complianceStatus.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
-          status: ComplianceAssessmentStatus.NOT_APPLICABLE,
-          comment: 'Hors SI',
-        }),
-      });
+    it('refuse l’approbation NA (Gone)', async () => {
+      await expect(
+        service.approveNotApplicable('c1', 'req-1', {}, { actorUserId: 'u2' }),
+      ).rejects.toBeInstanceOf(GoneException);
     });
 
     it('crée une contribution pour un membre actif', async () => {

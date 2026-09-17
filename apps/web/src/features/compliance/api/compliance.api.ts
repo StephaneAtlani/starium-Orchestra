@@ -188,7 +188,10 @@ export type ComplianceRequirementRowApi = {
   id: string;
   code: string;
   title: string;
+  description?: string | null;
   category: string | null;
+  contentLocale?: string;
+  availableLocales?: string[];
   framework: {
     id: string;
     name: string;
@@ -232,6 +235,8 @@ export type ComplianceRequirementDetailApi = {
     title: string;
     description: string | null;
     category: string | null;
+    contentLocale?: string;
+    availableLocales?: string[];
     framework?: { name: string; version: string };
   };
   status: {
@@ -545,12 +550,30 @@ export type ComplianceCampaignStatusApi =
   | 'CLOSED'
   | 'ARCHIVED';
 
+export type ComplianceCampaignModalityApi =
+  | 'SELF_ASSESSMENT'
+  | 'INTERNAL_AUDIT'
+  | 'EXTERNAL_AUDIT';
+
+export type ComplianceCampaignOwnerApi = {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+  email: string;
+  jobTitle: string | null;
+};
+
 export type ComplianceCampaignListItemApi = {
   id: string;
   name: string;
   status: ComplianceCampaignStatusApi;
   frozenFrameworkName: string;
   frozenFrameworkVersion: string;
+  modality: ComplianceCampaignModalityApi;
+  scopeDomainKeys: string[] | null;
+  ownerUserId: string | null;
+  owner: ComplianceCampaignOwnerApi | null;
+  dueAt: string | null;
   openedAt: string | null;
   closedAt: string | null;
   createdAt: string;
@@ -588,6 +611,10 @@ export async function createComplianceCampaign(
     openImmediately?: boolean;
     createSnapshot?: boolean;
     reviewFrequencyMonths?: number;
+    scopeDomainKeys?: string[];
+    modality?: ComplianceCampaignModalityApi;
+    ownerUserId?: string;
+    dueAt?: string;
   },
 ): Promise<ComplianceCampaignDetailApi> {
   const res = await authFetch(`${BASE}/campaigns`, {

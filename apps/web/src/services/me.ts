@@ -9,6 +9,8 @@ export interface MeProfile {
   jobTitle: string | null;
   company: string | null;
   office: string | null;
+  /** Locale textes exigences conformité (null = fr). */
+  complianceContentLocale?: string | null;
   hasAvatar: boolean;
   platformRole: 'PLATFORM_ADMIN' | null;
   /** false si la connexion email/mot de passe est désactivée (ex. après connexion Microsoft). */
@@ -22,6 +24,7 @@ export type UpdateMyProfilePayload = {
   jobTitle?: string | null;
   company?: string | null;
   office?: string | null;
+  complianceContentLocale?: string | null;
 };
 
 export interface MeDefaultEmailIdentity {

@@ -244,7 +244,11 @@ export function ComplianceAssessDrawerBody({
             onChange={(e) => onCommentChange(e.target.value)}
             rows={3}
             className="min-h-0 resize-y text-foreground"
-            placeholder="Décrivez les mesures en place, les procédures et le contexte d’application…"
+            placeholder={
+              status === 'NOT_APPLICABLE'
+                ? 'Justification de la non-applicabilité (obligatoire)…'
+                : 'Décrivez les mesures en place, les procédures et le contexte d’application…'
+            }
             disabled={!canUpdate}
           />
           {formError ? (
