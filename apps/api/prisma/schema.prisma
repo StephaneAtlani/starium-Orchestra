@@ -384,6 +384,7 @@ model Client {
   complianceEvidences              ComplianceEvidence[]
   complianceCampaigns              ComplianceCampaign[]
   complianceNaRequests             ComplianceNaRequest[]
+  complianceContributions          ComplianceContribution[]
   riskDomains                      RiskDomain[]
   riskTypes                        RiskType[]
   budgetDashboardConfigs           BudgetDashboardConfig[]
@@ -696,6 +697,7 @@ model User {
   meetingDecisionsDecided              MeetingDecision[]                 @relation("MeetingDecisionDecidedBy")
   meetingBlockersOwned                 MeetingBlocker[]                  @relation("MeetingBlockerOwner")
   meetingAttachmentsUploaded           MeetingAttachment[]               @relation("MeetingAttachmentUploadedBy")
+  complianceContributionsAssigned      ComplianceContribution[]
 }
 
 /// Adresse e-mail déclarée par l’utilisateur (affichage / futur envoi). Une par user + email normalisé.
@@ -3736,6 +3738,15 @@ enum ComplianceNaRequestStatus {
   CANCELLED
 }
 
+enum ComplianceContributionStatus {
+  TODO
+  IN_PROGRESS
+  BLOCKED
+  SUBMITTED
+  ACCEPTED
+  NEEDS_MORE
+}
+
 /// Campagne / revue de conformité (COMP.V2) — photographie sur un référentiel client figé.
 model ComplianceCampaign {
   id                     String                   @id @default(cuid())
@@ -3796,7 +3807,8 @@ model ComplianceRequirement {
   statuses     ComplianceStatus[]
   evidences    ComplianceEvidence[]
   projectRisks ProjectRisk[]
-  naRequests   ComplianceNaRequest[]
+  naRequests     ComplianceNaRequest[]
+  contributions  ComplianceContribution[]
 
   @@unique([frameworkId, code])
   @@index([frameworkId])
@@ -3823,6 +3835,29 @@ model ComplianceNaRequest {
   @@unique([clientId, requirementId])
   @@index([clientId, status])
   @@index([requirementId])
+}
+
+/// Contribution demandée à un membre (COMP.V2) — ne valide pas l’exigence à elle seule.
+model ComplianceContribution {
+  id              String                        @id @default(cuid())
+  clientId        String
+  requirementId   String
+  assigneeUserId  String
+  instruction     String
+  dueAt           DateTime?
+  status          ComplianceContributionStatus  @default(TODO)
+  response        String?
+  createdByUserId String?
+  createdAt       DateTime                      @default(now())
+  updatedAt       DateTime                      @updatedAt
+
+  client      Client                @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  requirement ComplianceRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  assignee    User                  @relation(fields: [assigneeUserId], references: [id], onDelete: Restrict)
+
+  @@index([clientId, assigneeUserId])
+  @@index([clientId, requirementId])
+  @@index([clientId, status])
 }
 
 model ComplianceStatus {

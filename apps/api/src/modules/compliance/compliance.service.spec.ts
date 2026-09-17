@@ -54,6 +54,15 @@ describe('ComplianceService', () => {
         create: jest.fn(),
         update: jest.fn(),
       },
+      complianceContribution: {
+        findMany: jest.fn(),
+        findFirst: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+      },
+      clientUser: {
+        findFirst: jest.fn(),
+      },
       $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
         fn(prisma),
       ),
@@ -833,6 +842,43 @@ describe('ComplianceService', () => {
           comment: 'Hors SI',
         }),
       });
+    });
+
+    it('crée une contribution pour un membre actif', async () => {
+      prisma.complianceRequirement.findFirst.mockResolvedValue({ id: 'req-1' });
+      prisma.clientUser.findFirst.mockResolvedValue({ id: 'cu-1' });
+      prisma.complianceContribution.create.mockResolvedValue({
+        id: 'co-1',
+        requirementId: 'req-1',
+        assigneeUserId: 'u2',
+        instruction: 'Fournir le rapport',
+        dueAt: null,
+        status: 'TODO',
+        response: null,
+        createdByUserId: 'u1',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        assignee: {
+          id: 'u2',
+          firstName: 'Ada',
+          lastName: 'Lovelace',
+          email: 'ada@example.com',
+        },
+      });
+
+      const out = await service.createContribution(
+        'c1',
+        {
+          requirementId: 'req-1',
+          assigneeUserId: 'u2',
+          instruction: 'Fournir le rapport',
+        },
+        { actorUserId: 'u1' },
+      );
+      expect(out.assigneeLabel).toBe('Ada Lovelace');
+      expect(auditLogs.create).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'compliance.contribution.created' }),
+      );
     });
   });
 });

@@ -3021,6 +3021,12 @@ Guards métier client (`X-Client-Id`, module `compliance`).
 - **POST …/na-cancel** — Annule une demande `PENDING`. Audit `compliance.na.cancelled`.
 - **PUT …/status** avec `NOT_APPLICABLE` → **400** (passer par le circuit NA).
 
+#### Contributions
+
+- **GET /api/compliance/contributions?requirementId=&mine=1** — Liste (filtre exigence ou « mes » contributions). Permission **`compliance.read`**. Réponse enrichie : `assigneeLabel`, `requirementCode`, `requirementTitle`, `frameworkName`.
+- **POST /api/compliance/contributions** — Body `{ requirementId, assigneeUserId, instruction, dueAt? }`. Destinataire = membre **ACTIVE** du client. Permission **`compliance.update`**. Audit `compliance.contribution.created`.
+- **PATCH /api/compliance/contributions/:id** — Body partiel `{ status?, response?, instruction?, dueAt?, assigneeUserId? }`. Statuts : `TODO` \| `IN_PROGRESS` \| `BLOCKED` \| `SUBMITTED` \| `ACCEPTED` \| `NEEDS_MORE`. Permission **`compliance.update`**. Audit `compliance.contribution.updated`.
+
 ### Évaluation opérationnelle (RFC-COMP-001-A) — `/api/compliance`
 
 Guards métier client (`X-Client-Id`, module `compliance`). Isolation : toute lecture / écriture filtrée sur le client actif.

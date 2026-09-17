@@ -41,6 +41,10 @@ import {
   RequestComplianceNaDto,
   ReviewComplianceNaDto,
 } from './dto/compliance-na-request.dto';
+import {
+  CreateComplianceContributionDto,
+  PatchComplianceContributionDto,
+} from './dto/compliance-contribution.dto';
 
 @Controller('compliance')
 @UseGuards(JwtAuthGuard, ActiveClientGuard, ModuleAccessGuard, PermissionsGuard)
@@ -342,6 +346,45 @@ export class ComplianceController {
   ) {
     const context: AuditContext = { actorUserId, meta };
     return this.compliance.cancelNotApplicableRequest(clientId!, id, context);
+  }
+
+  @Get('contributions')
+  @RequirePermissions('compliance.read')
+  listContributions(
+    @ActiveClientId() clientId: string | undefined,
+    @RequestUserId() actorUserId: string | undefined,
+    @Query('requirementId') requirementId?: string,
+    @Query('mine') mine?: string,
+  ) {
+    return this.compliance.listContributions(clientId!, {
+      requirementId,
+      mineForUserId: mine === '1' || mine === 'true' ? actorUserId : undefined,
+    });
+  }
+
+  @Post('contributions')
+  @RequirePermissions('compliance.update')
+  createContribution(
+    @ActiveClientId() clientId: string | undefined,
+    @Body() dto: CreateComplianceContributionDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.compliance.createContribution(clientId!, dto, context);
+  }
+
+  @Patch('contributions/:id')
+  @RequirePermissions('compliance.update')
+  patchContribution(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+    @Body() dto: PatchComplianceContributionDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.compliance.patchContribution(clientId!, id, dto, context);
   }
 
   /** Upsert du statut d’évaluation pour une exigence (création si absent). */

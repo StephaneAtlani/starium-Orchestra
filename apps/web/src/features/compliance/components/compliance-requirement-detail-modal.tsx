@@ -33,8 +33,10 @@ import { ProjectRiskEbiosDialog } from '@/features/projects/components/project-r
 import {
   approveComplianceNa,
   cancelComplianceNa,
+  createComplianceContribution,
   createComplianceEvidence,
   getComplianceRequirementDetail,
+  patchComplianceContribution,
   rejectComplianceNa,
   requestComplianceNa,
   upsertComplianceRequirementStatus,
@@ -42,6 +44,8 @@ import {
   type ComplianceEvidenceKindApi,
   type ComplianceRequirementRowApi,
 } from '../api/compliance.api';
+import { useClientMembers } from '@/features/client-rbac/hooks/use-client-members';
+import type { ClientMember } from '@/features/client-rbac/api/user-roles';
 import { frameworkDisplayLabel } from '../lib/compliance-labels';
 import {
   ComplianceStatusDisplay,
@@ -56,6 +60,20 @@ const EVAL_STATUS_OPTIONS: Array<{
   { value: 'PARTIALLY_COMPLIANT', label: complianceStatusLabel('PARTIALLY_COMPLIANT') },
   { value: 'NON_COMPLIANT', label: complianceStatusLabel('NON_COMPLIANT') },
 ];
+
+const CONTRIB_STATUS_LABEL: Record<string, string> = {
+  TODO: 'À faire',
+  IN_PROGRESS: 'En cours',
+  BLOCKED: 'Bloquée',
+  SUBMITTED: 'Soumise',
+  ACCEPTED: 'Acceptée',
+  NEEDS_MORE: 'À compléter',
+};
+
+function memberLabel(m: ClientMember): string {
+  const name = [m.firstName, m.lastName].filter(Boolean).join(' ').trim();
+  return name || m.email;
+}
 
 const REVIEW_MONTHS = 12;
 
@@ -132,6 +150,11 @@ export function ComplianceRequirementDetailModal({
   const [formError, setFormError] = useState<string | null>(null);
   const [naJustification, setNaJustification] = useState('');
   const [naReviewNote, setNaReviewNote] = useState('');
+  const [contribAssigneeId, setContribAssigneeId] = useState('');
+  const [contribInstruction, setContribInstruction] = useState('');
+  const [contribDueAt, setContribDueAt] = useState('');
+
+  const { data: members = [] } = useClientMembers();
 
   const q = useQuery({
     queryKey: ['compliance', 'requirement', clientId, requirementId],
@@ -269,6 +292,35 @@ export function ComplianceRequirementDetailModal({
     mutationFn: () => cancelComplianceNa(authFetch, requirementId!),
     onSuccess: async () => {
       toast.success('Demande annulée');
+      invalidateComplianceQueries(queryClient, clientId);
+      await q.refetch();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const contribCreateMut = useMutation({
+    mutationFn: () =>
+      createComplianceContribution(authFetch, {
+        requirementId: requirementId!,
+        assigneeUserId: contribAssigneeId,
+        instruction: contribInstruction.trim(),
+        dueAt: contribDueAt ? `${contribDueAt}T12:00:00.000Z` : undefined,
+      }),
+    onSuccess: async () => {
+      toast.success('Contribution demandée');
+      setContribInstruction('');
+      setContribDueAt('');
+      invalidateComplianceQueries(queryClient, clientId);
+      await q.refetch();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const contribAcceptMut = useMutation({
+    mutationFn: (id: string) =>
+      patchComplianceContribution(authFetch, id, { status: 'ACCEPTED' }),
+    onSuccess: async () => {
+      toast.success('Contribution acceptée');
       invalidateComplianceQueries(queryClient, clientId);
       await q.refetch();
     },
@@ -570,6 +622,115 @@ export function ComplianceRequirementDetailModal({
                   Aucune demande de non-applicabilité.
                 </p>
               )}
+            </section>
+
+            <section aria-labelledby="comp-contrib-heading">
+              <h3 id="comp-contrib-heading" className="starium-modal-seg-title">
+                Contributions ({q.data.contributions?.length ?? 0})
+              </h3>
+              {(q.data.contributions ?? []).length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Aucune contribution demandée.
+                </p>
+              ) : (
+                <ul className="mb-3 space-y-2">
+                  {(q.data.contributions ?? []).map((c) => (
+                    <li
+                      key={c.id}
+                      className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-sm"
+                    >
+                      <p className="font-medium">
+                        {displayLabel(c.assigneeLabel, 'Destinataire')} ·{' '}
+                        {CONTRIB_STATUS_LABEL[c.status] ?? c.status}
+                      </p>
+                      <p className="text-muted-foreground">{c.instruction}</p>
+                      {c.response ? (
+                        <p className="mt-1 text-xs">Réponse : {c.response}</p>
+                      ) : null}
+                      {canUpdate && c.status === 'SUBMITTED' ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="mt-2 min-h-11 sm:min-h-9"
+                          disabled={contribAcceptMut.isPending}
+                          onClick={() => contribAcceptMut.mutate(c.id)}
+                        >
+                          Accepter
+                        </Button>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {canUpdate ? (
+                <div className="space-y-3 rounded-lg border border-border/70 bg-muted/20 p-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="comp-contrib-assignee">Destinataire</Label>
+                    <Select
+                      value={contribAssigneeId || undefined}
+                      onValueChange={(v) => setContribAssigneeId(v ?? '')}
+                    >
+                      <SelectTrigger id="comp-contrib-assignee" className="w-full">
+                        <SelectValue placeholder="Choisir un membre">
+                          {contribAssigneeId
+                            ? memberLabel(
+                                members.find((m) => m.id === contribAssigneeId) ?? {
+                                  id: contribAssigneeId,
+                                  email: 'Membre',
+                                  firstName: null,
+                                  lastName: null,
+                                  role: 'CLIENT_USER',
+                                  status: 'ACTIVE',
+                                },
+                              )
+                            : null}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {members.map((m) => (
+                          <SelectItem key={m.id} value={m.id}>
+                            {memberLabel(m)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="comp-contrib-instr">Consigne</Label>
+                    <Textarea
+                      id="comp-contrib-instr"
+                      value={contribInstruction}
+                      onChange={(e) => setContribInstruction(e.target.value)}
+                      rows={2}
+                      className="text-foreground"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="comp-contrib-due">Échéance</Label>
+                    <Input
+                      id="comp-contrib-due"
+                      type="date"
+                      value={contribDueAt}
+                      onChange={(e) => setContribDueAt(e.target.value)}
+                      className="text-foreground"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="min-h-11 sm:min-h-9"
+                    disabled={
+                      contribCreateMut.isPending ||
+                      !contribAssigneeId ||
+                      contribInstruction.trim().length < 3
+                    }
+                    onClick={() => contribCreateMut.mutate()}
+                  >
+                    Demander une contribution
+                  </Button>
+                </div>
+              ) : null}
             </section>
 
             <section>

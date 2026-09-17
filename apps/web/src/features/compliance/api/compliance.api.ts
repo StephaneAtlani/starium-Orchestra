@@ -242,6 +242,14 @@ export type ComplianceRequirementDetailApi = {
     requestedAt: string;
     reviewedAt: string | null;
   } | null;
+  contributions: Array<{
+    id: string;
+    assigneeLabel: string;
+    instruction: string;
+    dueAt: string | null;
+    status: string;
+    response: string | null;
+  }>;
   evidences: Array<{
     id: string;
     name: string;
@@ -352,6 +360,63 @@ export async function cancelComplianceNa(
   );
   if (!res.ok) throw await parseApiFormError(res);
   return res.json();
+}
+
+export async function createComplianceContribution(
+  authFetch: AuthFetch,
+  payload: {
+    requirementId: string;
+    assigneeUserId: string;
+    instruction: string;
+    dueAt?: string;
+  },
+) {
+  const res = await authFetch(`${BASE}/contributions`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json();
+}
+
+export async function patchComplianceContribution(
+  authFetch: AuthFetch,
+  contributionId: string,
+  payload: {
+    status?: string;
+    response?: string | null;
+    instruction?: string;
+    dueAt?: string | null;
+    assigneeUserId?: string;
+  },
+) {
+  const res = await authFetch(`${BASE}/contributions/${contributionId}`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json();
+}
+
+export async function listMyComplianceContributions(authFetch: AuthFetch) {
+  const res = await authFetch(`${BASE}/contributions?mine=1`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<
+    Array<{
+      id: string;
+      requirementId: string;
+      requirementCode: string;
+      requirementTitle: string;
+      frameworkName: string;
+      assigneeLabel: string;
+      instruction: string;
+      dueAt: string | null;
+      status: string;
+      response: string | null;
+    }>
+  >;
 }
 
 export type CreateComplianceEvidencePayload = {

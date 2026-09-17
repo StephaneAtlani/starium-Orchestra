@@ -17,6 +17,8 @@ export const COMPLIANCE_AUDIT_ACTION = {
   NA_APPROVED: 'compliance.na.approved',
   NA_REJECTED: 'compliance.na.rejected',
   NA_CANCELLED: 'compliance.na.cancelled',
+  CONTRIBUTION_CREATED: 'compliance.contribution.created',
+  CONTRIBUTION_UPDATED: 'compliance.contribution.updated',
 } as const;
 
 export const COMPLIANCE_AUDIT_RESOURCE_TYPE = {
@@ -27,4 +29,5 @@ export const COMPLIANCE_AUDIT_RESOURCE_TYPE = {
   COMPLIANCE_CAMPAIGN: 'compliance_campaign',
   COMPLIANCE_CAMPAIGN_SNAPSHOT: 'compliance_campaign_snapshot',
   COMPLIANCE_NA_REQUEST: 'compliance_na_request',
+  COMPLIANCE_CONTRIBUTION: 'compliance_contribution',
 } as const;

@@ -7,6 +7,7 @@ import {
 import {
   ComplianceAssessmentStatus,
   ComplianceCampaignStatus,
+  ComplianceContributionStatus,
   ComplianceNaRequestStatus,
   Prisma,
   ProjectRiskCriticality,
@@ -36,6 +37,10 @@ import {
   RequestComplianceNaDto,
   ReviewComplianceNaDto,
 } from './dto/compliance-na-request.dto';
+import {
+  CreateComplianceContributionDto,
+  PatchComplianceContributionDto,
+} from './dto/compliance-contribution.dto';
 import { deriveComplianceFamilyLabel } from './compliance-family-label';
 import {
   CAMPAIGN_EVAL_IMPORT_TEMPLATE,
@@ -554,7 +559,8 @@ export class ComplianceService {
     });
     if (!req) throw new NotFoundException('Exigence introuvable');
 
-    const [status, evidences, linkedRisks, naRequest] = await Promise.all([
+    const [status, evidences, linkedRisks, naRequest, contributions] =
+      await Promise.all([
       this.prisma.complianceStatus.findUnique({
         where: {
           clientId_requirementId: { clientId, requirementId },
@@ -582,12 +588,23 @@ export class ComplianceService {
           clientId_requirementId: { clientId, requirementId },
         },
       }),
+      this.prisma.complianceContribution.findMany({
+        where: { clientId, requirementId },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          assignee: {
+            select: { id: true, firstName: true, lastName: true, email: true },
+          },
+        },
+        take: 50,
+      }),
     ]);
 
     return {
       requirement: req,
       status: status ?? null,
       naRequest: naRequest ?? null,
+      contributions: contributions.map((c) => this.mapContribution(c)),
       evidences: evidences.map((e) => ({
         ...e,
         kind: deriveComplianceEvidenceKind(e),
@@ -1005,6 +1022,211 @@ export class ComplianceService {
     });
 
     return updated;
+  }
+
+  private mapContribution(c: {
+    id: string;
+    requirementId: string;
+    assigneeUserId: string;
+    instruction: string;
+    dueAt: Date | null;
+    status: ComplianceContributionStatus;
+    response: string | null;
+    createdByUserId: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+    assignee?: {
+      id: string;
+      firstName: string | null;
+      lastName: string | null;
+      email: string;
+    } | null;
+  }) {
+    const name = [c.assignee?.firstName, c.assignee?.lastName]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+    return {
+      id: c.id,
+      requirementId: c.requirementId,
+      assigneeUserId: c.assigneeUserId,
+      assigneeLabel: name || c.assignee?.email || 'Membre retiré',
+      instruction: c.instruction,
+      dueAt: c.dueAt,
+      status: c.status,
+      response: c.response,
+      createdByUserId: c.createdByUserId,
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
+    };
+  }
+
+  private async assertAssigneeOnClient(clientId: string, userId: string) {
+    const cu = await this.prisma.clientUser.findFirst({
+      where: { clientId, userId, status: 'ACTIVE' },
+      select: { id: true },
+    });
+    if (!cu) {
+      throw new BadRequestException(
+        'Le destinataire doit être un membre actif du client',
+      );
+    }
+  }
+
+  async listContributions(
+    clientId: string,
+    opts?: { requirementId?: string; mineForUserId?: string },
+  ) {
+    const rows = await this.prisma.complianceContribution.findMany({
+      where: {
+        clientId,
+        ...(opts?.requirementId ? { requirementId: opts.requirementId } : {}),
+        ...(opts?.mineForUserId
+          ? { assigneeUserId: opts.mineForUserId }
+          : {}),
+      },
+      orderBy: [{ dueAt: 'asc' }, { createdAt: 'desc' }],
+      include: {
+        assignee: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
+        requirement: {
+          select: {
+            id: true,
+            code: true,
+            title: true,
+            framework: { select: { name: true, version: true } },
+          },
+        },
+      },
+      take: 200,
+    });
+    return rows.map((c) => ({
+      ...this.mapContribution(c),
+      requirementCode: c.requirement.code,
+      requirementTitle: c.requirement.title,
+      frameworkName: c.requirement.framework.name,
+      frameworkVersion: c.requirement.framework.version,
+    }));
+  }
+
+  async createContribution(
+    clientId: string,
+    dto: CreateComplianceContributionDto,
+    context?: AuditContext,
+  ) {
+    const req = await this.prisma.complianceRequirement.findFirst({
+      where: { id: dto.requirementId, framework: { clientId } },
+      select: { id: true },
+    });
+    if (!req) throw new NotFoundException('Exigence introuvable');
+    await this.assertAssigneeOnClient(clientId, dto.assigneeUserId);
+
+    const row = await this.prisma.complianceContribution.create({
+      data: {
+        clientId,
+        requirementId: dto.requirementId,
+        assigneeUserId: dto.assigneeUserId,
+        instruction: dto.instruction.trim(),
+        dueAt: dto.dueAt ? new Date(dto.dueAt) : null,
+        createdByUserId: context?.actorUserId ?? null,
+      },
+      include: {
+        assignee: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
+      },
+    });
+
+    await this.auditLogs.create({
+      clientId,
+      userId: context?.actorUserId,
+      action: COMPLIANCE_AUDIT_ACTION.CONTRIBUTION_CREATED,
+      resourceType: COMPLIANCE_AUDIT_RESOURCE_TYPE.COMPLIANCE_CONTRIBUTION,
+      resourceId: row.id,
+      newValue: {
+        requirementId: row.requirementId,
+        assigneeUserId: row.assigneeUserId,
+        status: row.status,
+      },
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    });
+
+    return this.mapContribution(row);
+  }
+
+  async patchContribution(
+    clientId: string,
+    id: string,
+    dto: PatchComplianceContributionDto,
+    context?: AuditContext,
+  ) {
+    const existing = await this.prisma.complianceContribution.findFirst({
+      where: { id, clientId },
+    });
+    if (!existing) throw new NotFoundException('Contribution introuvable');
+
+    if (dto.assigneeUserId) {
+      await this.assertAssigneeOnClient(clientId, dto.assigneeUserId);
+    }
+
+    const actorId = context?.actorUserId;
+    const isAssignee = actorId && actorId === existing.assigneeUserId;
+    if (
+      dto.status === ComplianceContributionStatus.SUBMITTED ||
+      dto.response !== undefined
+    ) {
+      if (!isAssignee) {
+        // pilote peut aussi saisir une réponse pour le compte — autorisé si update
+      }
+    }
+
+    const updated = await this.prisma.complianceContribution.update({
+      where: { id },
+      data: {
+        ...(dto.status !== undefined && { status: dto.status }),
+        ...(dto.response !== undefined && {
+          response: dto.response === null ? null : dto.response.trim(),
+        }),
+        ...(dto.instruction !== undefined && {
+          instruction: dto.instruction.trim(),
+        }),
+        ...(dto.dueAt !== undefined && {
+          dueAt: dto.dueAt ? new Date(dto.dueAt) : null,
+        }),
+        ...(dto.assigneeUserId !== undefined && {
+          assigneeUserId: dto.assigneeUserId,
+        }),
+      },
+      include: {
+        assignee: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
+      },
+    });
+
+    await this.auditLogs.create({
+      clientId,
+      userId: context?.actorUserId,
+      action: COMPLIANCE_AUDIT_ACTION.CONTRIBUTION_UPDATED,
+      resourceType: COMPLIANCE_AUDIT_RESOURCE_TYPE.COMPLIANCE_CONTRIBUTION,
+      resourceId: updated.id,
+      oldValue: {
+        status: existing.status,
+        assigneeUserId: existing.assigneeUserId,
+      },
+      newValue: {
+        status: updated.status,
+        assigneeUserId: updated.assigneeUserId,
+      },
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    });
+
+    return this.mapContribution(updated);
   }
 
   private async requirePendingNa(clientId: string, requirementId: string) {
