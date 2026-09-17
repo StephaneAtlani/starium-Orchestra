@@ -28,11 +28,14 @@ const DialogDismissFromOverlayContext = React.createContext<(() => void) | null>
 type DialogChromeContextValue = {
   showCloseButton: boolean
   layout: "starium" | "legacy"
+  /** Tiroir latéral : corps en flex pleine hauteur (pas le plafond 70dvh des modales centrées). */
+  sidePanel: boolean
 }
 
 const DialogChromeContext = React.createContext<DialogChromeContextValue>({
   showCloseButton: true,
   layout: "starium",
+  sidePanel: false,
 })
 
 function Dialog({ onOpenChange, children, ...props }: DialogPrimitive.Root.Props) {
@@ -118,7 +121,7 @@ const dialogContentLegacyModalClass =
   "fixed z-[81] flex min-h-0 w-full flex-col gap-4 overflow-x-hidden overflow-y-hidden border border-border/60 bg-background/95 p-4 text-sm shadow-lg ring-1 ring-black/[0.04] backdrop-blur-2xl duration-300 ease-out outline-none dark:ring-white/[0.06] inset-x-0 bottom-0 max-h-[min(92dvh,calc(100dvh_-_1rem))] translate-y-0 rounded-t-2xl border-b-0 pb-[max(1rem,env(safe-area-inset-bottom))] sm:inset-x-auto sm:bottom-auto sm:top-1/2 sm:left-1/2 sm:w-[calc(100%_-_2rem)] sm:max-h-[calc(100dvh_-_2rem)] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl sm:p-4 sm:pb-4 motion-safe:data-open:animate-in motion-safe:data-open:fade-in-0 max-sm:motion-safe:data-open:slide-in-from-bottom-full sm:motion-safe:data-open:zoom-in-95 sm:motion-safe:data-open:slide-in-from-top-2 motion-safe:data-closed:animate-out motion-safe:data-closed:fade-out-0 max-sm:motion-safe:data-closed:slide-out-to-bottom-full sm:motion-safe:data-closed:zoom-out-95 sm:motion-safe:data-closed:slide-out-to-top-2"
 
 const dialogContentSidePanelClass =
-  "fixed inset-y-0 right-0 left-auto top-0 z-[81] flex min-h-0 h-[100dvh] max-h-[100dvh] w-full max-w-[min(100vw,28rem)] flex-col gap-0 overflow-hidden rounded-none border-l border-border/80 bg-background p-0 text-sm shadow-2xl outline-none ring-0 duration-300 ease-out motion-safe:data-open:animate-in motion-safe:data-open:fade-in-0 motion-safe:data-open:slide-in-from-right motion-safe:data-closed:animate-out motion-safe:data-closed:fade-out-0 motion-safe:data-closed:slide-out-to-right sm:rounded-l-2xl"
+  "fixed inset-y-0 right-0 left-auto top-0 z-[81] flex min-h-0 h-[100dvh] max-h-[100dvh] w-full max-w-[min(100vw,35rem)] flex-col gap-0 overflow-hidden rounded-none border-l border-border/80 bg-background p-0 text-sm shadow-2xl outline-none ring-0 duration-300 ease-out motion-safe:data-open:animate-in motion-safe:data-open:fade-in-0 motion-safe:data-open:slide-in-from-right motion-safe:data-closed:animate-out motion-safe:data-closed:fade-out-0 motion-safe:data-closed:slide-out-to-right sm:rounded-l-2xl"
 
 const dialogContentChatWidgetClass =
   "fixed bottom-3 right-3 top-auto left-auto z-[81] flex min-h-0 h-[min(85dvh,640px)] max-h-[min(85dvh,640px)] w-[min(calc(100vw-1.5rem),400px)] max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded-[1.75rem] border border-border/50 bg-background p-0 text-sm shadow-[0_24px_64px_-12px_rgba(0,0,0,0.28)] outline-none ring-0 duration-300 ease-out sm:bottom-5 sm:right-5 motion-safe:data-open:animate-in motion-safe:data-open:fade-in-0 motion-safe:data-open:zoom-in-95 motion-safe:data-open:slide-in-from-bottom-4 motion-safe:data-closed:animate-out motion-safe:data-closed:fade-out-0 motion-safe:data-closed:zoom-out-95 motion-safe:data-closed:slide-out-to-bottom-4"
@@ -316,7 +319,12 @@ function DialogBody({
         */}
         <StariumScrollArea
           layout="flow"
-          className="starium-modal__body-scroll min-h-0 w-full max-h-[min(70dvh,560px)] overflow-hidden"
+          className={cn(
+            "starium-modal__body-scroll min-h-0 w-full overflow-hidden",
+            chrome.sidePanel
+              ? "max-h-none flex-1"
+              : "max-h-[min(70dvh,560px)]",
+          )}
           viewportClassName={cn(
             "starium-modal__body-viewport",
             dialogBodyViewportPaddingClass(className),
@@ -471,9 +479,10 @@ function DialogContent({
   const chromeValue = React.useMemo(
     () => ({
       showCloseButton: showCloseButton && panelLayout === "starium",
-      layout: panelLayout === "legacy" ? "legacy" as const : "starium" as const,
+      layout: panelLayout === "legacy" ? ("legacy" as const) : ("starium" as const),
+      sidePanel: Boolean(sidePanel),
     }),
-    [panelLayout, showCloseButton],
+    [panelLayout, showCloseButton, sidePanel],
   )
 
   const mergedPopupRef = React.useCallback(

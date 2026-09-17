@@ -239,6 +239,10 @@ export type ComplianceRequirementDetailApi = {
     status: ComplianceAssessmentStatusApi;
     comment: string | null;
     lastAssessmentDate?: string | null;
+    maturityLevel?: number | null;
+    ownerUserId?: string | null;
+    ownerLabel?: string | null;
+    updatedAt?: string;
   } | null;
   naRequest: {
     id: string;
@@ -296,6 +300,8 @@ export type UpsertComplianceStatusPayload = {
   status: ComplianceAssessmentStatusApi;
   comment: string;
   lastAssessmentDate?: string | null;
+  maturityLevel?: number | null;
+  ownerUserId?: string | null;
 };
 
 export async function upsertComplianceRequirementStatus(

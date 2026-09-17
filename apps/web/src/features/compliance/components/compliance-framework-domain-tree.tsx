@@ -13,10 +13,15 @@ export function ComplianceFrameworkDomainTree({
   domains,
   requirements,
   onSelectRequirement,
+  openKeys,
+  onOpenKeysChange,
 }: {
   domains: ComplianceFrameworkDomainApi[];
   requirements: ComplianceFrameworkOverviewRequirementApi[];
   onSelectRequirement: (id: string) => void;
+  /** Domaines ouverts (contrôlé). */
+  openKeys: ReadonlySet<string>;
+  onOpenKeysChange: (next: Set<string>) => void;
 }) {
   if (domains.length === 0) {
     return (
@@ -34,13 +39,21 @@ export function ComplianceFrameworkDomainTree({
 
   return (
     <div className="space-y-2">
-      {domains.map((domain, index) => {
+      {domains.map((domain) => {
         const rows = byDomain.get(domain.key) ?? [];
+        const isOpen = openKeys.has(domain.key);
         return (
           <details
             key={domain.key}
             className="group rounded-xl border border-border/70 bg-card open:shadow-sm"
-            open={index === 0}
+            open={isOpen}
+            onToggle={(e) => {
+              const nextOpen = (e.currentTarget as HTMLDetailsElement).open;
+              const next = new Set(openKeys);
+              if (nextOpen) next.add(domain.key);
+              else next.delete(domain.key);
+              onOpenKeysChange(next);
+            }}
           >
             <summary className="flex min-h-11 cursor-pointer list-none items-center gap-3 px-3 py-2.5 marker:content-none [&::-webkit-details-marker]:hidden">
               <ChevronRight

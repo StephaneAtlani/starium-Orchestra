@@ -1,13 +1,14 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { ErrorState } from '@/components/feedback/error-state';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
@@ -37,6 +38,10 @@ export default function ComplianceFrameworkDetailPage() {
   const [selectedReqId, setSelectedReqId] = useState<string | null>(null);
   const [remediationOpen, setRemediationOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [openDomainKeys, setOpenDomainKeys] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [treeInitFor, setTreeInitFor] = useState<string | null>(null);
 
   const overviewQ = useQuery({
     queryKey: ['compliance', 'framework', clientId, frameworkId, 'overview'],
@@ -49,6 +54,21 @@ export default function ComplianceFrameworkDetailPage() {
     queryFn: () => listComplianceFrameworks(authFetch),
     enabled: Boolean(clientId),
   });
+
+  const domainKeys = useMemo(
+    () => overviewQ.data?.domains.map((d) => d.key) ?? [],
+    [overviewQ.data?.domains],
+  );
+
+  useEffect(() => {
+    if (!overviewQ.data || treeInitFor === frameworkId) return;
+    const first = overviewQ.data.domains[0]?.key;
+    setOpenDomainKeys(first ? new Set([first]) : new Set());
+    setTreeInitFor(frameworkId);
+  }, [overviewQ.data, frameworkId, treeInitFor]);
+
+  const allDomainsOpen =
+    domainKeys.length > 0 && domainKeys.every((k) => openDomainKeys.has(k));
 
   const navigationIds = useMemo(
     () => overviewQ.data?.requirements.map((r) => r.id) ?? [],
@@ -90,28 +110,14 @@ export default function ComplianceFrameworkDetailPage() {
               : 'Chargement du référentiel…'
           }
           actions={
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                size="sm"
-                className="min-h-11 sm:min-h-9"
-                onClick={() => setReviewOpen(true)}
-              >
-                Lancer une revue
-              </Button>
-              <Link
-                href="/compliance/frameworks"
-                className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
-              >
-                Tous les référentiels
-              </Link>
-              <Link
-                href="/compliance/requirements"
-                className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
-              >
-                Exigences
-              </Link>
-            </div>
+            <Button
+              type="button"
+              size="sm"
+              className="min-h-11 sm:min-h-9"
+              onClick={() => setReviewOpen(true)}
+            >
+              Lancer une revue
+            </Button>
           }
         />
 
@@ -155,14 +161,47 @@ export default function ComplianceFrameworkDetailPage() {
             <div className="min-w-0 space-y-4">
               <ComplianceFrameworkDetailHero overview={overviewQ.data} />
               <section className="space-y-2" aria-labelledby="fw-tree-heading">
-                <h2 id="fw-tree-heading" className="text-sm font-semibold text-foreground">
-                  Domaines et exigences
-                </h2>
-                <ComplianceFrameworkDomainTree
-                  domains={overviewQ.data.domains}
-                  requirements={overviewQ.data.requirements}
-                  onSelectRequirement={setSelectedReqId}
-                />
+                <div className="flex min-h-11 items-center justify-between gap-3">
+                  <h2
+                    id="fw-tree-heading"
+                    className="text-sm font-semibold text-foreground"
+                  >
+                    Domaines et exigences
+                  </h2>
+                  {domainKeys.length > 0 ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="min-h-11 shrink-0 sm:min-h-9"
+                      aria-expanded={allDomainsOpen}
+                      aria-controls="fw-domain-tree"
+                      onClick={() => {
+                        setOpenDomainKeys(
+                          allDomainsOpen
+                            ? new Set()
+                            : new Set(domainKeys),
+                        );
+                      }}
+                    >
+                      {allDomainsOpen ? 'Plier' : 'Déplier'}
+                      {allDomainsOpen ? (
+                        <ChevronUp className="size-4" aria-hidden />
+                      ) : (
+                        <ChevronDown className="size-4" aria-hidden />
+                      )}
+                    </Button>
+                  ) : null}
+                </div>
+                <div id="fw-domain-tree">
+                  <ComplianceFrameworkDomainTree
+                    domains={overviewQ.data.domains}
+                    requirements={overviewQ.data.requirements}
+                    onSelectRequirement={setSelectedReqId}
+                    openKeys={openDomainKeys}
+                    onOpenKeysChange={setOpenDomainKeys}
+                  />
+                </div>
               </section>
             </div>
             <ComplianceFrameworkDetailRail

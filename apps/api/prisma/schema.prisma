@@ -701,6 +701,7 @@ model User {
   meetingAttachmentsUploaded           MeetingAttachment[]               @relation("MeetingAttachmentUploadedBy")
   complianceContributionsAssigned      ComplianceContribution[]
   complianceGapsOwned                  ComplianceGap[]             @relation("ComplianceGapOwner")
+  complianceStatusesOwned               ComplianceStatus[]          @relation("ComplianceStatusOwner")
 }
 
 /// Adresse e-mail déclarée par l’utilisateur (affichage / futur envoi). Une par user + email normalisé.
@@ -3894,15 +3895,21 @@ model ComplianceStatus {
   status             ComplianceAssessmentStatus
   lastAssessmentDate DateTime?
   comment            String?
+  /// Niveau de maturité 1–5 (mock COMP.UX / CDC conformité).
+  maturityLevel      Int?
+  /// Responsable de l’exigence (membre client).
+  ownerUserId        String?
   createdAt          DateTime                   @default(now())
   updatedAt          DateTime                   @updatedAt
 
   client      Client                @relation(fields: [clientId], references: [id], onDelete: Cascade)
   requirement ComplianceRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  owner       User?                 @relation("ComplianceStatusOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
 
   @@unique([clientId, requirementId])
   @@index([clientId])
   @@index([requirementId])
+  @@index([clientId, ownerUserId])
 }
 
 model ComplianceEvidence {

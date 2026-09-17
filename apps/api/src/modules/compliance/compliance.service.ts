@@ -580,6 +580,11 @@ export class ComplianceService {
         where: {
           clientId_requirementId: { clientId, requirementId },
         },
+        include: {
+          owner: {
+            select: { id: true, firstName: true, lastName: true, email: true },
+          },
+        },
       }),
       this.prisma.complianceEvidence.findMany({
         where: { clientId, requirementId, isCurrent: true },
@@ -627,7 +632,17 @@ export class ComplianceService {
 
     return {
       requirement: req,
-      status: status ?? null,
+      status: status
+        ? {
+            ...status,
+            ownerLabel: status.owner
+              ? [status.owner.firstName, status.owner.lastName]
+                  .filter(Boolean)
+                  .join(' ')
+                  .trim() || status.owner.email
+              : null,
+          }
+        : null,
       naRequest: naRequest ?? null,
       contributions: contributions.map((c) => this.mapContribution(c)),
       gaps: gaps.map((g) => this.mapGap(g)),
@@ -720,6 +735,10 @@ export class ComplianceService {
 
     await this.assertEvaluationTransition(clientId, existing.requirementId, dto);
 
+    if (dto.ownerUserId) {
+      await this.assertAssigneeOnClient(clientId, dto.ownerUserId);
+    }
+
     const updated = await this.prisma.complianceStatus.update({
       where: { id: statusId },
       data: {
@@ -731,6 +750,12 @@ export class ComplianceService {
         }),
         ...(dto.comment !== undefined && {
           comment: dto.comment === null ? null : dto.comment.trim(),
+        }),
+        ...(dto.maturityLevel !== undefined && {
+          maturityLevel: dto.maturityLevel,
+        }),
+        ...(dto.ownerUserId !== undefined && {
+          ownerUserId: dto.ownerUserId,
         }),
       },
     });
@@ -745,11 +770,15 @@ export class ComplianceService {
         status: existing.status,
         comment: existing.comment,
         lastAssessmentDate: existing.lastAssessmentDate?.toISOString() ?? null,
+        maturityLevel: existing.maturityLevel ?? null,
+        ownerUserId: existing.ownerUserId ?? null,
       },
       newValue: {
         status: updated.status,
         comment: updated.comment,
         lastAssessmentDate: updated.lastAssessmentDate?.toISOString() ?? null,
+        maturityLevel: updated.maturityLevel ?? null,
+        ownerUserId: updated.ownerUserId ?? null,
       },
       ipAddress: context?.meta?.ipAddress,
       userAgent: context?.meta?.userAgent,
@@ -782,6 +811,10 @@ export class ComplianceService {
 
     await this.assertEvaluationTransition(clientId, requirementId, dto);
 
+    if (dto.ownerUserId) {
+      await this.assertAssigneeOnClient(clientId, dto.ownerUserId);
+    }
+
     const created = await this.prisma.complianceStatus.create({
       data: {
         clientId,
@@ -791,6 +824,8 @@ export class ComplianceService {
           ? new Date(dto.lastAssessmentDate)
           : null,
         comment: dto.comment?.trim() ?? null,
+        maturityLevel: dto.maturityLevel ?? null,
+        ownerUserId: dto.ownerUserId ?? null,
       },
     });
     await this.auditLogs.create({
@@ -802,6 +837,8 @@ export class ComplianceService {
       newValue: {
         status: created.status,
         requirementId,
+        maturityLevel: created.maturityLevel ?? null,
+        ownerUserId: created.ownerUserId ?? null,
       },
       ipAddress: context?.meta?.ipAddress,
       userAgent: context?.meta?.userAgent,

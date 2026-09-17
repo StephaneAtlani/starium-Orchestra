@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronLeft, ChevronRight, ShieldCheck } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,8 +22,6 @@ import { useActiveClient } from '@/hooks/use-active-client';
 import { usePermissions } from '@/hooks/use-permissions';
 import { displayLabel } from '@/lib/display-label';
 import { toast } from '@/lib/toast';
-import { cn } from '@/lib/utils';
-import { PROJECT_RISK_CRITICALITY_LABEL } from '@/features/projects/constants/project-enum-labels';
 import {
   createClientRisk,
   listProjects,
@@ -35,56 +33,31 @@ import {
   cancelComplianceNa,
   createComplianceContribution,
   createComplianceEvidence,
-  createComplianceEvidenceVersion,
   createComplianceGap,
   getComplianceRequirementDetail,
   patchComplianceContribution,
-  patchComplianceEvidence,
   patchComplianceGap,
   rejectComplianceNa,
   requestComplianceNa,
   upsertComplianceRequirementStatus,
-  type ComplianceAssessmentStatusApi,
-  type ComplianceEvidenceAssessmentApi,
   type ComplianceEvidenceKindApi,
   type ComplianceRequirementRowApi,
 } from '../api/compliance.api';
 import { useClientMembers } from '@/features/client-rbac/hooks/use-client-members';
 import type { ClientMember } from '@/features/client-rbac/api/user-roles';
-import { frameworkDisplayLabel } from '../lib/compliance-labels';
+import { type ComplianceUiStatus } from './compliance-status-display';
 import {
-  ComplianceStatusDisplay,
-  complianceStatusLabel,
-} from './compliance-status-display';
-
-const EVAL_STATUS_OPTIONS: Array<{
-  value: ComplianceAssessmentStatusApi;
-  label: string;
-}> = [
-  { value: 'COMPLIANT', label: complianceStatusLabel('COMPLIANT') },
-  { value: 'PARTIALLY_COMPLIANT', label: complianceStatusLabel('PARTIALLY_COMPLIANT') },
-  { value: 'NON_COMPLIANT', label: complianceStatusLabel('NON_COMPLIANT') },
-];
-
-const CONTRIB_STATUS_LABEL: Record<string, string> = {
-  TODO: 'À faire',
-  IN_PROGRESS: 'En cours',
-  BLOCKED: 'Bloquée',
-  SUBMITTED: 'Soumise',
-  ACCEPTED: 'Acceptée',
-  NEEDS_MORE: 'À compléter',
-};
-
-const ASSESSMENT_LABEL: Record<ComplianceEvidenceAssessmentApi, string> = {
-  TO_REVIEW: 'À examiner',
-  RELEVANT: 'Pertinente',
-  PARTIAL: 'Partielle',
-  INSUFFICIENT: 'Insuffisante',
-};
+  ComplianceAssessHeader,
+  defaultMaturityForStatus,
+  isSavableAssessmentStatus,
+} from './compliance-assess-ui';
+import { ComplianceAssessDrawerBody } from './compliance-assess-drawer-body';
 
 function memberLabel(m: ClientMember): string {
   const name = [m.firstName, m.lastName].filter(Boolean).join(' ').trim();
-  return name || m.email;
+  const base = name || m.email;
+  const job = m.jobTitle?.trim();
+  return job ? `${base} — ${job}` : base;
 }
 
 const REVIEW_MONTHS = 12;
@@ -151,20 +124,24 @@ export function ComplianceRequirementDetailModal({
   const canUpdate = permsSuccess && has('compliance.update');
   const canUpdateProjects = permsSuccess && has('projects.update');
 
-  const [status, setStatus] = useState<ComplianceAssessmentStatusApi>('COMPLIANT');
+  const [status, setStatus] = useState<ComplianceUiStatus>('NOT_ASSESSED');
   const [comment, setComment] = useState('');
   const [reviewDate, setReviewDate] = useState('');
+  const [maturity, setMaturity] = useState<number | null>(null);
+  const [ownerUserId, setOwnerUserId] = useState('');
   const [evidenceKind, setEvidenceKind] = useState<ComplianceEvidenceKindApi>('OBSERVATION');
   const [evidenceName, setEvidenceName] = useState('');
   const [evidenceUrl, setEvidenceUrl] = useState('');
   const [evidenceDescription, setEvidenceDescription] = useState('');
+  const [evidenceDraftOpen, setEvidenceDraftOpen] = useState(false);
+  const [addEvidenceMenuOpen, setAddEvidenceMenuOpen] = useState(false);
+  const addEvidenceMenuRef = useRef<HTMLDivElement>(null);
   const [riskDialogOpen, setRiskDialogOpen] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [naJustification, setNaJustification] = useState('');
   const [naReviewNote, setNaReviewNote] = useState('');
   const [contribAssigneeId, setContribAssigneeId] = useState('');
   const [contribInstruction, setContribInstruction] = useState('');
-  const [contribDueAt, setContribDueAt] = useState('');
   const [gapTitle, setGapTitle] = useState('');
   const [gapFinding, setGapFinding] = useState('');
 
@@ -185,30 +162,41 @@ export function ComplianceRequirementDetailModal({
   useEffect(() => {
     if (!open || !q.data) return;
     const st = q.data.status?.status;
-    setStatus(
-      st && st !== 'NOT_APPLICABLE' ? st : 'COMPLIANT',
-    );
+    const ui: ComplianceUiStatus = st ?? 'NOT_ASSESSED';
+    setStatus(ui);
     setComment(q.data.status?.comment ?? '');
     setReviewDate(toDateInput(q.data.status?.lastAssessmentDate));
+    setMaturity(
+      q.data.status?.maturityLevel ?? defaultMaturityForStatus(ui),
+    );
+    setOwnerUserId(q.data.status?.ownerUserId ?? '');
     setFormError(null);
     setEvidenceName('');
     setEvidenceUrl('');
     setEvidenceDescription('');
     setEvidenceKind('OBSERVATION');
+    setEvidenceDraftOpen(false);
+    setAddEvidenceMenuOpen(false);
     setNaJustification(q.data.naRequest?.justification ?? '');
     setNaReviewNote(q.data.naRequest?.reviewNote ?? '');
   }, [open, q.data]);
+
+  useEffect(() => {
+    if (!addEvidenceMenuOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      if (!addEvidenceMenuRef.current?.contains(e.target as Node)) {
+        setAddEvidenceMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [addEvidenceMenuOpen]);
 
   const titleCode = displayLabel(q.data?.requirement.code ?? preview?.code, 'Exigence');
   const titleLabel = displayLabel(
     q.data?.requirement.title ?? preview?.title,
     'Détail de l’exigence',
   );
-  const frameworkLabel = preview
-    ? frameworkDisplayLabel(preview.framework)
-    : q.data?.requirement.framework
-      ? frameworkDisplayLabel(q.data.requirement.framework)
-      : null;
 
   const needsReview = isDueForReview(q.data?.status?.lastAssessmentDate);
   const activeStatus = q.data?.status?.status;
@@ -224,12 +212,22 @@ export function ComplianceRequirementDetailModal({
     Boolean(onNavigate) && navIndex >= 0 && navIndex < navigationIds.length - 1;
 
   const saveMut = useMutation({
-    mutationFn: () =>
-      upsertComplianceRequirementStatus(authFetch, requirementId!, {
+    mutationFn: () => {
+      if (!isSavableAssessmentStatus(status)) {
+        throw new Error(
+          status === 'NOT_APPLICABLE'
+            ? 'Utilisez le circuit de non-applicabilité ci-dessous.'
+            : 'Choisissez Conforme, Partiel ou Écart pour enregistrer.',
+        );
+      }
+      return upsertComplianceRequirementStatus(authFetch, requirementId!, {
         status,
         comment: comment.trim(),
         lastAssessmentDate: dateInputToIso(reviewDate) ?? null,
-      }),
+        maturityLevel: maturity,
+        ownerUserId: ownerUserId || null,
+      });
+    },
     onSuccess: async () => {
       toast.success('Évaluation enregistrée');
       setFormError(null);
@@ -259,6 +257,8 @@ export function ComplianceRequirementDetailModal({
       setEvidenceName('');
       setEvidenceUrl('');
       setEvidenceDescription('');
+      setEvidenceDraftOpen(false);
+      setAddEvidenceMenuOpen(false);
       invalidateComplianceQueries(queryClient, clientId);
       await q.refetch();
     },
@@ -318,12 +318,10 @@ export function ComplianceRequirementDetailModal({
         requirementId: requirementId!,
         assigneeUserId: contribAssigneeId,
         instruction: contribInstruction.trim(),
-        dueAt: contribDueAt ? `${contribDueAt}T12:00:00.000Z` : undefined,
-      }),
+              }),
     onSuccess: async () => {
       toast.success('Contribution demandée');
       setContribInstruction('');
-      setContribDueAt('');
       invalidateComplianceQueries(queryClient, clientId);
       await q.refetch();
     },
@@ -341,31 +339,7 @@ export function ComplianceRequirementDetailModal({
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const evidenceAssessMut = useMutation({
-    mutationFn: ({
-      id,
-      assessment,
-    }: {
-      id: string;
-      assessment: ComplianceEvidenceAssessmentApi;
-    }) => patchComplianceEvidence(authFetch, id, { assessment }),
-    onSuccess: async () => {
-      toast.success('Appréciation enregistrée');
-      invalidateComplianceQueries(queryClient, clientId);
-      await q.refetch();
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
 
-  const evidenceVersionMut = useMutation({
-    mutationFn: (id: string) => createComplianceEvidenceVersion(authFetch, id),
-    onSuccess: async () => {
-      toast.success('Nouvelle version de preuve créée');
-      invalidateComplianceQueries(queryClient, clientId);
-      await q.refetch();
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
 
   const gapCreateMut = useMutation({
     mutationFn: () =>
@@ -384,19 +358,6 @@ export function ComplianceRequirementDetailModal({
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const gapCloseMut = useMutation({
-    mutationFn: (id: string) =>
-      patchComplianceGap(authFetch, id, {
-        status: 'CLOSED',
-        verificationNote: 'Vérifié depuis la fiche exigence',
-      }),
-    onSuccess: async () => {
-      toast.success('Écart clôturé');
-      invalidateComplianceQueries(queryClient, clientId);
-      await q.refetch();
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
 
   const createRiskMut = useMutation({
     mutationFn: (payload: CreateProjectRiskPayload) => createClientRisk(authFetch, payload),
@@ -409,7 +370,10 @@ export function ComplianceRequirementDetailModal({
     onError: (e: Error) => toast.error(e.message),
   });
 
+
   const projectList = projectsQ.data?.items ?? [];
+  const showGapPlan =
+    status === 'PARTIALLY_COMPLIANT' || status === 'NON_COMPLIANT';
 
   return (
     <>
@@ -417,11 +381,12 @@ export function ComplianceRequirementDetailModal({
         open={open}
         onOpenChange={onOpenChange}
         title={titleLabel}
-        description={
-          frameworkLabel ? `${titleCode} · ${frameworkLabel}` : titleCode
-        }
-        icon={ShieldCheck}
-        size="xl"
+        headless
+        sidePanel
+        showCloseButton
+        contentClassName="!max-w-[min(100vw,56rem)] gap-0 p-0"
+        bodyClassName="flex min-h-0 flex-1 flex-col overflow-hidden p-0"
+        footerClassName="!bg-background"
         footer={
           <div className="flex w-full flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-1">
@@ -441,8 +406,13 @@ export function ComplianceRequirementDetailModal({
                   >
                     <ChevronLeft className="size-4" aria-hidden />
                   </Button>
-                  <span className="px-1 text-xs tabular-nums text-muted-foreground" aria-live="polite">
-                    {navIndex >= 0 ? `${navIndex + 1} / ${navigationIds.length}` : null}
+                  <span
+                    className="px-1 text-xs tabular-nums text-muted-foreground"
+                    aria-live="polite"
+                  >
+                    {navIndex >= 0
+                      ? `${navIndex + 1} / ${navigationIds.length}`
+                      : null}
                   </span>
                   <Button
                     type="button"
@@ -463,656 +433,375 @@ export function ComplianceRequirementDetailModal({
                 <span className="sr-only">Navigation liste indisponible</span>
               )}
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              className="min-h-11 sm:min-h-9"
-              onClick={() => onOpenChange(false)}
-            >
-              Fermer
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="min-h-11 sm:min-h-9"
+                onClick={() => onOpenChange(false)}
+              >
+                Annuler
+              </Button>
+              {canUpdate && isSavableAssessmentStatus(status) ? (
+                <Button
+                  type="button"
+                  className="min-h-11 sm:min-h-9"
+                  disabled={saveMut.isPending}
+                  onClick={() => saveMut.mutate()}
+                >
+                  {saveMut.isPending ? 'Enregistrement…' : 'Enregistrer'}
+                </Button>
+              ) : null}
+            </div>
           </div>
         }
       >
         {q.isLoading ? (
-          <LoadingState rows={4} />
+          <div className="p-5">
+            <LoadingState rows={4} />
+          </div>
         ) : q.isError ? (
-          <ErrorState
-            message={
-              q.error instanceof Error
-                ? q.error.message
-                : 'Impossible de charger l’exigence.'
-            }
-            onRetry={() => void q.refetch()}
-          />
+          <div className="p-5">
+            <ErrorState
+              message={
+                q.error instanceof Error
+                  ? q.error.message
+                  : 'Impossible de charger l’exigence.'
+              }
+              onRetry={() => void q.refetch()}
+            />
+          </div>
         ) : q.data ? (
-          <div className="starium-form space-y-5">
-            {needsReview ? (
-              <p
-                className="rounded-lg border border-border/70 bg-[color:var(--state-warning-bg)] px-3 py-2 text-sm font-semibold text-[color:var(--state-warning)]"
-                role="status"
-                aria-live="polite"
-              >
-                À réexaminer — dernière évaluation il y a plus de {REVIEW_MONTHS} mois.
-              </p>
-            ) : null}
-
-            {q.data.requirement.description ? (
-              <section>
-                <h3 className="starium-modal-seg-title">Description</h3>
-                <p className="text-sm leading-relaxed text-foreground">
-                  {q.data.requirement.description}
+          <>
+            <ComplianceAssessHeader
+              frameworkName={displayLabel(
+                q.data.requirement.framework?.name ?? preview?.framework?.name,
+                'Référentiel',
+              )}
+              code={titleCode}
+              title={displayLabel(q.data.requirement.title, titleLabel)}
+              description={q.data.requirement.description}
+            />
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+              {needsReview ? (
+                <p
+                  className="mx-5 mt-4 rounded-lg border border-border/70 bg-[color:var(--state-warning-bg)] px-3 py-2 text-sm font-semibold text-[color:var(--state-warning)] sm:mx-6"
+                  role="status"
+                  aria-live="polite"
+                >
+                  À réexaminer — dernière évaluation il y a plus de {REVIEW_MONTHS}{' '}
+                  mois.
                 </p>
-              </section>
-            ) : null}
-
-            <section>
-              <h3 className="starium-modal-seg-title">État d’évaluation</h3>
-              {!canUpdate ? (
-                <div className="space-y-2">
-                  <ComplianceStatusDisplay
-                    status={q.data.status?.status ?? 'NOT_ASSESSED'}
-                  />
-                  <p className="text-sm text-muted-foreground">
-                    {q.data.status?.comment?.trim()
-                      ? q.data.status.comment
-                      : 'Aucun commentaire d’analyse.'}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Lecture seule — permission compliance.update requise pour évaluer.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <div className="space-y-1.5">
-                    <span id="comp-eval-status-label" className="text-sm font-medium">
-                      Statut
+              ) : null}
+              <ComplianceAssessDrawerBody
+              data={q.data}
+              canUpdate={canUpdate}
+              status={status}
+              onStatusChange={(next) => {
+                setStatus(next);
+                if (next === 'NOT_APPLICABLE' || next === 'NOT_ASSESSED') {
+                  setMaturity(null);
+                } else if (maturity == null) {
+                  const def = defaultMaturityForStatus(next);
+                  if (def != null) setMaturity(def);
+                }
+              }}
+              maturity={maturity}
+              onMaturityChange={setMaturity}
+              ownerUserId={ownerUserId}
+              onOwnerChange={setOwnerUserId}
+              members={members}
+              reviewDate={reviewDate}
+              onReviewDateChange={setReviewDate}
+              comment={comment}
+              onCommentChange={setComment}
+              formError={formError}
+              evidences={q.data.evidences}
+              addEvidenceMenuOpen={addEvidenceMenuOpen}
+              onToggleAddEvidenceMenu={() =>
+                setAddEvidenceMenuOpen((o) => !o)
+              }
+              addEvidenceMenuRef={addEvidenceMenuRef}
+              evidenceDraftOpen={evidenceDraftOpen}
+              onPickEvidenceKind={(kind) => {
+                setAddEvidenceMenuOpen(false);
+                if (kind === 'FILE') {
+                  setEvidenceKind('FILE');
+                  setEvidenceName('');
+                  setEvidenceUrl('');
+                  setEvidenceDescription('');
+                } else if (kind === 'URL') {
+                  setEvidenceKind('URL');
+                  setEvidenceName('');
+                  setEvidenceUrl('');
+                  setEvidenceDescription('');
+                } else if (kind === 'REFERENCE') {
+                  setEvidenceKind('OBSERVATION');
+                  setEvidenceName(`Réf. ${q.data.requirement.code}`);
+                  setEvidenceDescription('');
+                } else {
+                  setEvidenceKind('OBSERVATION');
+                  setEvidenceName('');
+                  setEvidenceDescription('');
+                }
+                setEvidenceDraftOpen(true);
+              }}
+              onCancelEvidenceDraft={() => {
+                setEvidenceDraftOpen(false);
+                setEvidenceName('');
+                setEvidenceUrl('');
+                setEvidenceDescription('');
+              }}
+              evidenceKind={evidenceKind}
+              evidenceName={evidenceName}
+              onEvidenceNameChange={setEvidenceName}
+              evidenceUrl={evidenceUrl}
+              onEvidenceUrlChange={setEvidenceUrl}
+              evidenceDescription={evidenceDescription}
+              onEvidenceDescriptionChange={setEvidenceDescription}
+              onSubmitEvidence={() => evidenceMut.mutate()}
+              evidencePending={evidenceMut.isPending}
+              showGapPlan={showGapPlan}
+              gapTitle={gapTitle}
+              onGapTitleChange={setGapTitle}
+              gapFinding={gapFinding}
+              onGapFindingChange={setGapFinding}
+              onCreateGap={() => gapCreateMut.mutate()}
+              gapPending={gapCreateMut.isPending}
+              advancedSlot={
+                <details className="group">
+                  <summary className="flex min-h-11 cursor-pointer list-none items-center text-sm font-semibold text-muted-foreground marker:content-none [&::-webkit-details-marker]:hidden">
+                    <span className="underline-offset-2 group-open:underline">
+                      Actions avancées
                     </span>
-                    <div
-                      role="radiogroup"
-                      aria-labelledby="comp-eval-status-label"
-                      className="starium-tab-group flex flex-wrap gap-2"
-                    >
-                      {EVAL_STATUS_OPTIONS.map((opt) => {
-                        const selected = status === opt.value;
-                        return (
-                          <button
-                            key={opt.value}
-                            type="button"
-                            role="radio"
-                            aria-checked={selected}
-                            className={cn(
-                              'starium-tab-btn min-h-11 px-3 text-sm sm:min-h-9',
-                              selected && 'starium-tab-btn--active',
-                            )}
-                            onClick={() => setStatus(opt.value)}
-                          >
-                            {opt.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="comp-eval-comment">Commentaire d’analyse</Label>
-                    <Textarea
-                      id="comp-eval-comment"
-                      value={comment}
-                      onChange={(e) => setComment(e.target.value)}
-                      rows={3}
-                      className="text-foreground"
-                      aria-required
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="comp-eval-date">Date de revue</Label>
-                    <Input
-                      id="comp-eval-date"
-                      type="date"
-                      value={reviewDate}
-                      onChange={(e) => setReviewDate(e.target.value)}
-                      className="text-foreground"
-                    />
-                  </div>
-                  {formError ? (
-                    <p className="text-sm text-destructive" role="alert">
-                      {formError}
-                    </p>
-                  ) : null}
-                  <Button
-                    type="button"
-                    className="min-h-11 sm:min-h-9"
-                    disabled={saveMut.isPending}
-                    onClick={() => saveMut.mutate()}
-                  >
-                    {saveMut.isPending ? 'Enregistrement…' : 'Enregistrer l’évaluation'}
-                  </Button>
-                </div>
-              )}
-            </section>
-
-            <section aria-labelledby="comp-na-heading">
-              <h3 id="comp-na-heading" className="starium-modal-seg-title">
-                Non-applicabilité
-              </h3>
-              {q.data.status?.status === 'NOT_APPLICABLE' ? (
-                <p className="text-sm text-muted-foreground" aria-live="polite">
-                  Exigence non applicable
-                  {q.data.naRequest?.justification
-                    ? ` — ${q.data.naRequest.justification}`
-                    : q.data.status.comment
-                      ? ` — ${q.data.status.comment}`
-                      : ''}
-                  .
-                </p>
-              ) : q.data.naRequest?.status === 'PENDING' ? (
-                <div className="space-y-3 rounded-lg border border-border/70 bg-muted/30 p-3">
-                  <p className="text-sm" aria-live="polite">
-                    Demande en attente : {q.data.naRequest.justification}
-                  </p>
-                  {canUpdate ? (
-                    <>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="comp-na-review">Note de revue (refus obligatoire)</Label>
-                        <Textarea
-                          id="comp-na-review"
-                          value={naReviewNote}
-                          onChange={(e) => setNaReviewNote(e.target.value)}
-                          rows={2}
-                          className="text-foreground"
-                        />
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          type="button"
-                          className="min-h-11 sm:min-h-9"
-                          disabled={naApproveMut.isPending}
-                          onClick={() => naApproveMut.mutate()}
-                        >
-                          Approuver
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="min-h-11 sm:min-h-9"
-                          disabled={
-                            naRejectMut.isPending || !naReviewNote.trim()
-                          }
-                          onClick={() => naRejectMut.mutate()}
-                        >
-                          Refuser
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          className="min-h-11 sm:min-h-9"
-                          disabled={naCancelMut.isPending}
-                          onClick={() => naCancelMut.mutate()}
-                        >
-                          Annuler la demande
-                        </Button>
-                      </div>
-                    </>
-                  ) : null}
-                </div>
-              ) : canUpdate ? (
-                <div className="space-y-3">
-                  {q.data.naRequest?.status === 'REJECTED' ? (
-                    <p className="text-sm text-muted-foreground" aria-live="polite">
-                      Dernière demande refusée
-                      {q.data.naRequest.reviewNote
-                        ? ` : ${q.data.naRequest.reviewNote}`
-                        : '.'}
-                    </p>
-                  ) : null}
-                  <div className="space-y-1.5">
-                    <Label htmlFor="comp-na-just">Justification</Label>
-                    <Textarea
-                      id="comp-na-just"
-                      value={naJustification}
-                      onChange={(e) => setNaJustification(e.target.value)}
-                      rows={2}
-                      className="text-foreground"
-                      aria-required
-                    />
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="min-h-11 sm:min-h-9"
-                    disabled={
-                      naRequestMut.isPending || naJustification.trim().length < 3
-                    }
-                    onClick={() => naRequestMut.mutate()}
-                  >
-                    Demander la non-applicabilité
-                  </Button>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  Aucune demande de non-applicabilité.
-                </p>
-              )}
-            </section>
-
-            <section aria-labelledby="comp-contrib-heading">
-              <h3 id="comp-contrib-heading" className="starium-modal-seg-title">
-                Contributions ({q.data.contributions?.length ?? 0})
-              </h3>
-              {(q.data.contributions ?? []).length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  Aucune contribution demandée.
-                </p>
-              ) : (
-                <ul className="mb-3 space-y-2">
-                  {(q.data.contributions ?? []).map((c) => (
-                    <li
-                      key={c.id}
-                      className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-sm"
-                    >
-                      <p className="font-medium">
-                        {displayLabel(c.assigneeLabel, 'Destinataire')} ·{' '}
-                        {CONTRIB_STATUS_LABEL[c.status] ?? c.status}
-                      </p>
-                      <p className="text-muted-foreground">{c.instruction}</p>
-                      {c.response ? (
-                        <p className="mt-1 text-xs">Réponse : {c.response}</p>
-                      ) : null}
-                      {canUpdate && c.status === 'SUBMITTED' ? (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="mt-2 min-h-11 sm:min-h-9"
-                          disabled={contribAcceptMut.isPending}
-                          onClick={() => contribAcceptMut.mutate(c.id)}
-                        >
-                          Accepter
-                        </Button>
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {canUpdate ? (
-                <div className="space-y-3 rounded-lg border border-border/70 bg-muted/20 p-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="comp-contrib-assignee">Destinataire</Label>
-                    <Select
-                      value={contribAssigneeId || undefined}
-                      onValueChange={(v) => setContribAssigneeId(v ?? '')}
-                    >
-                      <SelectTrigger id="comp-contrib-assignee" className="w-full">
-                        <SelectValue placeholder="Choisir un membre">
-                          {contribAssigneeId
-                            ? memberLabel(
-                                members.find((m) => m.id === contribAssigneeId) ?? {
-                                  id: contribAssigneeId,
-                                  email: 'Membre',
-                                  firstName: null,
-                                  lastName: null,
-                                  role: 'CLIENT_USER',
-                                  status: 'ACTIVE',
-                                },
-                              )
-                            : null}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {members.map((m) => (
-                          <SelectItem key={m.id} value={m.id}>
-                            {memberLabel(m)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="comp-contrib-instr">Consigne</Label>
-                    <Textarea
-                      id="comp-contrib-instr"
-                      value={contribInstruction}
-                      onChange={(e) => setContribInstruction(e.target.value)}
-                      rows={2}
-                      className="text-foreground"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="comp-contrib-due">Échéance</Label>
-                    <Input
-                      id="comp-contrib-due"
-                      type="date"
-                      value={contribDueAt}
-                      onChange={(e) => setContribDueAt(e.target.value)}
-                      className="text-foreground"
-                    />
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="min-h-11 sm:min-h-9"
-                    disabled={
-                      contribCreateMut.isPending ||
-                      !contribAssigneeId ||
-                      contribInstruction.trim().length < 3
-                    }
-                    onClick={() => contribCreateMut.mutate()}
-                  >
-                    Demander une contribution
-                  </Button>
-                </div>
-              ) : null}
-            </section>
-
-            <section aria-labelledby="comp-gaps-heading">
-              <h3 id="comp-gaps-heading" className="starium-modal-seg-title">
-                Écarts ({q.data.gaps?.length ?? 0})
-              </h3>
-              {(q.data.gaps ?? []).length === 0 ? (
-                <p className="text-sm text-muted-foreground">Aucun écart.</p>
-              ) : (
-                <ul className="mb-3 space-y-2">
-                  {(q.data.gaps ?? []).map((g) => (
-                    <li
-                      key={g.id}
-                      className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-sm"
-                    >
-                      <p className="font-medium">
-                        {displayLabel(g.title, 'Écart')} · {g.status} ·{' '}
-                        {g.criticality}
-                      </p>
-                      <p className="text-muted-foreground">{g.finding}</p>
-                      {canUpdate &&
-                      g.status !== 'CLOSED' &&
-                      g.status !== 'CANCELLED' ? (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="mt-2 min-h-11 sm:min-h-9"
-                          disabled={gapCloseMut.isPending}
-                          onClick={() => gapCloseMut.mutate(g.id)}
-                        >
-                          Clôturer
-                        </Button>
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {canUpdate ? (
-                <div className="space-y-3 rounded-lg border border-border/70 bg-muted/20 p-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="comp-gap-title">Titre</Label>
-                    <Input
-                      id="comp-gap-title"
-                      value={gapTitle}
-                      onChange={(e) => setGapTitle(e.target.value)}
-                      className="text-foreground"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="comp-gap-finding">Constat</Label>
-                    <Textarea
-                      id="comp-gap-finding"
-                      value={gapFinding}
-                      onChange={(e) => setGapFinding(e.target.value)}
-                      rows={2}
-                      className="text-foreground"
-                    />
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="min-h-11 sm:min-h-9"
-                    disabled={
-                      gapCreateMut.isPending ||
-                      gapTitle.trim().length < 3 ||
-                      gapFinding.trim().length < 3
-                    }
-                    onClick={() => gapCreateMut.mutate()}
-                  >
-                    Créer un écart
-                  </Button>
-                </div>
-              ) : null}
-            </section>
-
-            <section>
-              <h3 className="starium-modal-seg-title">
-                Preuves ({q.data.evidences.length})
-              </h3>
-              {q.data.evidences.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Aucune preuve jointe.</p>
-              ) : (
-                <ul className="mb-3 space-y-2">
-                  {q.data.evidences.map((e) => (
-                    <li
-                      key={e.id}
-                      className="space-y-2 rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-sm"
-                    >
-                      <div>
-                        <span className="font-medium text-foreground">
-                          {displayLabel(e.name, 'Preuve')}
-                        </span>
-                        {e.version ? (
-                          <span className="ml-2 text-xs text-muted-foreground">
-                            v{e.version}
-                          </span>
-                        ) : null}
-                        {e.kind ? (
-                          <span className="ml-2 text-xs text-muted-foreground">
-                            ({e.kind === 'URL'
-                              ? 'Lien'
-                              : e.kind === 'FILE'
-                                ? 'Fichier'
-                                : 'Observation'}
-                            )
-                          </span>
-                        ) : null}
-                        {e.url ? (
-                          <>
-                            {' '}
-                            <a
-                              href={e.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="font-medium text-[color:var(--brand-gold-700)] underline-offset-4 hover:underline"
-                            >
-                              Ouvrir le lien
-                            </a>
-                          </>
-                        ) : null}
-                        {e.description && !e.url ? (
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            {e.description}
+                    <span className="sr-only">
+                      (non-applicabilité, contributions, risques)
+                    </span>
+                  </summary>
+                  <div className="mt-4 space-y-5">
+                    <section aria-labelledby="comp-na-heading">
+                      <h3 id="comp-na-heading" className="starium-modal-seg-title">
+                        Non-applicabilité
+                      </h3>
+                      {q.data.status?.status === 'NOT_APPLICABLE' ? (
+                        <p className="text-sm text-muted-foreground" aria-live="polite">
+                          Exigence non applicable
+                          {q.data.naRequest?.justification
+                            ? ` — ${q.data.naRequest.justification}`
+                            : q.data.status.comment
+                              ? ` — ${q.data.status.comment}`
+                              : ''}
+                          .
+                        </p>
+                      ) : q.data.naRequest?.status === 'PENDING' ? (
+                        <div className="space-y-3 rounded-lg border border-border/70 bg-muted/30 p-3">
+                          <p className="text-sm" aria-live="polite">
+                            Demande en attente : {q.data.naRequest.justification}
                           </p>
-                        ) : null}
-                      </div>
-                      {canUpdate ? (
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Label
-                            htmlFor={`ev-assess-${e.id}`}
-                            className="sr-only"
-                          >
-                            Appréciation
-                          </Label>
-                          <Select
-                            value={e.assessment ?? 'TO_REVIEW'}
-                            onValueChange={(v) =>
-                              evidenceAssessMut.mutate({
-                                id: e.id,
-                                assessment:
-                                  (v as ComplianceEvidenceAssessmentApi) ??
-                                  'TO_REVIEW',
-                              })
-                            }
-                          >
-                            <SelectTrigger
-                              id={`ev-assess-${e.id}`}
-                              className="h-11 w-full min-w-[10rem] sm:h-9 sm:w-44"
-                            >
-                              <SelectValue>
-                                {ASSESSMENT_LABEL[
-                                  (e.assessment ??
-                                    'TO_REVIEW') as ComplianceEvidenceAssessmentApi
-                                ]}
-                              </SelectValue>
-                            </SelectTrigger>
-                            <SelectContent>
-                              {(
-                                Object.keys(
-                                  ASSESSMENT_LABEL,
-                                ) as ComplianceEvidenceAssessmentApi[]
-                              ).map((k) => (
-                                <SelectItem key={k} value={k}>
-                                  {ASSESSMENT_LABEL[k]}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          {canUpdate ? (
+                            <div className="flex flex-wrap gap-2">
+                              <Button
+                                type="button"
+                                className="min-h-11 sm:min-h-9"
+                                disabled={naApproveMut.isPending}
+                                onClick={() => naApproveMut.mutate()}
+                              >
+                                Approuver
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="min-h-11 sm:min-h-9"
+                                disabled={
+                                  naRejectMut.isPending || !naReviewNote.trim()
+                                }
+                                onClick={() => naRejectMut.mutate()}
+                              >
+                                Refuser
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                className="min-h-11 sm:min-h-9"
+                                disabled={naCancelMut.isPending}
+                                onClick={() => naCancelMut.mutate()}
+                              >
+                                Annuler la demande
+                              </Button>
+                            </div>
+                          ) : null}
+                          {canUpdate ? (
+                            <div className="space-y-1.5">
+                              <Label htmlFor="comp-na-review">
+                                Note de revue (refus)
+                              </Label>
+                              <Textarea
+                                id="comp-na-review"
+                                value={naReviewNote}
+                                onChange={(e) => setNaReviewNote(e.target.value)}
+                                rows={2}
+                                className="min-h-0 text-foreground"
+                              />
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : canUpdate ? (
+                        <div className="space-y-3">
+                          <div className="space-y-1.5">
+                            <Label htmlFor="comp-na-just">Justification</Label>
+                            <Textarea
+                              id="comp-na-just"
+                              value={naJustification}
+                              onChange={(e) => setNaJustification(e.target.value)}
+                              rows={2}
+                              className="min-h-0 text-foreground"
+                            />
+                          </div>
                           <Button
                             type="button"
-                            size="sm"
                             variant="outline"
                             className="min-h-11 sm:min-h-9"
-                            disabled={evidenceVersionMut.isPending}
-                            onClick={() => evidenceVersionMut.mutate(e.id)}
+                            disabled={
+                              naRequestMut.isPending ||
+                              naJustification.trim().length < 3
+                            }
+                            onClick={() => naRequestMut.mutate()}
                           >
-                            Nouvelle version
+                            Demander la non-applicabilité
                           </Button>
                         </div>
-                      ) : e.assessment ? (
-                        <p className="text-xs text-muted-foreground">
-                          {ASSESSMENT_LABEL[e.assessment]}
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          Aucune demande de non-applicabilité.
                         </p>
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {canUpdate ? (
-                <div className="space-y-3 rounded-lg border border-border/70 bg-muted/20 p-3">
-                  <p className="text-xs font-semibold text-foreground">Ajouter une preuve</p>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="comp-ev-kind">Type</Label>
-                    <Select
-                      value={evidenceKind}
-                      onValueChange={(v) =>
-                        setEvidenceKind((v ?? 'OBSERVATION') as ComplianceEvidenceKindApi)
-                      }
-                    >
-                      <SelectTrigger id="comp-ev-kind" className="w-full">
-                        <SelectValue>
-                          {evidenceKind === 'URL'
-                            ? 'Lien URL'
-                            : evidenceKind === 'FILE'
-                              ? 'Fichier'
-                              : 'Observation'}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="OBSERVATION">Observation</SelectItem>
-                        <SelectItem value="URL">Lien URL</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="comp-ev-name">Titre</Label>
-                    <Input
-                      id="comp-ev-name"
-                      value={evidenceName}
-                      onChange={(e) => setEvidenceName(e.target.value)}
-                      className="text-foreground"
-                    />
-                  </div>
-                  {evidenceKind === 'URL' ? (
-                    <div className="space-y-1.5">
-                      <Label htmlFor="comp-ev-url">URL</Label>
-                      <Input
-                        id="comp-ev-url"
-                        type="url"
-                        value={evidenceUrl}
-                        onChange={(e) => setEvidenceUrl(e.target.value)}
-                        className="text-foreground"
-                        placeholder="https://…"
-                      />
-                    </div>
-                  ) : (
-                    <div className="space-y-1.5">
-                      <Label htmlFor="comp-ev-desc">Observation</Label>
-                      <Textarea
-                        id="comp-ev-desc"
-                        value={evidenceDescription}
-                        onChange={(e) => setEvidenceDescription(e.target.value)}
-                        rows={2}
-                        className="text-foreground"
-                      />
-                    </div>
-                  )}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="min-h-11 sm:min-h-9"
-                    disabled={evidenceMut.isPending || !evidenceName.trim()}
-                    onClick={() => evidenceMut.mutate()}
-                  >
-                    {evidenceMut.isPending ? 'Ajout…' : 'Ajouter la preuve'}
-                  </Button>
-                </div>
-              ) : null}
-            </section>
+                      )}
+                    </section>
 
-            <section>
-              <h3 className="starium-modal-seg-title">
-                Risques projet liés ({q.data.linkedRiskCount})
-              </h3>
-              {q.data.linkedRisks.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Aucun risque lié.</p>
-              ) : (
-                <ul className="space-y-2">
-                  {q.data.linkedRisks.map((r) => (
-                    <li
-                      key={r.code}
-                      className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-sm"
-                    >
-                      <div className="font-medium text-foreground">
-                        {displayLabel(r.title, 'Risque')}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {displayLabel(r.code, 'Code risque')}
-                        {' · '}
-                        {displayLabel(
-                          PROJECT_RISK_CRITICALITY_LABEL[r.criticalityLevel],
-                          'Criticité non renseignée',
+                    <section>
+                      <h3 className="starium-modal-seg-title">
+                        Contributions ({q.data.contributions?.length ?? 0})
+                      </h3>
+                      {(q.data.contributions ?? []).length === 0 ? (
+                        <p className="text-sm text-muted-foreground">
+                          Aucune contribution demandée.
+                        </p>
+                      ) : (
+                        <ul className="mb-3 space-y-2">
+                          {(q.data.contributions ?? []).map((c) => (
+                            <li
+                              key={c.id}
+                              className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-sm"
+                            >
+                              <p className="font-medium">
+                                {displayLabel(c.assigneeLabel, 'Destinataire')} ·{' '}
+                                {c.status}
+                              </p>
+                              <p className="text-muted-foreground">{c.instruction}</p>
+                              {canUpdate && c.status === 'SUBMITTED' ? (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="mt-2 min-h-11 sm:min-h-9"
+                                  disabled={contribAcceptMut.isPending}
+                                  onClick={() => contribAcceptMut.mutate(c.id)}
+                                >
+                                  Accepter
+                                </Button>
+                              ) : null}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      {canUpdate ? (
+                        <div className="space-y-3 rounded-lg border border-border/70 bg-muted/20 p-3">
+                          <div className="space-y-1.5">
+                            <Label htmlFor="comp-contrib-assignee">Destinataire</Label>
+                            <Select
+                              value={contribAssigneeId || undefined}
+                              onValueChange={(v) => setContribAssigneeId(v ?? '')}
+                            >
+                              <SelectTrigger id="comp-contrib-assignee" className="w-full">
+                                <SelectValue placeholder="Choisir un membre">
+                                  {contribAssigneeId
+                                    ? memberLabel(
+                                        members.find((m) => m.id === contribAssigneeId) ?? {
+                                          id: contribAssigneeId,
+                                          email: 'Membre',
+                                          firstName: null,
+                                          lastName: null,
+                                          role: 'CLIENT_USER',
+                                          status: 'ACTIVE',
+                                        },
+                                      )
+                                    : null}
+                                </SelectValue>
+                              </SelectTrigger>
+                              <SelectContent>
+                                {members.map((m) => (
+                                  <SelectItem key={m.id} value={m.id}>
+                                    {memberLabel(m)}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label htmlFor="comp-contrib-instr">Consigne</Label>
+                            <Textarea
+                              id="comp-contrib-instr"
+                              value={contribInstruction}
+                              onChange={(e) => setContribInstruction(e.target.value)}
+                              rows={2}
+                              className="min-h-0 text-foreground"
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="min-h-11 sm:min-h-9"
+                            disabled={
+                              contribCreateMut.isPending ||
+                              !contribAssigneeId ||
+                              contribInstruction.trim().length < 3
+                            }
+                            onClick={() => contribCreateMut.mutate()}
+                          >
+                            Demander une contribution
+                          </Button>
+                        </div>
+                      ) : null}
+                    </section>
+
+                    {showRiskCta ? (
+                      <section>
+                        <h3 className="starium-modal-seg-title">
+                          Risques liés ({q.data.linkedRiskCount})
+                        </h3>
+                        {canUpdateProjects ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="min-h-11 sm:min-h-9"
+                            onClick={() => setRiskDialogOpen(true)}
+                          >
+                            Créer un risque lié
+                          </Button>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">
+                            Droit projets requis pour créer un risque.
+                          </p>
                         )}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {showRiskCta ? (
-                <div className="mt-3">
-                  {canUpdateProjects ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="min-h-11 sm:min-h-9"
-                      onClick={() => setRiskDialogOpen(true)}
-                    >
-                      Créer un risque lié
-                    </Button>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">
-                      Droit projets requis pour créer un risque.
-                    </p>
-                  )}
-                </div>
-              ) : null}
-            </section>
-          </div>
+                      </section>
+                    ) : null}
+                  </div>
+                </details>
+              }
+            />
+            </div>
+          </>
         ) : (
-          <p className="text-sm text-destructive" role="alert">
+          <p className="p-5 text-sm text-destructive" role="alert">
             Exigence introuvable.
           </p>
         )}

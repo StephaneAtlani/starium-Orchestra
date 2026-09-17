@@ -88,10 +88,11 @@ describe('DialogContent', () => {
     expect(cls).not.toContain('overflow-y-hidden');
   });
 
-  it('sidePanel — inchangé', () => {
+  it('sidePanel — largeur mock 560px (35rem)', () => {
     const cls = getDialogContentClass({ sidePanel: true });
     expect(cls).toContain('inset-y-0');
     expect(cls).toContain('right-0');
+    expect(cls).toContain('max-w-[min(100vw,35rem)]');
     expect(cls).not.toContain('rounded-t-2xl');
   });
 
