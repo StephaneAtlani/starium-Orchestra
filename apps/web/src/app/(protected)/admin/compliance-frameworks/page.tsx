@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -149,7 +149,6 @@ export default function AdminComplianceFrameworksPage() {
   const [importSearch, setImportSearch] = useState('');
   const [importLocale, setImportLocale] = useState('fr');
   const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set());
-  const importSelectionSeededRef = useRef(false);
   const [name, setName] = useState('');
   const [version, setVersion] = useState('');
 
@@ -182,21 +181,20 @@ export default function AdminComplianceFrameworksPage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  /** Pré-coche les bibliothèques déjà présentes dans le catalogue plateforme. */
+  /** Conserve les bibliothèques déjà importées cochées tant que la modale est ouverte. */
   useEffect(() => {
-    if (!importOpen) {
-      importSelectionSeededRef.current = false;
-      return;
-    }
-    if (!cisoListQuery.data || importSelectionSeededRef.current) return;
-    importSelectionSeededRef.current = true;
-    setSelectedPaths(
-      new Set(
-        cisoListQuery.data
-          .filter((item) => item.alreadyImported)
-          .map((item) => item.path),
-      ),
-    );
+    if (!importOpen || !cisoListQuery.data) return;
+    setSelectedPaths((prev) => {
+      let changed = false;
+      const next = new Set(prev);
+      for (const item of cisoListQuery.data) {
+        if (item.alreadyImported && !next.has(item.path)) {
+          next.add(item.path);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
   }, [importOpen, cisoListQuery.data]);
 
   const filteredLibraries = useMemo(() => {
@@ -733,7 +731,8 @@ export default function AdminComplianceFrameworksPage() {
                 aria-label="Bibliothèques CISO Assistant"
               >
                 {filteredLibraries.map((item) => {
-                  const checked = selectedPaths.has(item.path);
+                  const checked =
+                    item.alreadyImported || selectedPaths.has(item.path);
                   const checkboxId = `ciso-${item.fileName}`;
                   const displayName = localizedLibraryName(item, importLocale);
                   const displayDescription = localizedLibraryDescription(
