@@ -21,6 +21,8 @@ export const COMPLIANCE_AUDIT_ACTION = {
   NA_CANCELLED: 'compliance.na.cancelled',
   CONTRIBUTION_CREATED: 'compliance.contribution.created',
   CONTRIBUTION_UPDATED: 'compliance.contribution.updated',
+  GAP_CREATED: 'compliance.gap.created',
+  GAP_UPDATED: 'compliance.gap.updated',
 } as const;
 
 export const COMPLIANCE_AUDIT_RESOURCE_TYPE = {
@@ -32,4 +34,5 @@ export const COMPLIANCE_AUDIT_RESOURCE_TYPE = {
   COMPLIANCE_CAMPAIGN_SNAPSHOT: 'compliance_campaign_snapshot',
   COMPLIANCE_NA_REQUEST: 'compliance_na_request',
   COMPLIANCE_CONTRIBUTION: 'compliance_contribution',
+  COMPLIANCE_GAP: 'compliance_gap',
 } as const;

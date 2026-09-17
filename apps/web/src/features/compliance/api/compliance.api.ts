@@ -256,6 +256,15 @@ export type ComplianceRequirementDetailApi = {
     status: string;
     response: string | null;
   }>;
+  gaps: Array<{
+    id: string;
+    title: string;
+    finding: string;
+    criticality: string;
+    status: string;
+    ownerLabel: string | null;
+    dueAt: string | null;
+  }>;
   evidences: Array<{
     id: string;
     name: string;
@@ -426,6 +435,44 @@ export async function listMyComplianceContributions(authFetch: AuthFetch) {
       response: string | null;
     }>
   >;
+}
+
+export async function createComplianceGap(
+  authFetch: AuthFetch,
+  payload: {
+    requirementId: string;
+    title: string;
+    finding: string;
+    criticality?: string;
+    ownerUserId?: string;
+    dueAt?: string;
+  },
+) {
+  const res = await authFetch(`${BASE}/gaps`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json();
+}
+
+export async function patchComplianceGap(
+  authFetch: AuthFetch,
+  gapId: string,
+  payload: {
+    status?: string;
+    verificationNote?: string;
+    cancelReason?: string;
+  },
+) {
+  const res = await authFetch(`${BASE}/gaps/${gapId}`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json();
 }
 
 export type CreateComplianceEvidencePayload = {

@@ -49,6 +49,10 @@ import {
   CreateComplianceEvidenceVersionDto,
   PatchComplianceEvidenceDto,
 } from './dto/patch-compliance-evidence.dto';
+import {
+  CreateComplianceGapDto,
+  PatchComplianceGapDto,
+} from './dto/compliance-gap.dto';
 
 @Controller('compliance')
 @UseGuards(JwtAuthGuard, ActiveClientGuard, ModuleAccessGuard, PermissionsGuard)
@@ -475,6 +479,40 @@ export class ComplianceController {
   ) {
     const context: AuditContext = { actorUserId, meta };
     return this.compliance.createEvidenceVersion(clientId!, id, dto, context);
+  }
+
+  @Get('gaps')
+  @RequirePermissions('compliance.read')
+  listGaps(
+    @ActiveClientId() clientId: string | undefined,
+    @Query('requirementId') requirementId?: string,
+  ) {
+    return this.compliance.listGaps(clientId!, requirementId);
+  }
+
+  @Post('gaps')
+  @RequirePermissions('compliance.update')
+  createGap(
+    @ActiveClientId() clientId: string | undefined,
+    @Body() dto: CreateComplianceGapDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.compliance.createGap(clientId!, dto, context);
+  }
+
+  @Patch('gaps/:id')
+  @RequirePermissions('compliance.update')
+  patchGap(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+    @Body() dto: PatchComplianceGapDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.compliance.patchGap(clientId!, id, dto, context);
   }
 
   @Get('dashboard')

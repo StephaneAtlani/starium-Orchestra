@@ -385,6 +385,7 @@ model Client {
   complianceCampaigns              ComplianceCampaign[]
   complianceNaRequests             ComplianceNaRequest[]
   complianceContributions          ComplianceContribution[]
+  complianceGaps                   ComplianceGap[]
   riskDomains                      RiskDomain[]
   riskTypes                        RiskType[]
   budgetDashboardConfigs           BudgetDashboardConfig[]
@@ -698,6 +699,7 @@ model User {
   meetingBlockersOwned                 MeetingBlocker[]                  @relation("MeetingBlockerOwner")
   meetingAttachmentsUploaded           MeetingAttachment[]               @relation("MeetingAttachmentUploadedBy")
   complianceContributionsAssigned      ComplianceContribution[]
+  complianceGapsOwned                  ComplianceGap[]             @relation("ComplianceGapOwner")
 }
 
 /// Adresse e-mail déclarée par l’utilisateur (affichage / futur envoi). Une par user + email normalisé.
@@ -3755,6 +3757,21 @@ enum ComplianceEvidenceAssessment {
   INSUFFICIENT
 }
 
+enum ComplianceGapStatus {
+  OPEN
+  IN_PROGRESS
+  TO_VERIFY
+  CLOSED
+  CANCELLED
+}
+
+enum ComplianceGapCriticality {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
 /// Campagne / revue de conformité (COMP.V2) — photographie sur un référentiel client figé.
 model ComplianceCampaign {
   id                     String                   @id @default(cuid())
@@ -3817,6 +3834,7 @@ model ComplianceRequirement {
   projectRisks ProjectRisk[]
   naRequests     ComplianceNaRequest[]
   contributions  ComplianceContribution[]
+  gaps           ComplianceGap[]
 
   @@unique([frameworkId, code])
   @@index([frameworkId])
@@ -3911,6 +3929,39 @@ model ComplianceEvidence {
 
   @@index([clientId, requirementId])
   @@index([clientId, requirementId, isCurrent])
+}
+
+/// Écart de conformité (COMP.V2) — distinct du ProjectRisk, lien optionnel.
+model ComplianceGap {
+  id                String                     @id @default(cuid())
+  clientId          String
+  requirementId     String
+  title             String
+  finding           String
+  criticality       ComplianceGapCriticality   @default(MEDIUM)
+  status            ComplianceGapStatus        @default(OPEN)
+  ownerUserId       String?
+  dueAt             DateTime?
+  businessImpact    String?
+  rootCause         String?
+  verificationNote  String?
+  verifiedAt        DateTime?
+  verifiedByUserId  String?
+  closedAt          DateTime?
+  cancelReason      String?
+  projectRiskId     String?
+  createdByUserId   String?
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+
+  client      Client                @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  requirement ComplianceRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  owner       User?                 @relation("ComplianceGapOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  projectRisk ProjectRisk?          @relation(fields: [projectRiskId], references: [id], onDelete: SetNull)
+
+  @@index([clientId, status])
+  @@index([clientId, requirementId])
+  @@index([clientId, ownerUserId])
 }
 
 /// Domaine de risque configurable (taxonomie client, 1 → N types).
@@ -4022,6 +4073,7 @@ model ProjectRisk {
 
   tasks ProjectTask[]
   governanceCycleItems GovernanceCycleItem[]
+  complianceGaps ComplianceGap[]
 
   /// Unicité (projectId, code) et (clientId, code) pour projectId null : index partiels SQL — voir migration.
   @@index([clientId])

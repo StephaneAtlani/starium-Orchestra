@@ -9,6 +9,8 @@ import {
   ComplianceCampaignStatus,
   ComplianceContributionStatus,
   ComplianceEvidenceAssessment,
+  ComplianceGapCriticality,
+  ComplianceGapStatus,
   ComplianceNaRequestStatus,
   Prisma,
   ProjectRiskCriticality,
@@ -46,6 +48,10 @@ import {
   CreateComplianceEvidenceVersionDto,
   PatchComplianceEvidenceDto,
 } from './dto/patch-compliance-evidence.dto';
+import {
+  CreateComplianceGapDto,
+  PatchComplianceGapDto,
+} from './dto/compliance-gap.dto';
 import { deriveComplianceFamilyLabel } from './compliance-family-label';
 import {
   CAMPAIGN_EVAL_IMPORT_TEMPLATE,
@@ -568,7 +574,7 @@ export class ComplianceService {
     });
     if (!req) throw new NotFoundException('Exigence introuvable');
 
-    const [status, evidences, linkedRisks, naRequest, contributions] =
+    const [status, evidences, linkedRisks, naRequest, contributions, gaps] =
       await Promise.all([
       this.prisma.complianceStatus.findUnique({
         where: {
@@ -607,6 +613,16 @@ export class ComplianceService {
         },
         take: 50,
       }),
+      this.prisma.complianceGap.findMany({
+        where: { clientId, requirementId },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          owner: {
+            select: { id: true, firstName: true, lastName: true, email: true },
+          },
+        },
+        take: 50,
+      }),
     ]);
 
     return {
@@ -614,6 +630,7 @@ export class ComplianceService {
       status: status ?? null,
       naRequest: naRequest ?? null,
       contributions: contributions.map((c) => this.mapContribution(c)),
+      gaps: gaps.map((g) => this.mapGap(g)),
       evidences: evidences.map((e) => ({
         ...e,
         kind: deriveComplianceEvidenceKind(e),
@@ -1242,6 +1259,236 @@ export class ComplianceService {
     });
 
     return this.mapContribution(updated);
+  }
+
+  private mapGap(g: {
+    id: string;
+    requirementId: string;
+    title: string;
+    finding: string;
+    criticality: ComplianceGapCriticality;
+    status: ComplianceGapStatus;
+    ownerUserId: string | null;
+    dueAt: Date | null;
+    businessImpact: string | null;
+    rootCause: string | null;
+    verificationNote: string | null;
+    closedAt: Date | null;
+    cancelReason: string | null;
+    projectRiskId: string | null;
+    createdAt: Date;
+    owner?: {
+      firstName: string | null;
+      lastName: string | null;
+      email: string;
+    } | null;
+  }) {
+    const name = [g.owner?.firstName, g.owner?.lastName]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+    return {
+      id: g.id,
+      requirementId: g.requirementId,
+      title: g.title,
+      finding: g.finding,
+      criticality: g.criticality,
+      status: g.status,
+      ownerUserId: g.ownerUserId,
+      ownerLabel: g.ownerUserId
+        ? name || g.owner?.email || 'Membre retiré'
+        : null,
+      dueAt: g.dueAt,
+      businessImpact: g.businessImpact,
+      rootCause: g.rootCause,
+      verificationNote: g.verificationNote,
+      closedAt: g.closedAt,
+      cancelReason: g.cancelReason,
+      projectRiskId: g.projectRiskId,
+      createdAt: g.createdAt,
+    };
+  }
+
+  async listGaps(clientId: string, requirementId?: string) {
+    const rows = await this.prisma.complianceGap.findMany({
+      where: {
+        clientId,
+        ...(requirementId ? { requirementId } : {}),
+      },
+      orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
+      include: {
+        owner: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
+        requirement: {
+          select: { code: true, title: true },
+        },
+      },
+      take: 200,
+    });
+    return rows.map((g) => ({
+      ...this.mapGap(g),
+      requirementCode: g.requirement.code,
+      requirementTitle: g.requirement.title,
+    }));
+  }
+
+  async createGap(
+    clientId: string,
+    dto: CreateComplianceGapDto,
+    context?: AuditContext,
+  ) {
+    const req = await this.prisma.complianceRequirement.findFirst({
+      where: { id: dto.requirementId, framework: { clientId } },
+      select: { id: true },
+    });
+    if (!req) throw new NotFoundException('Exigence introuvable');
+    if (dto.ownerUserId) {
+      await this.assertAssigneeOnClient(clientId, dto.ownerUserId);
+    }
+    if (dto.projectRiskId) {
+      const risk = await this.prisma.projectRisk.findFirst({
+        where: { id: dto.projectRiskId, clientId },
+        select: { id: true },
+      });
+      if (!risk) throw new BadRequestException('Risque projet introuvable');
+    }
+
+    const row = await this.prisma.complianceGap.create({
+      data: {
+        clientId,
+        requirementId: dto.requirementId,
+        title: dto.title.trim(),
+        finding: dto.finding.trim(),
+        criticality: dto.criticality ?? ComplianceGapCriticality.MEDIUM,
+        ownerUserId: dto.ownerUserId ?? null,
+        dueAt: dto.dueAt ? new Date(dto.dueAt) : null,
+        businessImpact: dto.businessImpact?.trim() || null,
+        projectRiskId: dto.projectRiskId ?? null,
+        createdByUserId: context?.actorUserId ?? null,
+      },
+      include: {
+        owner: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
+      },
+    });
+
+    await this.auditLogs.create({
+      clientId,
+      userId: context?.actorUserId,
+      action: COMPLIANCE_AUDIT_ACTION.GAP_CREATED,
+      resourceType: COMPLIANCE_AUDIT_RESOURCE_TYPE.COMPLIANCE_GAP,
+      resourceId: row.id,
+      newValue: {
+        title: row.title,
+        status: row.status,
+        requirementId: row.requirementId,
+      },
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    });
+
+    return this.mapGap(row);
+  }
+
+  async patchGap(
+    clientId: string,
+    id: string,
+    dto: PatchComplianceGapDto,
+    context?: AuditContext,
+  ) {
+    const existing = await this.prisma.complianceGap.findFirst({
+      where: { id, clientId },
+    });
+    if (!existing) throw new NotFoundException('Écart introuvable');
+
+    if (dto.ownerUserId) {
+      await this.assertAssigneeOnClient(clientId, dto.ownerUserId);
+    }
+
+    if (dto.status === ComplianceGapStatus.CLOSED) {
+      const note = dto.verificationNote?.trim() || existing.verificationNote;
+      if (!note?.trim()) {
+        throw new BadRequestException(
+          'La clôture exige une note de vérification',
+        );
+      }
+    }
+    if (dto.status === ComplianceGapStatus.CANCELLED) {
+      const reason = dto.cancelReason?.trim() || existing.cancelReason;
+      if (!reason?.trim()) {
+        throw new BadRequestException(
+          'L’annulation exige un motif',
+        );
+      }
+    }
+
+    const updated = await this.prisma.complianceGap.update({
+      where: { id },
+      data: {
+        ...(dto.title !== undefined && { title: dto.title.trim() }),
+        ...(dto.finding !== undefined && { finding: dto.finding.trim() }),
+        ...(dto.criticality !== undefined && { criticality: dto.criticality }),
+        ...(dto.status !== undefined && { status: dto.status }),
+        ...(dto.ownerUserId !== undefined && {
+          ownerUserId: dto.ownerUserId,
+        }),
+        ...(dto.dueAt !== undefined && {
+          dueAt: dto.dueAt ? new Date(dto.dueAt) : null,
+        }),
+        ...(dto.businessImpact !== undefined && {
+          businessImpact:
+            dto.businessImpact === null ? null : dto.businessImpact.trim(),
+        }),
+        ...(dto.rootCause !== undefined && {
+          rootCause: dto.rootCause === null ? null : dto.rootCause.trim(),
+        }),
+        ...(dto.verificationNote !== undefined && {
+          verificationNote:
+            dto.verificationNote === null
+              ? null
+              : dto.verificationNote.trim(),
+          ...(dto.verificationNote
+            ? {
+                verifiedAt: new Date(),
+                verifiedByUserId: context?.actorUserId ?? null,
+              }
+            : {}),
+        }),
+        ...(dto.cancelReason !== undefined && {
+          cancelReason:
+            dto.cancelReason === null ? null : dto.cancelReason.trim(),
+        }),
+        ...(dto.projectRiskId !== undefined && {
+          projectRiskId: dto.projectRiskId,
+        }),
+        ...(dto.status === ComplianceGapStatus.CLOSED && {
+          closedAt: new Date(),
+        }),
+      },
+      include: {
+        owner: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
+      },
+    });
+
+    await this.auditLogs.create({
+      clientId,
+      userId: context?.actorUserId,
+      action: COMPLIANCE_AUDIT_ACTION.GAP_UPDATED,
+      resourceType: COMPLIANCE_AUDIT_RESOURCE_TYPE.COMPLIANCE_GAP,
+      resourceId: updated.id,
+      oldValue: { status: existing.status },
+      newValue: { status: updated.status, title: updated.title },
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    });
+
+    return this.mapGap(updated);
   }
 
   private async requirePendingNa(clientId: string, requirementId: string) {

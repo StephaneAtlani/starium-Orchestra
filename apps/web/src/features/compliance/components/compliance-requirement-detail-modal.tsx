@@ -36,9 +36,11 @@ import {
   createComplianceContribution,
   createComplianceEvidence,
   createComplianceEvidenceVersion,
+  createComplianceGap,
   getComplianceRequirementDetail,
   patchComplianceContribution,
   patchComplianceEvidence,
+  patchComplianceGap,
   rejectComplianceNa,
   requestComplianceNa,
   upsertComplianceRequirementStatus,
@@ -163,6 +165,8 @@ export function ComplianceRequirementDetailModal({
   const [contribAssigneeId, setContribAssigneeId] = useState('');
   const [contribInstruction, setContribInstruction] = useState('');
   const [contribDueAt, setContribDueAt] = useState('');
+  const [gapTitle, setGapTitle] = useState('');
+  const [gapFinding, setGapFinding] = useState('');
 
   const { data: members = [] } = useClientMembers();
 
@@ -357,6 +361,37 @@ export function ComplianceRequirementDetailModal({
     mutationFn: (id: string) => createComplianceEvidenceVersion(authFetch, id),
     onSuccess: async () => {
       toast.success('Nouvelle version de preuve créée');
+      invalidateComplianceQueries(queryClient, clientId);
+      await q.refetch();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const gapCreateMut = useMutation({
+    mutationFn: () =>
+      createComplianceGap(authFetch, {
+        requirementId: requirementId!,
+        title: gapTitle.trim(),
+        finding: gapFinding.trim(),
+      }),
+    onSuccess: async () => {
+      toast.success('Écart créé');
+      setGapTitle('');
+      setGapFinding('');
+      invalidateComplianceQueries(queryClient, clientId);
+      await q.refetch();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const gapCloseMut = useMutation({
+    mutationFn: (id: string) =>
+      patchComplianceGap(authFetch, id, {
+        status: 'CLOSED',
+        verificationNote: 'Vérifié depuis la fiche exigence',
+      }),
+    onSuccess: async () => {
+      toast.success('Écart clôturé');
       invalidateComplianceQueries(queryClient, clientId);
       await q.refetch();
     },
@@ -764,6 +799,80 @@ export function ComplianceRequirementDetailModal({
                     onClick={() => contribCreateMut.mutate()}
                   >
                     Demander une contribution
+                  </Button>
+                </div>
+              ) : null}
+            </section>
+
+            <section aria-labelledby="comp-gaps-heading">
+              <h3 id="comp-gaps-heading" className="starium-modal-seg-title">
+                Écarts ({q.data.gaps?.length ?? 0})
+              </h3>
+              {(q.data.gaps ?? []).length === 0 ? (
+                <p className="text-sm text-muted-foreground">Aucun écart.</p>
+              ) : (
+                <ul className="mb-3 space-y-2">
+                  {(q.data.gaps ?? []).map((g) => (
+                    <li
+                      key={g.id}
+                      className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-sm"
+                    >
+                      <p className="font-medium">
+                        {displayLabel(g.title, 'Écart')} · {g.status} ·{' '}
+                        {g.criticality}
+                      </p>
+                      <p className="text-muted-foreground">{g.finding}</p>
+                      {canUpdate &&
+                      g.status !== 'CLOSED' &&
+                      g.status !== 'CANCELLED' ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="mt-2 min-h-11 sm:min-h-9"
+                          disabled={gapCloseMut.isPending}
+                          onClick={() => gapCloseMut.mutate(g.id)}
+                        >
+                          Clôturer
+                        </Button>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {canUpdate ? (
+                <div className="space-y-3 rounded-lg border border-border/70 bg-muted/20 p-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="comp-gap-title">Titre</Label>
+                    <Input
+                      id="comp-gap-title"
+                      value={gapTitle}
+                      onChange={(e) => setGapTitle(e.target.value)}
+                      className="text-foreground"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="comp-gap-finding">Constat</Label>
+                    <Textarea
+                      id="comp-gap-finding"
+                      value={gapFinding}
+                      onChange={(e) => setGapFinding(e.target.value)}
+                      rows={2}
+                      className="text-foreground"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="min-h-11 sm:min-h-9"
+                    disabled={
+                      gapCreateMut.isPending ||
+                      gapTitle.trim().length < 3 ||
+                      gapFinding.trim().length < 3
+                    }
+                    onClick={() => gapCreateMut.mutate()}
+                  >
+                    Créer un écart
                   </Button>
                 </div>
               ) : null}

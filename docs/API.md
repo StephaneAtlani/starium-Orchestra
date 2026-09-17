@@ -3027,6 +3027,12 @@ Guards métier client (`X-Client-Id`, module `compliance`).
 - **POST /api/compliance/contributions** — Body `{ requirementId, assigneeUserId, instruction, dueAt? }`. Destinataire = membre **ACTIVE** du client. Permission **`compliance.update`**. Audit `compliance.contribution.created`.
 - **PATCH /api/compliance/contributions/:id** — Body partiel `{ status?, response?, instruction?, dueAt?, assigneeUserId? }`. Statuts : `TODO` \| `IN_PROGRESS` \| `BLOCKED` \| `SUBMITTED` \| `ACCEPTED` \| `NEEDS_MORE`. Permission **`compliance.update`**. Audit `compliance.contribution.updated`.
 
+#### Écarts
+
+- **GET /api/compliance/gaps?requirementId=** — Liste. Permission **`compliance.read`**.
+- **POST /api/compliance/gaps** — Body `{ requirementId, title, finding, criticality?, ownerUserId?, dueAt?, businessImpact?, projectRiskId? }`. Permission **`compliance.update`**. Audit `compliance.gap.created`.
+- **PATCH /api/compliance/gaps/:id** — Mise à jour / transitions. Clôture (`CLOSED`) exige `verificationNote` ; annulation (`CANCELLED`) exige `cancelReason`. Permission **`compliance.update`**. Audit `compliance.gap.updated`.
+
 ### Évaluation opérationnelle (RFC-COMP-001-A) — `/api/compliance`
 
 Guards métier client (`X-Client-Id`, module `compliance`). Isolation : toute lecture / écriture filtrée sur le client actif.
