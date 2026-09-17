@@ -6,6 +6,7 @@ describe('CisoLibraryImportService', () => {
     findMany: jest.fn(),
     findFirst: jest.fn(),
     create: jest.fn(),
+    update: jest.fn(),
   };
   const complianceRequirement = {
     createMany: jest.fn(),
@@ -83,6 +84,13 @@ objects:
 
     expect(result.imported).toBe(1);
     expect(result.results[0]?.requirementCount).toBe(1);
+    expect(prisma.complianceFramework.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        name: 'ISO Test FW',
+        version: '2022',
+        sourceLibraryPath: 'backend/library/libraries/iso-test.yaml',
+      }),
+    });
     expect(prisma.complianceRequirement.createMany).toHaveBeenCalledWith({
       data: [
         expect.objectContaining({
@@ -93,6 +101,101 @@ objects:
       ],
     });
     expect(auditLogs.createPlatform).toHaveBeenCalled();
+  });
+
+  it('importe en locale FR quand demandée', async () => {
+    const yaml = `
+name: NIS EN
+version: "3"
+locale: en
+translations:
+  fr:
+    name: Directive NIS 2
+objects:
+  framework:
+    name: NIS EN
+    version: "3"
+    translations:
+      fr:
+        name: Directive NIS 2
+    requirement_nodes:
+      - urn: urn:a:1
+        ref_id: A.1
+        name: Control EN
+        assessable: true
+        translations:
+          fr:
+            name: Contrôle FR
+`;
+    jest
+      .spyOn(
+        service as unknown as { readLibraryFile: (p: string) => Promise<string> },
+        'readLibraryFile',
+      )
+      .mockResolvedValue(yaml);
+
+    prisma.complianceFramework.findFirst.mockResolvedValue(null);
+    prisma.complianceFramework.create.mockResolvedValue({
+      id: 'fw2',
+      name: 'Directive NIS 2',
+      version: '3',
+    });
+    prisma.complianceRequirement.createMany.mockResolvedValue({ count: 1 });
+
+    const result = await service.importLibraries(
+      ['backend/library/libraries/nis.yaml'],
+      undefined,
+      undefined,
+      'fr',
+    );
+
+    expect(result.imported).toBe(1);
+    expect(prisma.complianceFramework.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        name: 'Directive NIS 2',
+        sourceLibraryPath: 'backend/library/libraries/nis.yaml',
+      }),
+    });
+    expect(prisma.complianceRequirement.createMany).toHaveBeenCalledWith({
+      data: [expect.objectContaining({ title: 'Contrôle FR' })],
+    });
+  });
+
+  it('skippe si sourceLibraryPath déjà connu', async () => {
+    const yaml = `
+name: ISO Test
+version: "1"
+locale: fr
+objects:
+  framework:
+    name: ISO Test FW
+    version: "2022"
+    requirement_nodes:
+      - urn: urn:a:1
+        ref_id: A.1
+        name: Contrôle
+        assessable: true
+`;
+    jest
+      .spyOn(
+        service as unknown as { readLibraryFile: (p: string) => Promise<string> },
+        'readLibraryFile',
+      )
+      .mockResolvedValue(yaml);
+
+    prisma.complianceFramework.findFirst.mockResolvedValueOnce({
+      id: 'fw-existing',
+      name: 'Directive NIS 2',
+      version: '3',
+      sourceLibraryPath: 'backend/library/libraries/iso-test.yaml',
+    });
+
+    const result = await service.importLibraries([
+      'backend/library/libraries/iso-test.yaml',
+    ]);
+    expect(result.skipped).toBe(1);
+    expect(result.imported).toBe(0);
+    expect(prisma.complianceFramework.create).not.toHaveBeenCalled();
   });
 
   it('skippe un fichier sans framework', async () => {

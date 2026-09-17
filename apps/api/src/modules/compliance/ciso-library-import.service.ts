@@ -96,22 +96,34 @@ export class CisoLibraryImportService {
     const remote = await this.fetchLocalCatalog();
     const existing = await this.prisma.complianceFramework.findMany({
       where: { clientId: null },
-      select: { name: true, version: true },
+      select: { name: true, version: true, sourceLibraryPath: true },
     });
+    const existingPaths = new Set(
+      existing
+        .map((e) => e.sourceLibraryPath)
+        .filter((p): p is string => Boolean(p)),
+    );
     const existingNames = new Set(
       existing.map((e) => e.name.trim().toLowerCase()),
     );
 
-    return remote.map((item) => ({
-      ...item,
-      alreadyImported: existingNames.has(item.name.trim().toLowerCase()),
-    }));
+    return remote.map((item) => {
+      const nameCandidates = [
+        item.name,
+        ...item.translations.map((t) => t.name).filter((n): n is string => Boolean(n)),
+      ].map((n) => n.trim().toLowerCase());
+      const alreadyImported =
+        existingPaths.has(item.path) ||
+        nameCandidates.some((n) => existingNames.has(n));
+      return { ...item, alreadyImported };
+    });
   }
 
   async importLibraries(
     paths: string[],
     actorUserId?: string,
     meta?: PlatformAuditMeta,
+    preferredLocale?: string | null,
   ) {
     const uniquePaths = [...new Set(paths.map((p) => p.trim()).filter(Boolean))];
     if (uniquePaths.length === 0) {
@@ -120,6 +132,8 @@ export class CisoLibraryImportService {
     if (uniquePaths.length > 30) {
       throw new BadRequestException('Maximum 30 référentiels par import');
     }
+
+    const locale = preferredLocale?.trim().toLowerCase() || null;
 
     await this.ensureLocalRepo();
 
@@ -149,7 +163,7 @@ export class CisoLibraryImportService {
 
       try {
         const yamlText = await this.readLibraryFile(repoPath);
-        const parsed = this.parseLibraryYaml(yamlText);
+        const parsed = this.parseLibraryYaml(yamlText, locale);
         if (!parsed.framework) {
           results.push({
             path: repoPath,
@@ -163,10 +177,31 @@ export class CisoLibraryImportService {
 
         const name = parsed.framework.name;
         const version = parsed.framework.version;
+        const existingByPath = await this.prisma.complianceFramework.findFirst({
+          where: { clientId: null, sourceLibraryPath: repoPath },
+        });
+        if (existingByPath) {
+          results.push({
+            path: repoPath,
+            status: 'skipped',
+            name: existingByPath.name,
+            version: existingByPath.version,
+            message: 'Déjà présent dans le catalogue plateforme (même source CISO)',
+          });
+          continue;
+        }
+
         const existing = await this.prisma.complianceFramework.findFirst({
           where: { clientId: null, name, version },
         });
         if (existing) {
+          // Rattache le chemin source si import historique sans sourceLibraryPath.
+          if (!existing.sourceLibraryPath) {
+            await this.prisma.complianceFramework.update({
+              where: { id: existing.id },
+              data: { sourceLibraryPath: repoPath },
+            });
+          }
           results.push({
             path: repoPath,
             status: 'skipped',
@@ -185,6 +220,7 @@ export class CisoLibraryImportService {
               name,
               version,
               isActive: true,
+              sourceLibraryPath: repoPath,
             },
           });
           if (requirements.length > 0) {
@@ -563,7 +599,28 @@ export class CisoLibraryImportService {
     };
   }
 
-  private parseLibraryYaml(yamlText: string): {
+  private pickLocalizedText(
+    baseName: string | null,
+    baseDescription: string | null,
+    translations:
+      | Record<string, { name?: unknown; description?: unknown }>
+      | undefined,
+    preferredLocale: string | null,
+  ): { name: string | null; description: string | null } {
+    if (preferredLocale && translations?.[preferredLocale]) {
+      const t = translations[preferredLocale]!;
+      return {
+        name: asString(t.name) ?? baseName,
+        description: asString(t.description) ?? baseDescription,
+      };
+    }
+    return { name: baseName, description: baseDescription };
+  }
+
+  private parseLibraryYaml(
+    yamlText: string,
+    preferredLocale: string | null = null,
+  ): {
     libraryName: string;
     libraryVersion: string;
     framework: {
@@ -579,12 +636,21 @@ export class CisoLibraryImportService {
   } {
     const doc = parseYaml(yamlText) as Record<string, unknown>;
     const translations = doc.translations as
-      | Record<string, { name?: string }>
+      | Record<string, { name?: unknown; description?: unknown }>
       | undefined;
-    const locale = typeof doc.locale === 'string' ? doc.locale : null;
-    const libraryName =
-      (locale !== 'fr' && translations?.fr?.name) ||
-      (typeof doc.name === 'string' ? doc.name : 'Référentiel importé');
+    const docLocale = typeof doc.locale === 'string' ? doc.locale : null;
+    const effectiveLocale =
+      preferredLocale ||
+      (docLocale && docLocale !== 'fr' ? 'fr' : docLocale) ||
+      null;
+
+    const libraryLocalized = this.pickLocalizedText(
+      asString(doc.name),
+      asString(doc.description),
+      translations,
+      effectiveLocale,
+    );
+    const libraryName = libraryLocalized.name || 'Référentiel importé';
     const libraryVersion =
       doc.version !== undefined && doc.version !== null
         ? String(doc.version)
@@ -597,11 +663,15 @@ export class CisoLibraryImportService {
     }
 
     const fwTranslations = fw.translations as
-      | Record<string, { name?: string }>
+      | Record<string, { name?: unknown; description?: unknown }>
       | undefined;
-    const frameworkName =
-      (locale !== 'fr' && fwTranslations?.fr?.name) ||
-      (typeof fw.name === 'string' ? fw.name : libraryName);
+    const fwLocalized = this.pickLocalizedText(
+      asString(fw.name),
+      asString(fw.description),
+      fwTranslations,
+      effectiveLocale,
+    );
+    const frameworkName = fwLocalized.name || libraryName;
     const frameworkVersion =
       fw.version !== undefined && fw.version !== null
         ? String(fw.version)
@@ -613,9 +683,17 @@ export class CisoLibraryImportService {
 
     const nameByUrn = new Map<string, string>();
     for (const node of nodes) {
-      if (typeof node.urn === 'string' && typeof node.name === 'string') {
-        nameByUrn.set(node.urn, node.name);
-      }
+      if (typeof node.urn !== 'string') continue;
+      const nodeTr = node.translations as
+        | Record<string, { name?: unknown; description?: unknown }>
+        | undefined;
+      const localized = this.pickLocalizedText(
+        asString(node.name),
+        asString(node.description),
+        nodeTr,
+        effectiveLocale,
+      );
+      if (localized.name) nameByUrn.set(node.urn, localized.name);
     }
 
     const requirements: Array<{
@@ -643,15 +721,18 @@ export class CisoLibraryImportService {
       }
       usedCodes.add(unique);
 
-      const titleRaw =
-        (typeof node.name === 'string' && node.name.trim()) ||
-        (typeof node.description === 'string' && node.description.trim()) ||
-        unique;
+      const nodeTr = node.translations as
+        | Record<string, { name?: unknown; description?: unknown }>
+        | undefined;
+      const localized = this.pickLocalizedText(
+        asString(node.name),
+        asString(node.description),
+        nodeTr,
+        effectiveLocale,
+      );
+      const titleRaw = localized.name || localized.description || unique;
       const title = titleRaw.slice(0, 500);
-      const description =
-        typeof node.description === 'string'
-          ? node.description.slice(0, 4000)
-          : null;
+      const description = localized.description?.slice(0, 4000) ?? null;
       const parentUrn =
         typeof node.parent_urn === 'string' ? node.parent_urn : null;
       const category = parentUrn ? nameByUrn.get(parentUrn) ?? null : null;

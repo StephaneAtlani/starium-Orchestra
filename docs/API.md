@@ -2976,21 +2976,22 @@ Référence : [RFC-ADM-002](RFC/RFC-ADM-002%20%E2%80%94%20Catalogue%20r%C3%A9f%C
 
 Source : repo community [intuitem/ciso-assistant-community](https://github.com/intuitem/ciso-assistant-community/tree/main/backend/library/libraries) (`backend/library/libraries/*.yaml`).
 
-- **GET /** — Liste depuis un **clone sparse local** du repo CISO Assistant (`backend/library/libraries`, cache `apps/api/.cache/ciso-assistant-community` ou `CISO_ASSISTANT_CACHE_DIR`). Filtre hors `mapping*` / `workflow*` et hors libs sans `objects.framework`. Champs : `name`, `description`, `version`, `locale`, `refId`, `publicationDate`, `provider`, `languages[]`, `translations[]`, `updatedAt` (git), `isNew` (< 1 mois), `alreadyImported` (approx.). Sync git TTL ~1 h ; liste en mémoire ~30 min.
-- **POST /import** — Body `{ paths: string[] }` (1–30 chemins `backend/library/libraries/*.yaml`). Télécharge le YAML, extrait `objects.framework` + nœuds `assessable`, crée le cadre plateforme + exigences. Skip si déjà présent (même `name`+`version`) ou sans framework. Réponse : `{ imported, skipped, errors, results[] }`.
+- **GET /** — Liste depuis un **clone sparse local** du repo CISO Assistant (`backend/library/libraries`, cache `apps/api/.cache/ciso-assistant-community` ou `CISO_ASSISTANT_CACHE_DIR`). Filtre hors `mapping*` / `workflow*` et hors libs sans `objects.framework`. Champs : `name`, `description`, `version`, `locale`, `refId`, `publicationDate`, `provider`, `languages[]`, `translations[]`, `updatedAt` (git), `isNew` (< 1 mois), `alreadyImported` (par `sourceLibraryPath` **ou** nom natif / toute traduction déjà présente au catalogue). Sync git TTL ~1 h ; liste en mémoire ~30 min.
+- **POST /import** — Body `{ paths: string[], locale?: string }` (1–30 chemins `backend/library/libraries/*.yaml` ; `locale` ex. `fr` / `en` pour matérialiser noms, descriptions et exigences). Skip si `sourceLibraryPath` déjà connu, ou même `name`+`version`, ou sans framework. Stocke `sourceLibraryPath` à la création. Réponse : `{ imported, skipped, errors, results[] }`.
 
 **Audit** : `createPlatform` sur chaque import réussi (`source: ciso-assistant-community`).
 
-**UI** : `/admin/compliance-frameworks` — bouton **Importer** (recherche + cases à cocher).
+**UI** : `/admin/compliance-frameworks` — bouton **Importer** (langue d’affichage/import, recherche, cases ; déjà importés cochés et non réimportables).
 
-### Activation côté client — `/api/compliance/frameworks/catalog`, `/activate`
+### Activation côté client — `/api/compliance/frameworks/catalog`, `/activate`, `PATCH /:id`
 
 Guards métier client (`X-Client-Id`, module `compliance`).
 
 - **GET /api/compliance/frameworks/catalog** — Cadres plateforme actifs non archivés (`id`, `name`, `version`, `requirementCount`). Permission **`compliance.read`**.
-- **POST /api/compliance/frameworks/activate** — Body `{ platformFrameworkId }` : copie framework + exigences vers le client actif. **409** si déjà activé (même `name`+`version`). Permission **`compliance.create`**. Audit client `compliance.framework.activated`.
+- **POST /api/compliance/frameworks/activate** — Body `{ platformFrameworkId }` : copie framework + exigences vers le client actif. **409** si déjà **actif** (même `name`+`version`). Si une instance **inactive** existe, la **réactive** (historique conservé, pas de nouvelle copie). Permission **`compliance.update`**. Audit client `compliance.framework.activated` (création) ou `compliance.framework.updated` (réactivation).
+- **PATCH /api/compliance/frameworks/:id** — Body `{ isActive: boolean }` : active / désactive l’instance **client** (scope `clientId`). Les évaluations / preuves restent. Les KPI dashboard et `GET …/frameworks/summary` ne comptent que `isActive: true`. Permission **`compliance.update`**. Audit `compliance.framework.updated`.
 
-**UI client** : `/compliance/frameworks`.
+**UI client** : `/compliance/frameworks` (Activer / Désactiver / Réactiver).
 
 ### Évaluation opérationnelle (RFC-COMP-001-A) — `/api/compliance`
 

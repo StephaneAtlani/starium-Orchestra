@@ -6,12 +6,13 @@ import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { listComplianceFrameworks } from '@/features/compliance/api/compliance.api';
+import { cn } from '@/lib/utils';
 import { toast } from '@/lib/toast';
 
 type CatalogItem = {
@@ -25,22 +26,37 @@ export default function ComplianceFrameworksPage() {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
   const queryClient = useQueryClient();
+  const clientId = activeClient?.id;
 
   const q = useQuery({
-    queryKey: ['compliance', 'frameworks', activeClient?.id],
+    queryKey: ['compliance', 'frameworks', clientId],
     queryFn: () => listComplianceFrameworks(authFetch),
-    enabled: !!activeClient?.id,
+    enabled: !!clientId,
   });
 
   const catalogQuery = useQuery({
-    queryKey: ['compliance', 'frameworks-catalog', activeClient?.id],
+    queryKey: ['compliance', 'frameworks-catalog', clientId],
     queryFn: async () => {
       const res = await authFetch('/api/compliance/frameworks/catalog');
       if (!res.ok) throw new Error('Catalogue indisponible');
       return res.json() as Promise<CatalogItem[]>;
     },
-    enabled: !!activeClient?.id,
+    enabled: !!clientId,
   });
+
+  const invalidateFrameworkQueries = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: ['compliance', 'frameworks', clientId],
+      }),
+      queryClient.invalidateQueries({
+        queryKey: ['compliance', clientId, 'frameworks-summary'],
+      }),
+      queryClient.invalidateQueries({
+        queryKey: ['compliance', 'dashboard', clientId],
+      }),
+    ]);
+  };
 
   const activateMut = useMutation({
     mutationFn: async (platformFrameworkId: string) => {
@@ -62,15 +78,47 @@ export default function ComplianceFrameworksPage() {
     },
     onSuccess: async () => {
       toast.success('Référentiel activé pour le client');
-      await queryClient.invalidateQueries({
-        queryKey: ['compliance', 'frameworks', activeClient?.id],
+      await invalidateFrameworkQueries();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const setActiveMut = useMutation({
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      const res = await authFetch(`/api/compliance/frameworks/${id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ isActive }),
       });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as {
+          message?: string | string[];
+        };
+        const msg = Array.isArray(body.message)
+          ? body.message.join(', ')
+          : body.message;
+        throw new Error(msg || `Erreur ${res.status}`);
+      }
+      return res.json() as Promise<{ isActive: boolean }>;
+    },
+    onSuccess: async (_data, vars) => {
+      toast.success(
+        vars.isActive ? 'Référentiel réactivé' : 'Référentiel désactivé',
+      );
+      await invalidateFrameworkQueries();
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const activatedKeys = new Set(
-    (q.data ?? []).map((f) => `${f.name}::${f.version}`),
+    (q.data ?? [])
+      .filter((f) => f.isActive)
+      .map((f) => `${f.name}::${f.version}`),
+  );
+  const inactiveByKey = new Map(
+    (q.data ?? [])
+      .filter((f) => !f.isActive)
+      .map((f) => [`${f.name}::${f.version}`, f]),
   );
 
   return (
@@ -92,6 +140,7 @@ export default function ComplianceFrameworksPage() {
               {(catalogQuery.data ?? []).map((item) => {
                 const key = `${item.name}::${item.version}`;
                 const already = activatedKeys.has(key);
+                const inactive = inactiveByKey.get(key);
                 return (
                   <Card key={item.id}>
                     <CardContent className="flex flex-wrap items-center justify-between gap-2 py-4">
@@ -114,10 +163,17 @@ export default function ComplianceFrameworksPage() {
                           type="button"
                           size="sm"
                           className="min-h-11 sm:min-h-9"
-                          disabled={activateMut.isPending}
-                          onClick={() => activateMut.mutate(item.id)}
+                          disabled={activateMut.isPending || setActiveMut.isPending}
+                          onClick={() =>
+                            inactive
+                              ? setActiveMut.mutate({
+                                  id: inactive.id,
+                                  isActive: true,
+                                })
+                              : activateMut.mutate(item.id)
+                          }
                         >
-                          Activer
+                          {inactive ? 'Réactiver' : 'Activer'}
                         </Button>
                       )}
                     </CardContent>
@@ -144,7 +200,7 @@ export default function ComplianceFrameworksPage() {
               {(q.data ?? []).map((f) => (
                 <Card key={f.id}>
                   <CardContent className="flex flex-wrap items-center justify-between gap-2 py-4">
-                    <div>
+                    <div className="min-w-0 flex-1">
                       <Link
                         href={`/compliance/frameworks/${f.id}`}
                         className="font-medium text-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -153,9 +209,46 @@ export default function ComplianceFrameworksPage() {
                         <span className="text-muted-foreground">({f.version})</span>
                       </Link>
                     </div>
-                    <Badge variant={f.isActive ? 'default' : 'secondary'}>
-                      {f.isActive ? 'Actif' : 'Inactif'}
-                    </Badge>
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      <Badge variant={f.isActive ? 'default' : 'secondary'}>
+                        {f.isActive ? 'Actif' : 'Inactif'}
+                      </Badge>
+                      <Link
+                        href={`/compliance/frameworks/${f.id}`}
+                        className={cn(
+                          buttonVariants({ variant: 'outline', size: 'sm' }),
+                          'min-h-11 sm:min-h-9',
+                        )}
+                      >
+                        Voir
+                      </Link>
+                      {f.isActive ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="min-h-11 sm:min-h-9"
+                          disabled={setActiveMut.isPending}
+                          onClick={() =>
+                            setActiveMut.mutate({ id: f.id, isActive: false })
+                          }
+                        >
+                          Désactiver
+                        </Button>
+                      ) : (
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="min-h-11 sm:min-h-9"
+                          disabled={setActiveMut.isPending}
+                          onClick={() =>
+                            setActiveMut.mutate({ id: f.id, isActive: true })
+                          }
+                        >
+                          Réactiver
+                        </Button>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               ))}

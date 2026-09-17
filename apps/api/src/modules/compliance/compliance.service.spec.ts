@@ -18,6 +18,7 @@ describe('ComplianceService', () => {
         findMany: jest.fn(),
         findFirst: jest.fn(),
         create: jest.fn(),
+        update: jest.fn(),
       },
       complianceRequirement: { findMany: jest.fn(), findFirst: jest.fn() },
       complianceStatus: {
@@ -250,7 +251,7 @@ describe('ComplianceService', () => {
       await service.frameworksSummary('c1');
 
       expect(prisma.complianceFramework.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { clientId: 'c1' } }),
+        expect.objectContaining({ where: { clientId: 'c1', isActive: true } }),
       );
     });
 
@@ -419,6 +420,112 @@ describe('ComplianceService', () => {
       expect(ov.applicableCount).toBe(0);
       expect(ov.compliancePercent).toBeNull();
       expect(ov.remediation).toEqual([]);
+    });
+  });
+
+  describe('setClientFrameworkActive', () => {
+    it('désactive une instance client et audite', async () => {
+      prisma.complianceFramework.findFirst.mockResolvedValue({
+        id: 'fw-1',
+        clientId: 'c1',
+        name: 'RGPD',
+        version: '1',
+        isActive: true,
+      });
+      prisma.complianceFramework.update.mockResolvedValue({
+        id: 'fw-1',
+        clientId: 'c1',
+        name: 'RGPD',
+        version: '1',
+        isActive: false,
+      });
+
+      const out = await service.setClientFrameworkActive('c1', 'fw-1', false, {
+        actorUserId: 'u1',
+      });
+
+      expect(out.isActive).toBe(false);
+      expect(prisma.complianceFramework.update).toHaveBeenCalledWith({
+        where: { id: 'fw-1' },
+        data: { isActive: false },
+      });
+      expect(auditLogs.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          clientId: 'c1',
+          resourceId: 'fw-1',
+          oldValue: expect.objectContaining({ isActive: true }),
+          newValue: expect.objectContaining({ isActive: false }),
+        }),
+      );
+    });
+
+    it('refuse un référentiel hors client', async () => {
+      prisma.complianceFramework.findFirst.mockResolvedValue(null);
+      await expect(
+        service.setClientFrameworkActive('c1', 'fw-x', false),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('idempotent si déjà dans l’état demandé', async () => {
+      const row = {
+        id: 'fw-1',
+        clientId: 'c1',
+        name: 'RGPD',
+        version: '1',
+        isActive: false,
+      };
+      prisma.complianceFramework.findFirst.mockResolvedValue(row);
+      const out = await service.setClientFrameworkActive('c1', 'fw-1', false);
+      expect(out).toBe(row);
+      expect(prisma.complianceFramework.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('activatePlatformFrameworkForClient', () => {
+    it('réactive une instance inactive sans recopier', async () => {
+      prisma.complianceFramework.findFirst
+        .mockResolvedValueOnce({
+          id: 'plat-1',
+          clientId: null,
+          name: 'ISO 27001',
+          version: '2022',
+          isActive: true,
+          archivedAt: null,
+          requirements: [{ code: 'A.1', title: 'T' }],
+        })
+        .mockResolvedValueOnce({
+          id: 'fw-client',
+          clientId: 'c1',
+          name: 'ISO 27001',
+          version: '2022',
+          isActive: false,
+        })
+        .mockResolvedValueOnce({
+          id: 'fw-client',
+          clientId: 'c1',
+          name: 'ISO 27001',
+          version: '2022',
+          isActive: false,
+        });
+      prisma.complianceFramework.update.mockResolvedValue({
+        id: 'fw-client',
+        clientId: 'c1',
+        name: 'ISO 27001',
+        version: '2022',
+        isActive: true,
+      });
+
+      const out = await service.activatePlatformFrameworkForClient(
+        'c1',
+        'plat-1',
+        { actorUserId: 'u1' },
+      );
+
+      expect(out.isActive).toBe(true);
+      expect(prisma.complianceFramework.update).toHaveBeenCalledWith({
+        where: { id: 'fw-client' },
+        data: { isActive: true },
+      });
     });
   });
 });

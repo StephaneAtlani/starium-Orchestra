@@ -24,6 +24,11 @@ export class PlatformCisoLibrariesController {
     @RequestMeta()
     meta: { ipAddress?: string; userAgent?: string; requestId?: string },
   ) {
-    return this.cisoImport.importLibraries(dto.paths, actorUserId, meta);
+    return this.cisoImport.importLibraries(
+      dto.paths,
+      actorUserId,
+      meta,
+      dto.locale,
+    );
   }
 }

@@ -3702,6 +3702,8 @@ model ComplianceFramework {
   archivedAt  DateTime?
   /// Prochaine échéance d'audit / recertification (cartes référentiels — instances client).
   nextAuditAt DateTime?
+  /// Chemin bibliothèque CISO Assistant (`backend/library/libraries/….yaml`) — dédoublonnage import plateforme.
+  sourceLibraryPath String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -3710,6 +3712,7 @@ model ComplianceFramework {
 
   @@index([clientId])
   @@index([clientId, isActive])
+  @@unique([sourceLibraryPath])
 }
 
 model ComplianceRequirement {

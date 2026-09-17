@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -19,6 +19,13 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Table,
   TableBody,
   TableCell,
@@ -27,8 +34,22 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
-import { displayLabel } from '@/lib/display-label';
+import { displayLabel, firstDisplayLabel } from '@/lib/display-label';
 import { toast } from '@/lib/toast';
+
+const LOCALE_LABELS: Record<string, string> = {
+  fr: 'Français',
+  en: 'English',
+  de: 'Deutsch',
+  es: 'Español',
+  it: 'Italiano',
+  nl: 'Nederlands',
+  pt: 'Português',
+};
+
+function localeDisplayLabel(code: string): string {
+  return LOCALE_LABELS[code] ?? code.toUpperCase();
+}
 
 type PlatformFrameworkRow = {
   id: string;
@@ -61,6 +82,21 @@ type CisoLibraryItem = {
   updatedAt: string | null;
   isNew: boolean;
 };
+
+function localizedLibraryName(item: CisoLibraryItem, locale: string): string {
+  if (locale === item.locale) return item.name;
+  const tr = item.translations.find((t) => t.locale === locale);
+  return firstDisplayLabel([tr?.name, item.name], item.name);
+}
+
+function localizedLibraryDescription(
+  item: CisoLibraryItem,
+  locale: string,
+): string | null {
+  if (locale === item.locale) return item.description;
+  const tr = item.translations.find((t) => t.locale === locale);
+  return tr?.description ?? item.description;
+}
 
 type ImportResult = {
   imported: number;
@@ -111,7 +147,9 @@ export default function AdminComplianceFrameworksPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [importSearch, setImportSearch] = useState('');
+  const [importLocale, setImportLocale] = useState('fr');
   const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set());
+  const importSelectionSeededRef = useRef(false);
   const [name, setName] = useState('');
   const [version, setVersion] = useState('');
 
@@ -144,12 +182,33 @@ export default function AdminComplianceFrameworksPage() {
     staleTime: 5 * 60 * 1000,
   });
 
+  /** Pré-coche les bibliothèques déjà présentes dans le catalogue plateforme. */
+  useEffect(() => {
+    if (!importOpen) {
+      importSelectionSeededRef.current = false;
+      return;
+    }
+    if (!cisoListQuery.data || importSelectionSeededRef.current) return;
+    importSelectionSeededRef.current = true;
+    setSelectedPaths(
+      new Set(
+        cisoListQuery.data
+          .filter((item) => item.alreadyImported)
+          .map((item) => item.path),
+      ),
+    );
+  }, [importOpen, cisoListQuery.data]);
+
   const filteredLibraries = useMemo(() => {
     const items = cisoListQuery.data ?? [];
     const q = importSearch.trim().toLowerCase();
     if (!q) return items;
     return items.filter((item) => {
+      const localizedName = localizedLibraryName(item, importLocale);
+      const localizedDesc = localizedLibraryDescription(item, importLocale);
       const hay = [
+        localizedName,
+        localizedDesc,
         item.name,
         item.fileName,
         item.refId,
@@ -157,13 +216,46 @@ export default function AdminComplianceFrameworksPage() {
         item.description,
         item.locale,
         ...(item.languages ?? []),
+        ...item.translations.map((t) => t.name),
       ]
         .filter(Boolean)
         .join(' ')
         .toLowerCase();
       return hay.includes(q);
     });
-  }, [cisoListQuery.data, importSearch]);
+  }, [cisoListQuery.data, importSearch, importLocale]);
+
+  const availableImportLocales = useMemo(() => {
+    const set = new Set<string>();
+    for (const item of cisoListQuery.data ?? []) {
+      for (const lang of item.languages) set.add(lang);
+    }
+    if (set.size === 0) {
+      set.add('fr');
+      set.add('en');
+    } else if (!set.has('fr')) {
+      // Toujours proposer le français en tête même s’il n’est pas partout.
+      set.add('fr');
+    }
+    return [...set].sort((a, b) => {
+      if (a === 'fr') return -1;
+      if (b === 'fr') return 1;
+      return a.localeCompare(b, 'fr');
+    });
+  }, [cisoListQuery.data]);
+
+  const alreadyImportedPaths = useMemo(() => {
+    return new Set(
+      (cisoListQuery.data ?? [])
+        .filter((item) => item.alreadyImported)
+        .map((item) => item.path),
+    );
+  }, [cisoListQuery.data]);
+
+  /** Chemins sélectionnés encore à importer (hors déjà présents au catalogue). */
+  const importableSelectedPaths = useMemo(() => {
+    return [...selectedPaths].filter((path) => !alreadyImportedPaths.has(path));
+  }, [selectedPaths, alreadyImportedPaths]);
 
   const createMut = useMutation({
     mutationFn: async () => {
@@ -196,7 +288,7 @@ export default function AdminComplianceFrameworksPage() {
       const res = await authFetch('/api/platform/compliance/ciso-libraries/import', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ paths }),
+        body: JSON.stringify({ paths, locale: importLocale }),
       });
       if (!res.ok) throw new Error(await parseError(res));
       return res.json() as Promise<ImportResult>;
@@ -276,6 +368,10 @@ export default function AdminComplianceFrameworksPage() {
     setSelectedPaths((prev) => {
       const next = new Set(prev);
       for (const item of filteredLibraries) {
+        if (item.alreadyImported) {
+          next.add(item.path);
+          continue;
+        }
         if (selectAll) next.add(item.path);
         else next.delete(item.path);
       }
@@ -293,6 +389,8 @@ export default function AdminComplianceFrameworksPage() {
 
   const items = listQuery.data ?? [];
   const selectedCount = selectedPaths.size;
+  const importableCount = importableSelectedPaths.length;
+  const alreadySelectedCount = selectedCount - importableCount;
 
   return (
     <PageContainer>
@@ -511,7 +609,9 @@ export default function AdminComplianceFrameworksPage() {
         title="Importer depuis CISO Assistant"
         description="Bibliothèques community (clone local). Métadonnées YAML + langues + badge Nouveau."
         icon={Download}
-        size="xl"
+        size="full"
+        contentClassName="flex h-[min(90dvh,calc(100dvh-2rem))] max-h-[min(90dvh,calc(100dvh-2rem))] flex-col sm:max-w-4xl"
+        bodyClassName="flex min-h-0 flex-1 flex-col overflow-hidden px-5 py-5"
         footer={
           <>
             <Button
@@ -525,27 +625,51 @@ export default function AdminComplianceFrameworksPage() {
             <Button
               type="button"
               className="min-h-11 sm:min-h-9"
-              disabled={selectedCount === 0 || importMut.isPending}
-              onClick={() => importMut.mutate([...selectedPaths])}
+              disabled={importableCount === 0 || importMut.isPending}
+              onClick={() => importMut.mutate(importableSelectedPaths)}
             >
               {importMut.isPending
                 ? 'Import…'
-                : `Importer${selectedCount > 0 ? ` (${selectedCount})` : ''}`}
+                : `Importer${importableCount > 0 ? ` (${importableCount})` : ''}`}
             </Button>
           </>
         }
       >
-        <div className="starium-form space-y-4">
-          <div className="starium-form-field">
-            <Label htmlFor="ciso-search">Rechercher</Label>
-            <Input
-              id="ciso-search"
-              value={importSearch}
-              onChange={(e) => setImportSearch(e.target.value)}
-              placeholder="iso27001, nis2, rgpd…"
-              className="min-h-11"
-              autoComplete="off"
-            />
+        <div className="starium-form flex min-h-0 flex-1 flex-col gap-4">
+          <div className="grid shrink-0 gap-4 sm:grid-cols-2">
+            <div className="starium-form-field">
+              <Label htmlFor="ciso-locale">Langue d’affichage / import</Label>
+              <Select
+                value={importLocale}
+                onValueChange={(v) => setImportLocale(v ?? 'fr')}
+              >
+                <SelectTrigger id="ciso-locale" className="min-h-11 w-full">
+                  <SelectValue>{localeDisplayLabel(importLocale)}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {availableImportLocales.map((code) => (
+                    <SelectItem key={code} value={code}>
+                      {localeDisplayLabel(code)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Libellés affichés et contenu matérialisé à l’import (noms,
+                descriptions, exigences).
+              </p>
+            </div>
+            <div className="starium-form-field">
+              <Label htmlFor="ciso-search">Rechercher</Label>
+              <Input
+                id="ciso-search"
+                value={importSearch}
+                onChange={(e) => setImportSearch(e.target.value)}
+                placeholder="iso27001, nis2, rgpd…"
+                className="min-h-11"
+                autoComplete="off"
+              />
+            </div>
           </div>
 
           {cisoListQuery.isLoading ? (
@@ -570,11 +694,16 @@ export default function AdminComplianceFrameworksPage() {
             />
           ) : (
             <>
-              <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+              <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 text-sm">
                 <p className="text-muted-foreground" aria-live="polite">
                   {filteredLibraries.length} bibliothèque
                   {filteredLibraries.length > 1 ? 's' : ''}
-                  {selectedCount > 0 ? ` · ${selectedCount} sélectionnée(s)` : ''}
+                  {importableCount > 0
+                    ? ` · ${importableCount} à importer`
+                    : ''}
+                  {alreadySelectedCount > 0
+                    ? ` · ${alreadySelectedCount} déjà importée${alreadySelectedCount > 1 ? 's' : ''}`
+                    : ''}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   <Button
@@ -599,13 +728,18 @@ export default function AdminComplianceFrameworksPage() {
               </div>
 
               <ul
-                className="max-h-[min(50vh,28rem)] space-y-1 overflow-y-auto rounded-lg border border-border/70 p-2"
+                className="min-h-0 flex-1 space-y-1 overflow-y-auto rounded-lg border border-border/70 p-2"
                 role="list"
                 aria-label="Bibliothèques CISO Assistant"
               >
                 {filteredLibraries.map((item) => {
                   const checked = selectedPaths.has(item.path);
                   const checkboxId = `ciso-${item.fileName}`;
+                  const displayName = localizedLibraryName(item, importLocale);
+                  const displayDescription = localizedLibraryDescription(
+                    item,
+                    importLocale,
+                  );
                   const updatedLabel = formatLibraryUpdatedAt(item.updatedAt);
                   const publicationLabel = formatLibraryUpdatedAt(
                     item.publicationDate,
@@ -621,9 +755,6 @@ export default function AdminComplianceFrameworksPage() {
                     item.locale ? `locale ${item.locale}` : null,
                     publicationLabel ? `publié ${publicationLabel}` : null,
                     updatedLabel ? `MAJ ${updatedLabel}` : null,
-                    item.alreadyImported
-                      ? 'déjà dans le catalogue (approx.)'
-                      : null,
                   ].filter(Boolean);
                   return (
                     <li key={item.path}>
@@ -631,22 +762,38 @@ export default function AdminComplianceFrameworksPage() {
                         className={cn(
                           'flex min-h-11 items-start gap-3 rounded-md px-2 py-2 hover:bg-muted/50',
                           checked && 'bg-muted/40',
+                          item.alreadyImported && 'opacity-90',
                         )}
                       >
                         <Checkbox
                           id={checkboxId}
                           checked={checked}
-                          onCheckedChange={(v) => togglePath(item.path, v)}
+                          disabled={item.alreadyImported}
+                          onCheckedChange={(v) => {
+                            if (item.alreadyImported) return;
+                            togglePath(item.path, v);
+                          }}
                           className="mt-1 size-5"
-                          aria-label={`Sélectionner ${item.name}`}
+                          aria-label={
+                            item.alreadyImported
+                              ? `${displayName} (déjà importé)`
+                              : `Sélectionner ${displayName}`
+                          }
                         />
                         <button
                           type="button"
-                          className="min-w-0 flex-1 cursor-pointer space-y-1.5 text-left"
-                          onClick={() => togglePath(item.path, !checked)}
+                          className="min-w-0 flex-1 cursor-pointer space-y-1.5 text-left disabled:cursor-default"
+                          disabled={item.alreadyImported}
+                          onClick={() => {
+                            if (item.alreadyImported) return;
+                            togglePath(item.path, !checked);
+                          }}
                         >
                           <span className="flex min-w-0 flex-wrap items-center gap-2">
-                            <span className="truncate font-medium">{item.name}</span>
+                            <span className="truncate font-medium">{displayName}</span>
+                            {item.alreadyImported ? (
+                              <Badge variant="secondary">Importé</Badge>
+                            ) : null}
                             {item.isNew ? (
                               <Badge
                                 variant="secondary"
@@ -656,9 +803,9 @@ export default function AdminComplianceFrameworksPage() {
                               </Badge>
                             ) : null}
                           </span>
-                          {item.description ? (
+                          {displayDescription ? (
                             <span className="line-clamp-2 text-xs text-muted-foreground">
-                              {item.description}
+                              {displayDescription}
                             </span>
                           ) : null}
                           {item.languages.length > 0 ? (
