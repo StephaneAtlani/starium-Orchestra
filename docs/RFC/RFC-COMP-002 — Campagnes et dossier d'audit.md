@@ -1,7 +1,7 @@
 # RFC-COMP-002 — Campagnes et dossier d’audit (V2)
 
 Version : 0.1 — 17 septembre 2026  
-**Statut** : 🚧 V2.5 — campagnes, import/export ZIP, NA, contributions, preuves versionnées (reste : écarts dédiés, rappels)
+**Statut** : 🚧 V2.6 — campagnes, import/export, NA, contributions, preuves versionnées, écarts (reste : rappels)
 **UX cible (mock)** : [RFC-COMP-003](./RFC-COMP-003%20—%20CDC%20Conformité%20(fidélité%20mock).md) — revue / remédiation / détail référentiel  
 **Spécification détaillée** : sections 5–17 de [RFC-COMP-001](./RFC-COMP-001%20—%20Pilotage%20de%20la%20conformité.md) (campagnes, contributions, preuves versionnées, instantanés, imports évaluations, rappels)
 
