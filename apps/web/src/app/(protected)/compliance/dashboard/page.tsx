@@ -65,6 +65,12 @@ export default function ComplianceDashboardPage() {
               >
                 Référentiels
               </Link>
+              <Link
+                href="/compliance/contributions"
+                className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
+              >
+                Mes contributions
+              </Link>
               <Button
                 type="button"
                 variant="outline"

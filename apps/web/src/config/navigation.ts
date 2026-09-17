@@ -182,6 +182,26 @@ export const navigation: NavigationSection[] = [
         moduleCode: 'compliance',
         requiredPermissions: ['compliance.read'],
         allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
+        children: [
+          {
+            label: 'Dashboard',
+            href: '/compliance/dashboard',
+            scope: 'client',
+            requiredPermissions: ['compliance.read'],
+          },
+          {
+            label: 'Référentiels',
+            href: '/compliance/frameworks',
+            scope: 'client',
+            requiredPermissions: ['compliance.read'],
+          },
+          {
+            label: 'Mes contributions',
+            href: '/compliance/contributions',
+            scope: 'client',
+            requiredPermissions: ['compliance.read'],
+          },
+        ],
       },
     ],
   },
