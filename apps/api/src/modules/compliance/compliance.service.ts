@@ -946,7 +946,7 @@ export class ComplianceService {
   // --- Catalogue plateforme (clientId null) ---
 
   async listPlatformFrameworks(includeArchived = false) {
-    return this.prisma.complianceFramework.findMany({
+    const rows = await this.prisma.complianceFramework.findMany({
       where: {
         clientId: null,
         ...(includeArchived ? {} : { archivedAt: null }),
@@ -956,6 +956,14 @@ export class ComplianceService {
       },
       orderBy: [{ name: 'asc' }, { version: 'asc' }],
     });
+    return rows.map((r) => ({
+      ...r,
+      familyLabel: deriveComplianceFamilyLabel({
+        name: r.name,
+        provider: r.provider,
+        sourceLibraryPath: r.sourceLibraryPath,
+      }),
+    }));
   }
 
   async getPlatformFramework(id: string) {

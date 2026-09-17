@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Download, Plus, Scale } from 'lucide-react';
+import { Download, Plus, Scale, Sparkles } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { PageContainer } from '@/components/layout/page-container';
@@ -55,6 +55,9 @@ type PlatformFrameworkRow = {
   id: string;
   name: string;
   version: string;
+  description: string | null;
+  provider: string | null;
+  familyLabel: string;
   isActive: boolean;
   archivedAt: string | null;
   _count: { requirements: number };
@@ -146,6 +149,7 @@ export default function AdminComplianceFrameworksPage() {
   const [includeArchived, setIncludeArchived] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [backfillOpen, setBackfillOpen] = useState(false);
   const [importSearch, setImportSearch] = useState('');
   const [importLocale, setImportLocale] = useState('fr');
   const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set());
@@ -353,6 +357,45 @@ export default function AdminComplianceFrameworksPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const backfillMut = useMutation({
+    mutationFn: async () => {
+      const res = await authFetch(
+        '/api/platform/compliance/frameworks/backfill-catalog-meta',
+        { method: 'POST' },
+      );
+      if (!res.ok) throw new Error(await parseError(res));
+      return res.json() as Promise<{
+        scanned: number;
+        updated: number;
+        clientInstancesUpdated: number;
+        skippedMissingFile: number;
+        skippedNoPath: number;
+        skippedComplete: number;
+      }>;
+    },
+    onSuccess: async (data) => {
+      setBackfillOpen(false);
+      if (data.updated === 0) {
+        toast.success(
+          data.skippedComplete === data.scanned
+            ? 'Tous les résumés sont déjà complets'
+            : `Aucun résumé complété (${data.scanned} scanné(s))`,
+        );
+      } else {
+        toast.success(
+          `${data.updated} référentiel(s) complété(s)` +
+            (data.clientInstancesUpdated > 0
+              ? ` · ${data.clientInstancesUpdated} instance(s) client`
+              : ''),
+        );
+      }
+      await queryClient.invalidateQueries({
+        queryKey: ['platform', 'compliance-frameworks'],
+      });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   function togglePath(path: string, checked: boolean) {
     setSelectedPaths((prev) => {
       const next = new Set(prev);
@@ -403,6 +446,16 @@ export default function AdminComplianceFrameworksPage() {
             >
               Retour admin
             </Link>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="min-h-11 sm:min-h-9"
+              onClick={() => setBackfillOpen(true)}
+            >
+              <Sparkles className="size-4" aria-hidden />
+              Compléter les résumés
+            </Button>
             <Button
               type="button"
               variant="outline"
@@ -479,6 +532,7 @@ export default function AdminComplianceFrameworksPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Famille</TableHead>
                 <TableHead>Nom</TableHead>
                 <TableHead>Version</TableHead>
                 <TableHead className="text-right tabular-nums">Exigences</TableHead>
@@ -489,16 +543,38 @@ export default function AdminComplianceFrameworksPage() {
             <TableBody>
               {items.map((row) => {
                 const archived = Boolean(row.archivedAt);
+                const desc = row.description?.trim();
                 return (
                   <TableRow key={row.id}>
-                    <TableCell className="max-w-[28rem] whitespace-normal font-medium">
+                    <TableCell>
+                      <Badge variant="secondary">
+                        {displayLabel(row.familyLabel, 'Référentiel')}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="max-w-[22rem] whitespace-normal">
                       <Link
                         href={`/admin/compliance-frameworks/${row.id}`}
                         title={row.name}
-                        className="line-clamp-2 break-words text-[color:var(--brand-gold-700)] underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                        className="line-clamp-2 break-words font-medium text-[color:var(--brand-gold-700)] underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
                       >
                         {row.name}
                       </Link>
+                      {row.provider ? (
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {row.provider}
+                        </p>
+                      ) : null}
+                      <p
+                        className={cn(
+                          'mt-0.5 line-clamp-1 text-xs',
+                          desc
+                            ? 'text-muted-foreground'
+                            : 'italic text-muted-foreground',
+                        )}
+                        title={desc || 'Aucun résumé de périmètre.'}
+                      >
+                        {desc || 'Aucun résumé de périmètre.'}
+                      </p>
                     </TableCell>
                     <TableCell className="text-muted-foreground">{row.version}</TableCell>
                     <TableCell className="text-right tabular-nums">
@@ -548,6 +624,40 @@ export default function AdminComplianceFrameworksPage() {
           </Table>
         </div>
       )}
+
+      <StariumModal
+        open={backfillOpen}
+        onOpenChange={setBackfillOpen}
+        title="Compléter les résumés"
+        description="Relit les YAML CISO déjà liés pour remplir description et provider manquants (sans écraser l’existant)."
+        icon={Sparkles}
+        size="md"
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setBackfillOpen(false)}
+              disabled={backfillMut.isPending}
+            >
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              disabled={backfillMut.isPending}
+              onClick={() => backfillMut.mutate()}
+            >
+              {backfillMut.isPending ? 'Complétion…' : 'Lancer'}
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-muted-foreground">
+          Les instances client du même nom et de la même version reçoivent aussi
+          les métadonnées si elles sont vides. Les cadres créés manuellement sans
+          source CISO sont ignorés.
+        </p>
+      </StariumModal>
 
       <StariumModal
         open={createOpen}

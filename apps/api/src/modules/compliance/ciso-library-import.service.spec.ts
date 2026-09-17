@@ -5,8 +5,10 @@ describe('CisoLibraryImportService', () => {
   const complianceFramework = {
     findMany: jest.fn(),
     findFirst: jest.fn(),
+    findUnique: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
+    updateMany: jest.fn(),
   };
   const complianceRequirement = {
     createMany: jest.fn(),
@@ -197,6 +199,8 @@ objects:
       name: 'Directive NIS 2',
       version: '3',
       sourceLibraryPath: 'backend/library/libraries/iso-test.yaml',
+      description: 'Déjà là',
+      provider: 'EU',
     });
 
     const result = await service.importLibraries([
@@ -205,6 +209,146 @@ objects:
     expect(result.skipped).toBe(1);
     expect(result.imported).toBe(0);
     expect(prisma.complianceFramework.create).not.toHaveBeenCalled();
+    expect(prisma.complianceFramework.update).not.toHaveBeenCalled();
+  });
+
+  it('complète description/provider si source déjà connue mais méta vide', async () => {
+    const yaml = `
+name: NIS EN
+version: "3"
+locale: en
+provider: EU
+description: EN scope
+translations:
+  fr:
+    name: Directive NIS 2
+    description: Périmètre art. 21
+objects:
+  framework:
+    name: NIS EN
+    version: "3"
+    description: EN fw
+    translations:
+      fr:
+        name: Directive NIS 2
+        description: Périmètre art. 21 FR
+    requirement_nodes:
+      - urn: urn:a:1
+        ref_id: A.1
+        name: Control
+        assessable: true
+`;
+    jest
+      .spyOn(
+        service as unknown as { readLibraryFile: (p: string) => Promise<string> },
+        'readLibraryFile',
+      )
+      .mockResolvedValue(yaml);
+
+    prisma.complianceFramework.findFirst.mockResolvedValueOnce({
+      id: 'fw-old',
+      name: 'Directive NIS 2',
+      version: '3',
+      sourceLibraryPath: 'backend/library/libraries/nis.yaml',
+      description: null,
+      provider: null,
+    });
+    prisma.complianceFramework.update.mockResolvedValue({ id: 'fw-old' });
+
+    const result = await service.importLibraries(
+      ['backend/library/libraries/nis.yaml'],
+      undefined,
+      undefined,
+      'fr',
+    );
+    expect(result.skipped).toBe(1);
+    expect(result.results[0]?.message).toMatch(/complétés/i);
+    expect(prisma.complianceFramework.update).toHaveBeenCalledWith({
+      where: { id: 'fw-old' },
+      data: expect.objectContaining({
+        description: 'Périmètre art. 21 FR',
+        provider: 'EU',
+      }),
+    });
+  });
+
+  it('backfillCatalogMeta met à jour les cadres incomplets et propage aux clients', async () => {
+    const yaml = `
+name: ISO
+version: "1"
+locale: fr
+provider: ISO
+description: Bibliothèque ISO
+objects:
+  framework:
+    name: ISO/IEC 27001
+    version: "2022"
+    description: SMSI
+    requirement_nodes:
+      - urn: urn:a:1
+        ref_id: A.1
+        name: Contrôle
+        assessable: true
+`;
+    jest
+      .spyOn(
+        service as unknown as { readLibraryFile: (p: string) => Promise<string> },
+        'readLibraryFile',
+      )
+      .mockResolvedValue(yaml);
+
+    prisma.complianceFramework.findMany.mockResolvedValue([
+      {
+        id: 'fw-p',
+        name: 'ISO/IEC 27001',
+        version: '2022',
+        description: null,
+        provider: null,
+        sourceLibraryPath: 'backend/library/libraries/iso.yaml',
+      },
+      {
+        id: 'fw-done',
+        name: 'Done',
+        version: '1',
+        description: 'ok',
+        provider: 'EU',
+        sourceLibraryPath: 'backend/library/libraries/done.yaml',
+      },
+      {
+        id: 'fw-nopath',
+        name: 'Manual',
+        version: '1',
+        description: null,
+        provider: null,
+        sourceLibraryPath: null,
+      },
+    ]);
+    prisma.complianceFramework.update.mockResolvedValue({ id: 'fw-p' });
+    prisma.complianceFramework.findUnique.mockResolvedValue({
+      description: 'SMSI',
+      provider: 'ISO',
+    });
+    prisma.complianceFramework.updateMany.mockResolvedValue({ count: 2 });
+
+    const out = await service.backfillCatalogMeta('admin-1', undefined, 'fr');
+
+    expect(out).toEqual({
+      scanned: 3,
+      updated: 1,
+      clientInstancesUpdated: 2,
+      skippedMissingFile: 0,
+      skippedNoPath: 1,
+      skippedComplete: 1,
+    });
+    expect(prisma.complianceFramework.update).toHaveBeenCalledWith({
+      where: { id: 'fw-p' },
+      data: {
+        description: 'SMSI',
+        provider: 'ISO',
+      },
+    });
+    expect(prisma.complianceFramework.updateMany).toHaveBeenCalled();
+    expect(auditLogs.createPlatform).toHaveBeenCalled();
   });
 
   it('skippe un fichier sans framework', async () => {

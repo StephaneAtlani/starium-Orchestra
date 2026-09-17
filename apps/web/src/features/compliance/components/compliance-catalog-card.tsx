@@ -40,9 +40,10 @@ export function ComplianceCatalogCard({
   clientActions,
 }: ComplianceCatalogCardProps) {
   const title = firstDisplayLabel([item.name], 'Référentiel');
-  const description =
-    item.description?.trim() ||
-    'Aucun résumé de périmètre.';
+  const hasDescription = Boolean(item.description?.trim());
+  const description = hasDescription
+    ? item.description!.trim()
+    : 'Aucun résumé de périmètre.';
   const counts = [
     `${item.requirementCount} exigence${item.requirementCount > 1 ? 's' : ''}`,
     item.domainCount > 0
@@ -59,9 +60,7 @@ export function ComplianceCatalogCard({
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <Badge variant="secondary">{item.familyLabel}</Badge>
             {item.provider ? (
-              <span className="text-xs text-muted-foreground">
-                {item.provider}
-              </span>
+              <Badge variant="outline">{item.provider}</Badge>
             ) : null}
             {item.isActive === false ? (
               <Badge variant="outline">Inactif</Badge>
@@ -71,24 +70,32 @@ export function ComplianceCatalogCard({
             {clientActions ? (
               <Link
                 href={`/compliance/frameworks/${item.id}`}
-                className="font-medium text-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                title={title}
+                className="line-clamp-2 break-words font-medium text-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {title}{' '}
                 <span className="text-muted-foreground">({item.version})</span>
               </Link>
             ) : (
-              <p className="font-medium">
+              <p className="line-clamp-2 break-words font-medium" title={title}>
                 {title}{' '}
                 <span className="text-muted-foreground">({item.version})</span>
               </p>
             )}
             <p
-              className="mt-1 line-clamp-2 text-sm text-muted-foreground"
+              className={cn(
+                'mt-1 line-clamp-2 text-sm',
+                hasDescription
+                  ? 'text-muted-foreground'
+                  : 'italic text-muted-foreground',
+              )}
               title={description}
             >
               {description}
             </p>
-            <p className="mt-1 text-sm text-muted-foreground">{counts}</p>
+            <p className="mt-1 text-sm tabular-nums text-muted-foreground">
+              {counts}
+            </p>
           </div>
         </div>
 
@@ -103,6 +110,11 @@ export function ComplianceCatalogCard({
               className="min-h-11 sm:min-h-9"
               disabled={catalogAction.pending}
               onClick={catalogAction.onActivate}
+              aria-label={
+                catalogAction.kind === 'reactivate'
+                  ? `Réactiver ${title}`
+                  : `Activer ${title}`
+              }
             >
               {catalogAction.kind === 'reactivate' ? 'Réactiver' : 'Activer'}
             </Button>
@@ -125,6 +137,11 @@ export function ComplianceCatalogCard({
                 className="min-h-11 sm:min-h-9"
                 disabled={clientActions.pending}
                 onClick={clientActions.onToggleActive}
+                aria-label={
+                  item.isActive
+                    ? `Désactiver ${title}`
+                    : `Réactiver ${title}`
+                }
               >
                 {item.isActive ? 'Désactiver' : 'Réactiver'}
               </Button>

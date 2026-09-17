@@ -92,6 +92,175 @@ export class CisoLibraryImportService {
     private readonly auditLogs: AuditLogsService,
   ) {}
 
+  /**
+   * Complète description / provider manquants sur les cadres plateforme
+   * ayant un `sourceLibraryPath` (imports historiques). Propage aux instances client
+   * du même name+version si leur méta est vide.
+   */
+  async backfillCatalogMeta(
+    actorUserId?: string,
+    meta?: PlatformAuditMeta,
+    preferredLocale: string | null = 'fr',
+  ): Promise<{
+    scanned: number;
+    updated: number;
+    clientInstancesUpdated: number;
+    skippedMissingFile: number;
+    skippedNoPath: number;
+    skippedComplete: number;
+  }> {
+    await this.ensureLocalRepo();
+    const locale = preferredLocale?.trim().toLowerCase() || 'fr';
+
+    const frameworks = await this.prisma.complianceFramework.findMany({
+      where: { clientId: null },
+      select: {
+        id: true,
+        name: true,
+        version: true,
+        description: true,
+        provider: true,
+        sourceLibraryPath: true,
+      },
+      orderBy: [{ name: 'asc' }, { version: 'asc' }],
+    });
+
+    let updated = 0;
+    let clientInstancesUpdated = 0;
+    let skippedMissingFile = 0;
+    let skippedNoPath = 0;
+    let skippedComplete = 0;
+    const updatedIds: string[] = [];
+
+    for (const fw of frameworks) {
+      if (!fw.sourceLibraryPath) {
+        skippedNoPath += 1;
+        continue;
+      }
+      if (fw.description?.trim() && fw.provider?.trim()) {
+        skippedComplete += 1;
+        continue;
+      }
+
+      let yamlText: string;
+      try {
+        yamlText = await this.readLibraryFile(fw.sourceLibraryPath);
+      } catch {
+        skippedMissingFile += 1;
+        continue;
+      }
+
+      const parsed = this.parseLibraryYaml(yamlText, locale);
+      if (!parsed.framework) {
+        skippedMissingFile += 1;
+        continue;
+      }
+
+      const description = parsed.framework.description;
+      const provider = parsed.provider;
+      const patched = await this.patchMissingCatalogMeta(fw, {
+        description,
+        provider,
+        sourceLibraryPath: fw.sourceLibraryPath,
+      });
+      if (!patched) {
+        skippedComplete += 1;
+        continue;
+      }
+
+      updated += 1;
+      updatedIds.push(fw.id);
+
+      const fresh = await this.prisma.complianceFramework.findUnique({
+        where: { id: fw.id },
+        select: { description: true, provider: true },
+      });
+      if (fresh?.description || fresh?.provider) {
+        const clientResult = await this.prisma.complianceFramework.updateMany({
+          where: {
+            clientId: { not: null },
+            name: fw.name,
+            version: fw.version,
+            OR: [
+              { description: null },
+              { description: '' },
+              { provider: null },
+              { provider: '' },
+            ],
+          },
+          data: {
+            ...(fresh.description ? { description: fresh.description } : {}),
+            ...(fresh.provider ? { provider: fresh.provider } : {}),
+          },
+        });
+        clientInstancesUpdated += clientResult.count;
+      }
+    }
+
+    if (updated > 0) {
+      await this.auditLogs.createPlatform({
+        userId: actorUserId,
+        action: COMPLIANCE_AUDIT_ACTION.FRAMEWORK_UPDATED,
+        resourceType: COMPLIANCE_AUDIT_RESOURCE_TYPE.COMPLIANCE_FRAMEWORK,
+        resourceId: updatedIds[0] ?? null,
+        newValue: {
+          source: 'ciso-catalog-meta-backfill',
+          updated,
+          clientInstancesUpdated,
+          frameworkIds: updatedIds.slice(0, 50),
+        },
+        ipAddress: meta?.ipAddress,
+        userAgent: meta?.userAgent,
+        requestId: meta?.requestId,
+      });
+    }
+
+    return {
+      scanned: frameworks.length,
+      updated,
+      clientInstancesUpdated,
+      skippedMissingFile,
+      skippedNoPath,
+      skippedComplete,
+    };
+  }
+
+  /** Remplit uniquement les champs méta absents ; retourne true si une écriture a eu lieu. */
+  private async patchMissingCatalogMeta(
+    existing: {
+      id: string;
+      sourceLibraryPath?: string | null;
+      description?: string | null;
+      provider?: string | null;
+    },
+    incoming: {
+      description: string | null;
+      provider: string | null;
+      sourceLibraryPath?: string | null;
+    },
+  ): Promise<boolean> {
+    const data: {
+      sourceLibraryPath?: string;
+      description?: string | null;
+      provider?: string | null;
+    } = {};
+    if (!existing.sourceLibraryPath && incoming.sourceLibraryPath) {
+      data.sourceLibraryPath = incoming.sourceLibraryPath;
+    }
+    if (!existing.description?.trim() && incoming.description?.trim()) {
+      data.description = incoming.description;
+    }
+    if (!existing.provider?.trim() && incoming.provider?.trim()) {
+      data.provider = incoming.provider;
+    }
+    if (Object.keys(data).length === 0) return false;
+    await this.prisma.complianceFramework.update({
+      where: { id: existing.id },
+      data,
+    });
+    return true;
+  }
+
   async listRemoteLibraries(): Promise<CisoLibraryListItem[]> {
     const remote = await this.fetchLocalCatalog();
     const existing = await this.prisma.complianceFramework.findMany({
@@ -183,12 +352,19 @@ export class CisoLibraryImportService {
           where: { clientId: null, sourceLibraryPath: repoPath },
         });
         if (existingByPath) {
+          const patched = await this.patchMissingCatalogMeta(existingByPath, {
+            description,
+            provider,
+            sourceLibraryPath: repoPath,
+          });
           results.push({
             path: repoPath,
             status: 'skipped',
             name: existingByPath.name,
             version: existingByPath.version,
-            message: 'Déjà présent dans le catalogue plateforme (même source CISO)',
+            message: patched
+              ? 'Déjà présent — résumé / provider complétés'
+              : 'Déjà présent dans le catalogue plateforme (même source CISO)',
           });
           continue;
         }
@@ -197,23 +373,19 @@ export class CisoLibraryImportService {
           where: { clientId: null, name, version },
         });
         if (existing) {
-          // Rattache le chemin source si import historique sans sourceLibraryPath.
-          if (!existing.sourceLibraryPath || !existing.description || !existing.provider) {
-            await this.prisma.complianceFramework.update({
-              where: { id: existing.id },
-              data: {
-                ...(existing.sourceLibraryPath ? {} : { sourceLibraryPath: repoPath }),
-                ...(existing.description ? {} : { description }),
-                ...(existing.provider ? {} : { provider }),
-              },
-            });
-          }
+          const patched = await this.patchMissingCatalogMeta(existing, {
+            description,
+            provider,
+            sourceLibraryPath: repoPath,
+          });
           results.push({
             path: repoPath,
             status: 'skipped',
             name,
             version,
-            message: 'Déjà présent dans le catalogue plateforme',
+            message: patched
+              ? 'Déjà présent — résumé / provider complétés'
+              : 'Déjà présent dans le catalogue plateforme',
           });
           continue;
         }

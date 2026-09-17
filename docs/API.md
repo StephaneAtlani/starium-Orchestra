@@ -2965,10 +2965,11 @@ Référence : [RFC-ADM-002](RFC/RFC-ADM-002%20%E2%80%94%20Catalogue%20r%C3%A9f%C
 
 ### Catalogue — `/api/platform/compliance/frameworks`
 
-- **GET /** — Liste catalogue ; query `includeArchived=true|1`. Chaque item inclut `_count.requirements`.
+- **GET /** — Liste catalogue ; query `includeArchived=true|1`. Chaque item inclut `_count.requirements`, `description`, `provider`, `familyLabel`.
 - **GET /:id** — Détail + exigences ordonnées. **UI** : `/admin/compliance-frameworks/[id]` (clic nom / bouton Voir).
 - **POST /** — Création manuelle (`name`, `version`, `isActive?`, `nextAuditAt?`).
 - **PATCH /:id** — Mise à jour.
+- **POST /backfill-catalog-meta** — Complète `description` / `provider` manquants depuis le YAML CISO (`sourceLibraryPath`), locale `fr`. Propage aux instances client même `name`+`version` si méta vide. Réponse : `{ scanned, updated, clientInstancesUpdated, skippedMissingFile, skippedNoPath, skippedComplete }`. Audit `compliance.framework.updated`.
 - **POST /:id/archive** | **POST /:id/restore** — Archivage / restauration.
 - **POST /:id/requirements** — Ajout d’exigence catalogue (`code`, `title`, …).
 
@@ -2977,11 +2978,11 @@ Référence : [RFC-ADM-002](RFC/RFC-ADM-002%20%E2%80%94%20Catalogue%20r%C3%A9f%C
 Source : repo community [intuitem/ciso-assistant-community](https://github.com/intuitem/ciso-assistant-community/tree/main/backend/library/libraries) (`backend/library/libraries/*.yaml`).
 
 - **GET /** — Liste depuis un **clone sparse local** du repo CISO Assistant (`backend/library/libraries`, cache `apps/api/.cache/ciso-assistant-community` ou `CISO_ASSISTANT_CACHE_DIR`). Filtre hors `mapping*` / `workflow*` et hors libs sans `objects.framework`. Champs : `name`, `description`, `version`, `locale`, `refId`, `publicationDate`, `provider`, `languages[]`, `translations[]`, `updatedAt` (git), `isNew` (< 1 mois), `alreadyImported` (par `sourceLibraryPath` **ou** nom natif / toute traduction déjà présente au catalogue). Sync git TTL ~1 h ; liste en mémoire ~30 min.
-- **POST /import** — Body `{ paths: string[], locale?: string }` (1–30 chemins `backend/library/libraries/*.yaml` ; `locale` ex. `fr` / `en` pour matérialiser noms, descriptions et exigences). Skip si `sourceLibraryPath` déjà connu, ou même `name`+`version`, ou sans framework. Stocke `sourceLibraryPath`, `description`, `provider` à la création. Réponse : `{ imported, skipped, errors, results[] }`.
+- **POST /import** — Body `{ paths: string[], locale?: string }` (1–30 chemins `backend/library/libraries/*.yaml` ; `locale` ex. `fr` / `en` pour matérialiser noms, descriptions et exigences). Skip si `sourceLibraryPath` déjà connu, ou même `name`+`version`, ou sans framework — **complète** toutefois `description` / `provider` / `sourceLibraryPath` manquants. Stocke `sourceLibraryPath`, `description`, `provider` à la création. Réponse : `{ imported, skipped, errors, results[] }`.
 
 **Audit** : `createPlatform` sur chaque import réussi (`source: ciso-assistant-community`).
 
-**UI** : `/admin/compliance-frameworks` — bouton **Importer** (langue d’affichage/import, recherche, cases ; déjà importés cochés et non réimportables).
+**UI** : `/admin/compliance-frameworks` — **Importer**, **Compléter les résumés**, création manuelle.
 
 ### Activation côté client — `/api/compliance/frameworks/catalog`, `/activate`, `PATCH /:id`
 

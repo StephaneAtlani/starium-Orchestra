@@ -1,18 +1,42 @@
 'use client';
 
+import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
+import { EmptyState } from '@/components/feedback/empty-state';
+import { ErrorState } from '@/components/feedback/error-state';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
 import {
   listComplianceFrameworkCatalog,
   listComplianceFrameworks,
+  type ComplianceCatalogItemApi,
 } from '@/features/compliance/api/compliance.api';
 import { ComplianceCatalogCard } from '@/features/compliance/components/compliance-catalog-card';
 import { toast } from '@/lib/toast';
+
+function groupByFamily(
+  items: ComplianceCatalogItemApi[],
+): Array<{ family: string; items: ComplianceCatalogItemApi[] }> {
+  const map = new Map<string, ComplianceCatalogItemApi[]>();
+  for (const item of items) {
+    const family = item.familyLabel || 'Référentiel';
+    const list = map.get(family) ?? [];
+    list.push(item);
+    map.set(family, list);
+  }
+  return [...map.entries()]
+    .map(([family, groupItems]) => ({
+      family,
+      items: groupItems.sort((a, b) =>
+        a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' }),
+      ),
+    }))
+    .sort((a, b) => a.family.localeCompare(b.family, 'fr'));
+}
 
 export default function ComplianceFrameworksPage() {
   const authFetch = useAuthenticatedFetch();
@@ -32,10 +56,18 @@ export default function ComplianceFrameworksPage() {
     enabled: !!clientId,
   });
 
+  const catalogGroups = useMemo(
+    () => groupByFamily(catalogQuery.data ?? []),
+    [catalogQuery.data],
+  );
+
   const invalidateFrameworkQueries = async () => {
     await Promise.all([
       queryClient.invalidateQueries({
         queryKey: ['compliance', 'frameworks', clientId],
+      }),
+      queryClient.invalidateQueries({
+        queryKey: ['compliance', 'frameworks-catalog', clientId],
       }),
       queryClient.invalidateQueries({
         queryKey: ['compliance', clientId, 'frameworks-summary'],
@@ -114,7 +146,7 @@ export default function ComplianceFrameworksPage() {
       <PageContainer className="flex flex-col gap-6">
         <PageHeader
           title="Référentiels"
-          description="Cadres activés pour le client courant — proposés depuis le catalogue plateforme."
+          description="Comparez périmètre et volume avant d’activer un cadre pour le client courant."
         />
 
         <section aria-labelledby="catalog-title" className="space-y-3">
@@ -122,41 +154,60 @@ export default function ComplianceFrameworksPage() {
             Proposés par la plateforme
           </h2>
           {catalogQuery.isLoading ? (
-            <LoadingState rows={2} />
+            <LoadingState rows={3} />
+          ) : catalogQuery.isError ? (
+            <ErrorState
+              message={
+                catalogQuery.error instanceof Error
+                  ? catalogQuery.error.message
+                  : 'Impossible de charger le catalogue.'
+              }
+              onRetry={() => void catalogQuery.refetch()}
+            />
+          ) : (catalogQuery.data ?? []).length === 0 ? (
+            <EmptyState
+              title="Aucun référentiel proposé"
+              description="Le catalogue plateforme est vide. Un administrateur doit importer des cadres CISO."
+            />
           ) : (
-            <div className="space-y-2">
-              {(catalogQuery.data ?? []).map((item) => {
-                const key = `${item.name}::${item.version}`;
-                const already = activatedKeys.has(key);
-                const inactive = inactiveByKey.get(key);
-                return (
-                  <ComplianceCatalogCard
-                    key={item.id}
-                    item={item}
-                    catalogAction={
-                      already
-                        ? { kind: 'activated' }
-                        : {
-                            kind: inactive ? 'reactivate' : 'activate',
-                            pending:
-                              activateMut.isPending || setActiveMut.isPending,
-                            onActivate: () =>
-                              inactive
-                                ? setActiveMut.mutate({
-                                    id: inactive.id,
-                                    isActive: true,
-                                  })
-                                : activateMut.mutate(item.id),
+            <div className="space-y-6">
+              {catalogGroups.map((group) => (
+                <div key={group.family} className="space-y-2">
+                  <h3 className="starium-overline text-muted-foreground">
+                    {group.family}
+                  </h3>
+                  <div className="space-y-2">
+                    {group.items.map((item) => {
+                      const key = `${item.name}::${item.version}`;
+                      const already = activatedKeys.has(key);
+                      const inactive = inactiveByKey.get(key);
+                      return (
+                        <ComplianceCatalogCard
+                          key={item.id}
+                          item={item}
+                          catalogAction={
+                            already
+                              ? { kind: 'activated' }
+                              : {
+                                  kind: inactive ? 'reactivate' : 'activate',
+                                  pending:
+                                    activateMut.isPending ||
+                                    setActiveMut.isPending,
+                                  onActivate: () =>
+                                    inactive
+                                      ? setActiveMut.mutate({
+                                          id: inactive.id,
+                                          isActive: true,
+                                        })
+                                      : activateMut.mutate(item.id),
+                                }
                           }
-                    }
-                  />
-                );
-              })}
-              {(catalogQuery.data ?? []).length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  Aucun référentiel proposé pour le moment.
-                </p>
-              ) : null}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </section>
@@ -167,6 +218,20 @@ export default function ComplianceFrameworksPage() {
           </h2>
           {q.isLoading ? (
             <LoadingState rows={4} />
+          ) : q.isError ? (
+            <ErrorState
+              message={
+                q.error instanceof Error
+                  ? q.error.message
+                  : 'Impossible de charger les référentiels actifs.'
+              }
+              onRetry={() => void q.refetch()}
+            />
+          ) : (q.data ?? []).length === 0 ? (
+            <EmptyState
+              title="Aucun référentiel activé"
+              description="Activez un cadre depuis le catalogue ci-dessus pour démarrer le suivi."
+            />
           ) : (
             <div className="space-y-2">
               {(q.data ?? []).map((f) => (
@@ -183,11 +248,6 @@ export default function ComplianceFrameworksPage() {
                   }}
                 />
               ))}
-              {q.data?.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  Aucun référentiel activé — utilisez le catalogue ci-dessus.
-                </p>
-              ) : null}
             </div>
           )}
         </section>

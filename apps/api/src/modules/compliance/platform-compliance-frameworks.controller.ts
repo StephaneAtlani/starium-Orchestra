@@ -13,6 +13,7 @@ import { PlatformAdminGuard } from '../../common/guards/platform-admin.guard';
 import { RequestUserId } from '../../common/decorators/request-user.decorator';
 import { RequestMeta } from '../../common/decorators/request-meta.decorator';
 import { ComplianceService } from './compliance.service';
+import { CisoLibraryImportService } from './ciso-library-import.service';
 import { CreateComplianceFrameworkDto } from './dto/create-compliance-framework.dto';
 import { UpdateComplianceFrameworkDto } from './dto/update-compliance-framework.dto';
 import { CreateComplianceRequirementDto } from './dto/create-compliance-requirement.dto';
@@ -20,13 +21,29 @@ import { CreateComplianceRequirementDto } from './dto/create-compliance-requirem
 @Controller('platform/compliance/frameworks')
 @UseGuards(JwtAuthGuard, PlatformAdminGuard)
 export class PlatformComplianceFrameworksController {
-  constructor(private readonly compliance: ComplianceService) {}
+  constructor(
+    private readonly compliance: ComplianceService,
+    private readonly cisoImport: CisoLibraryImportService,
+  ) {}
 
   @Get()
   list(@Query('includeArchived') includeArchived?: string) {
     return this.compliance.listPlatformFrameworks(
       includeArchived === 'true' || includeArchived === '1',
     );
+  }
+
+  /**
+   * Complète description / provider depuis les YAML CISO (imports historiques).
+   * Route statique avant `GET :id`.
+   */
+  @Post('backfill-catalog-meta')
+  backfillCatalogMeta(
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta()
+    meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    return this.cisoImport.backfillCatalogMeta(actorUserId, meta, 'fr');
   }
 
   @Get(':id')
