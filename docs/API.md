@@ -3033,6 +3033,11 @@ Guards métier client (`X-Client-Id`, module `compliance`).
 - **POST /api/compliance/gaps** — Body `{ requirementId, title, finding, criticality?, ownerUserId?, dueAt?, businessImpact?, projectRiskId? }`. Permission **`compliance.update`**. Audit `compliance.gap.created`.
 - **PATCH /api/compliance/gaps/:id** — Mise à jour / transitions. Clôture (`CLOSED`) exige `verificationNote` ; annulation (`CANCELLED`) exige `cancelReason`. Permission **`compliance.update`**. Audit `compliance.gap.updated`.
 
+#### Rappels
+
+- **POST /api/compliance/reminders/process** — Exécute les rappels du **client actif** (idempotent via `ComplianceReminderLog`). Couvre contributions / écarts ouverts avec `dueAt`, et revues `OPEN` (échéance = ouverture + `reviewFrequencyMonths`). Occurrences : **J-7**, **jour J**, **hebdo après échéance**. Notifications internes (`WARNING`). Permission **`compliance.update`**.
+- Cron API (désactivable `COMPLIANCE_REMINDERS_ENABLED=false`) : défaut `15 7 * * *` Europe/Paris (`COMPLIANCE_REMINDERS_CRON` / `COMPLIANCE_REMINDERS_TZ`).
+
 ### Évaluation opérationnelle (RFC-COMP-001-A) — `/api/compliance`
 
 Guards métier client (`X-Client-Id`, module `compliance`). Isolation : toute lecture / écriture filtrée sur le client actif.

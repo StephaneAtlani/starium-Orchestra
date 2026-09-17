@@ -21,6 +21,7 @@ import { RequestUserId } from '../../common/decorators/request-user.decorator';
 import { RequestMeta } from '../../common/decorators/request-meta.decorator';
 import type { AuditContext } from '../budget-management/types/audit-context';
 import { ComplianceService } from './compliance.service';
+import { ComplianceRemindersService } from './compliance-reminders.service';
 import { CreateComplianceFrameworkDto } from './dto/create-compliance-framework.dto';
 import { CreateComplianceRequirementDto } from './dto/create-compliance-requirement.dto';
 import { CreateComplianceEvidenceDto } from './dto/create-compliance-evidence.dto';
@@ -57,7 +58,10 @@ import {
 @Controller('compliance')
 @UseGuards(JwtAuthGuard, ActiveClientGuard, ModuleAccessGuard, PermissionsGuard)
 export class ComplianceController {
-  constructor(private readonly compliance: ComplianceService) {}
+  constructor(
+    private readonly compliance: ComplianceService,
+    private readonly reminders: ComplianceRemindersService,
+  ) {}
 
   /** COMP.V2 — campagnes / revues. */
   @Get('campaigns')
@@ -513,6 +517,16 @@ export class ComplianceController {
   ) {
     const context: AuditContext = { actorUserId, meta };
     return this.compliance.patchGap(clientId!, id, dto, context);
+  }
+
+  /**
+   * Relance manuelle des rappels du client actif (idempotente).
+   * Utile en exploitation / tests — le cron quotidien reste la voie nominale.
+   */
+  @Post('reminders/process')
+  @RequirePermissions('compliance.update')
+  processReminders(@ActiveClientId() clientId: string | undefined) {
+    return this.reminders.processClient(clientId!);
   }
 
   @Get('dashboard')

@@ -386,6 +386,7 @@ model Client {
   complianceNaRequests             ComplianceNaRequest[]
   complianceContributions          ComplianceContribution[]
   complianceGaps                   ComplianceGap[]
+  complianceReminderLogs           ComplianceReminderLog[]
   riskDomains                      RiskDomain[]
   riskTypes                        RiskType[]
   budgetDashboardConfigs           BudgetDashboardConfig[]
@@ -3962,6 +3963,22 @@ model ComplianceGap {
   @@index([clientId, status])
   @@index([clientId, requirementId])
   @@index([clientId, ownerUserId])
+}
+
+/// Déduplication des rappels conformité (J-7 / échéance / hebdo retard).
+model ComplianceReminderLog {
+  id            String   @id @default(cuid())
+  clientId      String
+  entityType    String
+  entityId      String
+  userId        String
+  occurrenceKey String
+  sentAt        DateTime @default(now())
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, entityType, entityId, userId, occurrenceKey])
+  @@index([clientId, sentAt])
 }
 
 /// Domaine de risque configurable (taxonomie client, 1 → N types).
