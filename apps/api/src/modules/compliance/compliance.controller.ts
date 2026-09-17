@@ -5,6 +5,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -96,6 +97,20 @@ export class ComplianceController {
     @Param('id') id: string,
   ) {
     return this.compliance.getRequirementDetail(clientId!, id);
+  }
+
+  /** Upsert du statut d’évaluation pour une exigence (création si absent). */
+  @Put('requirements/:id/status')
+  @RequirePermissions('compliance.update')
+  upsertRequirementStatus(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+    @Body() dto: PatchComplianceStatusDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.compliance.upsertStatusForRequirement(clientId!, id, dto, context);
   }
 
   @Post('requirements')

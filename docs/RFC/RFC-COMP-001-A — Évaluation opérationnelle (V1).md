@@ -1,7 +1,7 @@
 # RFC-COMP-001-A — Conformité : évaluation opérationnelle (V1)
 
 Version : 1.0 — 17 septembre 2026  
-**Statut** : 📝 Draft — à implémenter (priorité backlog P0)  
+**Statut** : ✅ Implémentée (MVP) — 2026-09-17  
 **RFC mère** : [RFC-COMP-001](./RFC-COMP-001%20—%20Pilotage%20de%20la%20conformité.md)  
 **Écarts** : [RFC-COMP-001-ecarts-mvp](./RFC-COMP-001-ecarts-mvp.md)  
 **Suite** : [RFC-COMP-002](./RFC-COMP-002%20—%20Campagnes%20et%20dossier%20d'audit.md)
@@ -42,9 +42,9 @@ Campagnes, versions immuables avancées, attendus multiples, contributions, vali
 ## 3. Hypothèses
 
 1. Une **exigence** MVP = unité évaluable COMP-001 (pas de sous-attendus).  
-2. `PATCH /api/compliance/status/:id` et `POST /api/compliance/evidence` sont la vérité ; l’UI les branche.  
-3. Si le statut n’existe pas encore : **upsert** status (endpoint existant ou `PUT`/`POST` à confirmer en C0).  
-4. Preuve fichier GED = hors V1 (`fut-evidence-ged`).
+2. Vérité API : **`PUT /api/compliance/requirements/:id/status`** (upsert) + `PATCH /api/compliance/status/:id` + `POST /api/compliance/evidence`.  
+3. Preuve fichier GED = hors V1 (`fut-evidence-ged`) ; observation / URL en V1.  
+4. Lots **COMP.0–COMP.5** livrés (MVP).
 
 ---
 
@@ -65,12 +65,12 @@ Campagnes, versions immuables avancées, attendus multiples, contributions, vali
 
 | Lot | Livrable | Done when |
 | --- | --- | --- |
-| **COMP.0** | Inventaire C0 (endpoints status exacts, upsert, permissions) + glossaire UI figé | Note écarts validée, pas d’ambiguïté API |
-| **COMP.1** | Formulaire Évaluer dans modale + invalidation query liste/dashboard | AC : conforme sans justificatif **refusé** ; save → liste à jour |
-| **COMP.2** | Ajout preuve (URL / observation) depuis la modale | Preuve visible + compteur liste |
-| **COMP.3** | N/A + commentaire obligatoire ; signal « À réexaminer » si `nextReview` dépassée (champ ou `nextAuditAt` framework) | AC N/A sans motif refusé |
-| **COMP.4** | Lien / création risque depuis écart ; indicateurs `A/E/C` | KPI + pont risque OK |
-| **COMP.5** | Doc manuel + recettes AC sous-ensemble V1 | Manuel à jour |
+| **COMP.0** | Inventaire C0 + glossaire UI | ✅ |
+| **COMP.1** | Formulaire Évaluer + `PUT …/status` + règles | ✅ |
+| **COMP.2** | Preuve URL / observation depuis la modale | ✅ |
+| **COMP.3** | N/A + « À réexaminer » (12 mois) | ✅ |
+| **COMP.4** | CTA risque + KPI `A` / « Non calculable » | ✅ |
+| **COMP.5** | Manuel-70 + API.md + recettes | ✅ |
 
 ---
 

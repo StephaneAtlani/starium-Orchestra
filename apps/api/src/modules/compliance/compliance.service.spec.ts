@@ -1,5 +1,11 @@
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { ComplianceAssessmentStatus } from '@prisma/client';
-import { ComplianceService } from './compliance.service';
+import {
+  ComplianceService,
+  deriveComplianceEvidenceKind,
+  evidenceJustifiesCompliance,
+} from './compliance.service';
+import { ComplianceEvidenceKindDto } from './dto/create-compliance-evidence.dto';
 
 describe('ComplianceService', () => {
   let service: ComplianceService;
@@ -9,13 +15,228 @@ describe('ComplianceService', () => {
   beforeEach(() => {
     prisma = {
       complianceFramework: { findMany: jest.fn(), create: jest.fn() },
-      complianceRequirement: { findMany: jest.fn() },
-      complianceStatus: { findMany: jest.fn() },
-      complianceEvidence: { groupBy: jest.fn() },
+      complianceRequirement: { findMany: jest.fn(), findFirst: jest.fn() },
+      complianceStatus: {
+        findMany: jest.fn(),
+        findFirst: jest.fn(),
+        findUnique: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+      },
+      complianceEvidence: {
+        groupBy: jest.fn(),
+        findMany: jest.fn(),
+        create: jest.fn(),
+      },
       projectRisk: { count: jest.fn() },
     };
     auditLogs = { create: jest.fn().mockResolvedValue(undefined) };
     service = new ComplianceService(prisma, auditLogs);
+  });
+
+  describe('deriveComplianceEvidenceKind / evidenceJustifiesCompliance', () => {
+    it('dérive URL / FILE / OBSERVATION', () => {
+      expect(
+        deriveComplianceEvidenceKind({
+          url: 'https://x',
+          fileId: null,
+          description: null,
+        }),
+      ).toBe('URL');
+      expect(
+        deriveComplianceEvidenceKind({
+          url: null,
+          fileId: 'f1',
+          description: null,
+        }),
+      ).toBe('FILE');
+      expect(
+        deriveComplianceEvidenceKind({
+          url: null,
+          fileId: null,
+          description: 'vu sur site',
+        }),
+      ).toBe('OBSERVATION');
+    });
+
+    it('justifie conforme avec observation seule', () => {
+      expect(
+        evidenceJustifiesCompliance({
+          url: null,
+          fileId: null,
+          description: 'constat',
+        }),
+      ).toBe(true);
+      expect(
+        evidenceJustifiesCompliance({
+          url: null,
+          fileId: null,
+          description: '  ',
+        }),
+      ).toBe(false);
+    });
+  });
+
+  describe('assertEvaluationTransition / upsertStatusForRequirement', () => {
+    it('A-04 refuse N/A sans commentaire', async () => {
+      await expect(
+        service.assertEvaluationTransition('c1', 'req-1', {
+          status: ComplianceAssessmentStatus.NOT_APPLICABLE,
+          comment: '  ',
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('A-02 refuse conforme sans preuve', async () => {
+      prisma.complianceEvidence.findMany.mockResolvedValue([]);
+      await expect(
+        service.assertEvaluationTransition('c1', 'req-1', {
+          status: ComplianceAssessmentStatus.COMPLIANT,
+          comment: 'OK',
+        }),
+      ).rejects.toThrow(/preuve/);
+    });
+
+    it('A-01 accepte conforme avec commentaire + observation', async () => {
+      prisma.complianceEvidence.findMany.mockResolvedValue([
+        { url: null, fileId: null, description: 'Revue terrain' },
+      ]);
+      await expect(
+        service.assertEvaluationTransition('c1', 'req-1', {
+          status: ComplianceAssessmentStatus.COMPLIANT,
+          comment: 'Couverture complète',
+        }),
+      ).resolves.toBeUndefined();
+    });
+
+    it('A-05 refuse upsert si exigence hors client', async () => {
+      prisma.complianceRequirement.findFirst.mockResolvedValue(null);
+      await expect(
+        service.upsertStatusForRequirement('c1', 'req-x', {
+          status: ComplianceAssessmentStatus.NON_COMPLIANT,
+          comment: 'écart',
+        }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('crée le statut si absent (après règles)', async () => {
+      prisma.complianceRequirement.findFirst.mockResolvedValue({ id: 'req-1' });
+      prisma.complianceStatus.findUnique.mockResolvedValue(null);
+      prisma.complianceEvidence.findMany.mockResolvedValue([
+        { url: 'https://e', fileId: null, description: null },
+      ]);
+      prisma.complianceStatus.create.mockResolvedValue({
+        id: 'st-1',
+        status: ComplianceAssessmentStatus.COMPLIANT,
+        requirementId: 'req-1',
+      });
+
+      const row = await service.upsertStatusForRequirement('c1', 'req-1', {
+        status: ComplianceAssessmentStatus.COMPLIANT,
+        comment: 'Validé',
+      });
+
+      expect(row.id).toBe('st-1');
+      expect(prisma.complianceStatus.create).toHaveBeenCalled();
+      expect(auditLogs.create).toHaveBeenCalled();
+    });
+  });
+
+  describe('createEvidence', () => {
+    it('accepte une observation sans URL', async () => {
+      prisma.complianceRequirement.findFirst.mockResolvedValue({ id: 'req-1' });
+      prisma.complianceEvidence.create.mockResolvedValue({
+        id: 'ev-1',
+        requirementId: 'req-1',
+        name: 'Constat',
+        description: 'Vu en atelier',
+        url: null,
+        fileId: null,
+      });
+
+      const row = await service.createEvidence(
+        'c1',
+        {
+          requirementId: 'req-1',
+          name: 'Constat',
+          description: 'Vu en atelier',
+          kind: ComplianceEvidenceKindDto.OBSERVATION,
+        },
+        'u1',
+      );
+
+      expect(row.kind).toBe('OBSERVATION');
+      expect(prisma.complianceEvidence.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            description: 'Vu en atelier',
+            url: null,
+          }),
+        }),
+      );
+    });
+
+    it('refuse observation sans description', async () => {
+      await expect(
+        service.createEvidence(
+          'c1',
+          {
+            requirementId: 'req-1',
+            name: 'X',
+            kind: ComplianceEvidenceKindDto.OBSERVATION,
+          },
+          'u1',
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
+
+  describe('dashboard — dénominateur A', () => {
+    it('A-07 : A=0 ⇒ compliancePercent null', async () => {
+      prisma.complianceFramework.findMany.mockResolvedValue([{ id: 'fw-1' }]);
+      prisma.complianceRequirement.findMany.mockResolvedValue([
+        { id: 'r1' },
+        { id: 'r2' },
+      ]);
+      prisma.complianceStatus.findMany.mockResolvedValue([
+        { requirementId: 'r1', status: ComplianceAssessmentStatus.NOT_APPLICABLE },
+      ]);
+      prisma.complianceEvidence.groupBy.mockResolvedValue([]);
+      prisma.projectRisk.count.mockResolvedValue(0);
+
+      const dash = await service.dashboard('c1');
+
+      expect(dash.applicableCount).toBe(0);
+      expect(dash.notApplicableCount).toBe(1);
+      expect(dash.notAssessedRequirementCount).toBe(1);
+      expect(dash.compliancePercent).toBeNull();
+    });
+
+    it('calcule C/A (conformes / applicables)', async () => {
+      prisma.complianceFramework.findMany.mockResolvedValue([{ id: 'fw-1' }]);
+      prisma.complianceRequirement.findMany.mockResolvedValue(
+        Array.from({ length: 7 }, (_, i) => ({ id: `r${i + 1}` })),
+      );
+      prisma.complianceStatus.findMany.mockResolvedValue([
+        { requirementId: 'r1', status: ComplianceAssessmentStatus.COMPLIANT },
+        { requirementId: 'r2', status: ComplianceAssessmentStatus.COMPLIANT },
+        { requirementId: 'r3', status: ComplianceAssessmentStatus.NON_COMPLIANT },
+        { requirementId: 'r4', status: ComplianceAssessmentStatus.PARTIALLY_COMPLIANT },
+        { requirementId: 'r5', status: ComplianceAssessmentStatus.NOT_APPLICABLE },
+        { requirementId: 'r6', status: ComplianceAssessmentStatus.NOT_APPLICABLE },
+      ]);
+      prisma.complianceEvidence.groupBy.mockResolvedValue([]);
+      prisma.projectRisk.count.mockResolvedValue(0);
+
+      const dash = await service.dashboard('c1');
+
+      expect(dash.totalRequirementsActiveFrameworks).toBe(7);
+      expect(dash.notApplicableCount).toBe(2);
+      expect(dash.notAssessedRequirementCount).toBe(1);
+      expect(dash.applicableCount).toBe(4);
+      expect(dash.compliantCount).toBe(2);
+      expect(dash.compliancePercent).toBe(50);
+    });
   });
 
   describe('frameworksSummary', () => {
@@ -55,9 +276,7 @@ describe('ComplianceService', () => {
         { requirementId: 'r1', status: ComplianceAssessmentStatus.COMPLIANT },
         { requirementId: 'r2', status: ComplianceAssessmentStatus.COMPLIANT },
         { requirementId: 'r3', status: ComplianceAssessmentStatus.NON_COMPLIANT },
-        // N/A : exclu du dénominateur.
         { requirementId: 'r4', status: ComplianceAssessmentStatus.NOT_APPLICABLE },
-        // r5 sans statut : non évalué.
       ]);
 
       const [rgpd, dora] = await service.frameworksSummary('c1');

@@ -19,7 +19,7 @@ import {
 import { CreateComplianceFrameworkDto } from './dto/create-compliance-framework.dto';
 import { UpdateComplianceFrameworkDto } from './dto/update-compliance-framework.dto';
 import { CreateComplianceRequirementDto } from './dto/create-compliance-requirement.dto';
-import { CreateComplianceEvidenceDto } from './dto/create-compliance-evidence.dto';
+import { CreateComplianceEvidenceDto, ComplianceEvidenceKindDto } from './dto/create-compliance-evidence.dto';
 import { PatchComplianceStatusDto } from './dto/patch-compliance-status.dto';
 import { ListComplianceRequirementsQueryDto } from './dto/list-compliance-requirements.query.dto';
 import { ListComplianceStatusQueryDto } from './dto/list-compliance-status.query.dto';
@@ -29,6 +29,30 @@ type PlatformAuditMeta = {
   userAgent?: string;
   requestId?: string;
 };
+
+export type ComplianceEvidenceKind = 'URL' | 'OBSERVATION' | 'FILE';
+
+/** Dérive le kind d’une preuve stockée (pas de colonne Prisma en V1). */
+export function deriveComplianceEvidenceKind(row: {
+  url: string | null;
+  fileId: string | null;
+  description: string | null;
+}): ComplianceEvidenceKind {
+  if (row.url?.trim()) return 'URL';
+  if (row.fileId?.trim()) return 'FILE';
+  return 'OBSERVATION';
+}
+
+/** Une preuve justifie un conforme si URL, fichier, ou observation (description). */
+export function evidenceJustifiesCompliance(row: {
+  url: string | null;
+  fileId: string | null;
+  description: string | null;
+}): boolean {
+  return Boolean(
+    row.url?.trim() || row.fileId?.trim() || row.description?.trim(),
+  );
+}
 
 /** Avancement d'un référentiel — `GET /compliance/frameworks/summary`. */
 export interface ComplianceFrameworkSummary {
@@ -260,7 +284,10 @@ export class ComplianceService {
     return {
       requirement: req,
       status: status ?? null,
-      evidences,
+      evidences: evidences.map((e) => ({
+        ...e,
+        kind: deriveComplianceEvidenceKind(e),
+      })),
       linkedRisks,
       linkedRiskCount: linkedRisks.length,
     };
@@ -344,6 +371,8 @@ export class ComplianceService {
     });
     if (!existing) throw new NotFoundException('Statut introuvable');
 
+    await this.assertEvaluationTransition(clientId, existing.requirementId, dto);
+
     const updated = await this.prisma.complianceStatus.update({
       where: { id: statusId },
       data: {
@@ -403,6 +432,9 @@ export class ComplianceService {
     if (existing) {
       return this.patchStatus(clientId, existing.id, dto, context);
     }
+
+    await this.assertEvaluationTransition(clientId, requirementId, dto);
+
     const created = await this.prisma.complianceStatus.create({
       data: {
         clientId,
@@ -431,6 +463,36 @@ export class ComplianceService {
     return created;
   }
 
+  /**
+   * Règles COMP-001-A : commentaire obligatoire ; conforme ⇒ ≥1 preuve/observation.
+   * Appelé avant create/update de statut.
+   */
+  async assertEvaluationTransition(
+    clientId: string,
+    requirementId: string,
+    dto: PatchComplianceStatusDto,
+  ): Promise<void> {
+    const comment = dto.comment?.trim() ?? '';
+    if (!comment) {
+      throw new BadRequestException(
+        'Un commentaire d’analyse est obligatoire pour enregistrer une évaluation',
+      );
+    }
+
+    if (dto.status === ComplianceAssessmentStatus.COMPLIANT) {
+      const evidences = await this.prisma.complianceEvidence.findMany({
+        where: { clientId, requirementId },
+        select: { url: true, fileId: true, description: true },
+      });
+      const hasJustifying = evidences.some(evidenceJustifiesCompliance);
+      if (!hasJustifying) {
+        throw new BadRequestException(
+          'Un statut conforme exige au moins une preuve (URL, fichier ou observation) liée à l’exigence',
+        );
+      }
+    }
+  }
+
   async createEvidence(
     clientId: string,
     dto: CreateComplianceEvidenceDto,
@@ -439,8 +501,32 @@ export class ComplianceService {
   ) {
     const url = dto.url?.trim() ?? '';
     const fileId = dto.fileId?.trim() ?? '';
-    if (!url && !fileId) {
-      throw new BadRequestException('Au moins une URL ou une référence fichier est requise');
+    const description = dto.description?.trim() ?? '';
+    const kind =
+      dto.kind ??
+      (url
+        ? ComplianceEvidenceKindDto.URL
+        : fileId
+          ? ComplianceEvidenceKindDto.FILE
+          : ComplianceEvidenceKindDto.OBSERVATION);
+
+    if (kind === ComplianceEvidenceKindDto.URL && !url) {
+      throw new BadRequestException('Une URL est requise pour une preuve de type URL');
+    }
+    if (kind === ComplianceEvidenceKindDto.FILE && !fileId) {
+      throw new BadRequestException(
+        'Une référence fichier est requise pour une preuve de type fichier',
+      );
+    }
+    if (kind === ComplianceEvidenceKindDto.OBSERVATION && !description) {
+      throw new BadRequestException(
+        'Une observation (description) est requise pour une preuve de type observation',
+      );
+    }
+    if (!url && !fileId && !description) {
+      throw new BadRequestException(
+        'Au moins une URL, une référence fichier ou une observation est requise',
+      );
     }
 
     const req = await this.prisma.complianceRequirement.findFirst({
@@ -454,9 +540,9 @@ export class ComplianceService {
         clientId,
         requirementId: dto.requirementId,
         name: dto.name.trim(),
-        description: dto.description?.trim() ?? null,
-        url: url || null,
-        fileId: fileId || null,
+        description: description || null,
+        url: kind === ComplianceEvidenceKindDto.URL ? url : url || null,
+        fileId: kind === ComplianceEvidenceKindDto.FILE ? fileId : fileId || null,
         createdByUserId: actorUserId ?? null,
       },
     });
@@ -466,12 +552,16 @@ export class ComplianceService {
       action: COMPLIANCE_AUDIT_ACTION.EVIDENCE_CREATED,
       resourceType: COMPLIANCE_AUDIT_RESOURCE_TYPE.COMPLIANCE_EVIDENCE,
       resourceId: row.id,
-      newValue: { requirementId: row.requirementId, name: row.name },
+      newValue: {
+        requirementId: row.requirementId,
+        name: row.name,
+        kind: deriveComplianceEvidenceKind(row),
+      },
       ipAddress: context?.meta?.ipAddress,
       userAgent: context?.meta?.userAgent,
       requestId: context?.meta?.requestId,
     });
-    return row;
+    return { ...row, kind: deriveComplianceEvidenceKind(row) };
   }
 
   async dashboard(clientId: string) {
@@ -482,6 +572,8 @@ export class ComplianceService {
     const fwIds = activeFw.map((f) => f.id);
     if (fwIds.length === 0) {
       return {
+        totalRequirementsActiveFrameworks: 0,
+        applicableCount: 0,
         compliancePercent: null as number | null,
         evaluatedCount: 0,
         compliantCount: 0,
@@ -532,6 +624,8 @@ export class ComplianceService {
     }
 
     const notAssessedRequirementCount = reqIds.filter((id) => !byReq.has(id)).length;
+    /** A = N - NA - U (applicables) — COMP-001-A. */
+    const applicableCount = totalReqs - notApplicableCount - notAssessedRequirementCount;
 
     const evidenceCounts = await this.prisma.complianceEvidence.groupBy({
       by: ['requirementId'],
@@ -549,13 +643,15 @@ export class ComplianceService {
       },
     });
 
+    /** C / A — null si A = 0 (jamais 100 % fictif). */
     const compliancePercent =
-      evaluatedDenominator > 0
-        ? Math.round((100 * compliantCount) / evaluatedDenominator)
+      applicableCount > 0
+        ? Math.round((100 * compliantCount) / applicableCount)
         : null;
 
     return {
       totalRequirementsActiveFrameworks: totalReqs,
+      applicableCount,
       compliancePercent,
       evaluatedCount: evaluatedDenominator,
       compliantCount,

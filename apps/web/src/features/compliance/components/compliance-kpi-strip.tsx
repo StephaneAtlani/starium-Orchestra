@@ -27,6 +27,7 @@ export function ComplianceKpiStrip({
   }
 
   const gaps = dashboard.nonCompliantCount + dashboard.partiallyCompliantCount;
+  const applicable = dashboard.applicableCount ?? 0;
 
   return (
     <section className="space-y-2" aria-labelledby="compliance-kpi-heading">
@@ -35,8 +36,8 @@ export function ComplianceKpiStrip({
           Synthèse de la conformité
         </h2>
         <p className="text-xs text-muted-foreground">
-          Référentiels actifs — taux calculé sur les exigences évaluées (hors non
-          applicables).
+          Référentiels actifs — taux = conformes / applicables (A = N − non applicables − non
+          évaluées).
         </p>
       </div>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -45,12 +46,14 @@ export function ComplianceKpiStrip({
           iconShape="circle"
           title="Taux de conformité"
           value={
-            dashboard.compliancePercent == null ? '—' : `${dashboard.compliancePercent} %`
+            dashboard.compliancePercent == null
+              ? 'Non calculable'
+              : `${dashboard.compliancePercent} %`
           }
           footer={
-            dashboard.evaluatedCount > 0
-              ? `sur ${dashboard.evaluatedCount} ${pluralize(dashboard.evaluatedCount, 'exigence évaluée', 'exigences évaluées')}`
-              : 'aucune exigence évaluée'
+            applicable > 0
+              ? `${dashboard.compliantCount} conforme${dashboard.compliantCount > 1 ? 's' : ''} / ${applicable} ${pluralize(applicable, 'applicable')}`
+              : 'aucune exigence applicable (A = 0)'
           }
           footerTone={dashboard.compliancePercent == null ? 'muted' : 'success'}
           icon={<ShieldCheck aria-hidden />}
@@ -61,7 +64,7 @@ export function ComplianceKpiStrip({
           iconShape="circle"
           title="Contrôles conformes"
           value={String(dashboard.compliantCount)}
-          footer={`sur ${dashboard.totalRequirementsActiveFrameworks} ${pluralize(dashboard.totalRequirementsActiveFrameworks, 'exigence')}`}
+          footer={`sur ${applicable} ${pluralize(applicable, 'applicable')} (N = ${dashboard.totalRequirementsActiveFrameworks})`}
           footerTone="info"
           icon={<CheckCircle2 aria-hidden />}
           iconWrapperClassName="bg-[color:var(--state-info-bg)] text-[color:var(--state-info)]"

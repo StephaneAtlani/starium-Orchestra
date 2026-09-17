@@ -2992,6 +2992,47 @@ Guards métier client (`X-Client-Id`, module `compliance`).
 
 **UI client** : `/compliance/frameworks`.
 
+### Évaluation opérationnelle (RFC-COMP-001-A) — `/api/compliance`
+
+Guards métier client (`X-Client-Id`, module `compliance`). Isolation : toute lecture / écriture filtrée sur le client actif.
+
+#### Upsert statut d’une exigence
+
+- **PUT /api/compliance/requirements/:id/status** — Crée ou met à jour le statut d’évaluation de l’exigence `:id`. Permission **`compliance.update`**. Body (`PatchComplianceStatusDto`) :
+  - `status` : `COMPLIANT` \| `PARTIALLY_COMPLIANT` \| `NON_COMPLIANT` \| `NOT_APPLICABLE` (pas `NOT_ASSESSED` via cet upsert métier)
+  - `comment` : **obligatoire** (non vide) pour tout enregistrement d’évaluation
+  - `lastAssessmentDate?` : ISO date optionnelle (revue)
+- **Règles serveur** (`assertEvaluationTransition`) :
+  - Tout statut évalué : commentaire obligatoire.
+  - `COMPLIANT` : au moins une preuve justifiante déjà liée à l’exigence (URL, fichier ou **observation** = description non vide) — sinon **400**.
+  - `PARTIALLY_COMPLIANT` / `NON_COMPLIANT` / `NOT_APPLICABLE` : commentaire obligatoire ; preuve optionnelle.
+- Audit : upsert status. UI : modale exigence `/compliance/requirements` (`compliance.update`).
+
+#### Patch statut existant
+
+- **PATCH /api/compliance/status/:id** — Met à jour un statut déjà créé (mêmes règles d’évaluation). Permission **`compliance.update`**.
+
+#### Preuves
+
+- **POST /api/compliance/evidence** — Body :
+  - `requirementId`, `name` (requis)
+  - `kind?` : `URL` \| `OBSERVATION` \| `FILE` (V1 : pas de colonne Prisma ; dérivé à la lecture)
+  - `url?`, `fileId?`, `description?`
+  - Validation croisée : `URL` ⇒ `url` ; `FILE` ⇒ `fileId` ; `OBSERVATION` ⇒ `description` non vide ; si `kind` omis → dérivé (`url` → URL, `fileId` → FILE, sinon OBSERVATION si description).
+  - Observation seule (sans URL) **autorisée**. Permission **`compliance.update`**.
+
+#### Dashboard KPI
+
+- **GET /api/compliance/dashboard** — Permission **`compliance.read`**. Champs clés :
+  - `totalRequirementsActiveFrameworks` (`N`), `notApplicableCount` (`NA`), `notAssessedRequirementCount` (`U`)
+  - `applicableCount` (`A` = `N − NA − U`)
+  - `compliantCount` (`C`), `partiallyCompliantCount`, `nonCompliantCount`, `criticalRisksLinked`
+  - `compliancePercent` = `round(100 × C / A)` ou **`null`** si `A = 0` (UI : « Non calculable », jamais 100 % factice)
+
+#### Risque lié (pont projets)
+
+Création via **`POST /api/risks`** (scope client) avec `complianceRequirementId` dans le payload — permission **`projects.update`**. Voir risques projet / RFC-PROJ-RISK.
+
 ---
 
 ## 21. Module Projets (RFC-PROJ-001 MVP) — `/api/projects`, `/api/projects/:projectId/tasks|task-buckets|gantt|activities|risks|milestones|budget-links|scenarios|.../financial-lines|.../financial-summary|project-sheet|reviews|documents`, `/api/projects/:projectId/microsoft-link`
@@ -3641,7 +3682,7 @@ Agrégats de bandeau KPI et de cartes, alimentant la refonte des pages de liste
 | Méthode | Route | Permission | Description |
 |---------|--------|------------|-------------|
 | `GET` | `/api/suppliers/summary` | `procurement.read` | Synthèse panel fournisseurs : `activeCount`, `archivedCount`, `addedThisYear`, `annualSpend`, `currency`, `currencyMixed`, `activeContractCount`, `inRenewalCount`, `averageRating`, `ratedCount`. **ACL appliquée** : seuls les fournisseurs lisibles comptent, et la dépense annuelle n’agrège que les contrats **en vigueur** (ACTIVE / NOTICE) de ces fournisseurs. `annualSpend: null` + `currencyMixed: true` si plusieurs devises. |
-| `GET` | `/api/compliance/frameworks/summary` | `compliance.read` | Avancement **par référentiel** (cartes « Référentiels réglementaires ») : `requirementCount`, `compliantCount`, `partiallyCompliantCount`, `nonCompliantCount`, `notApplicableCount`, `notAssessedCount`, `evaluatedCount`, `compliancePercent`, `nextAuditAt`. `compliancePercent` = conformes / **évaluées** (hors `NOT_APPLICABLE` et non évaluées), `null` si aucune évaluation — même convention que `GET /api/compliance/dashboard`. |
+| `GET` | `/api/compliance/frameworks/summary` | `compliance.read` | Avancement **par référentiel** (cartes « Référentiels réglementaires ») : `requirementCount`, `compliantCount`, `partiallyCompliantCount`, `nonCompliantCount`, `notApplicableCount`, `notAssessedCount`, `evaluatedCount`, `compliancePercent`, `nextAuditAt`. Pour le **taux global** du bandeau KPI, voir `GET /api/compliance/dashboard` : `compliancePercent` = `C / A` avec `A = N − NA − U`, `null` si `A = 0`. |
 | `GET` | `/api/work-teams/summary?includeArchived=` | `teams.read` | Cartes équipes de `/teams` : `memberCount`, `leads` (rôles d’équipe `LEAD` / `DEPUTY`, responsables d’abord), `members` (aperçu borné à 6 pour la pile d’avatars), `strategicDirectionName`, `parentName`. Équipes `ACTIVE` par défaut. **Sans indicateur de charge** : celui-ci vient de `GET /api/capacity/dashboard/work-team-load`, qui porte les règles d’exclusion capacité. |
 
 **Champs de schéma ajoutés** :

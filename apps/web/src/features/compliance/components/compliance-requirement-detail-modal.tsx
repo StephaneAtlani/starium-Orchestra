@@ -1,21 +1,94 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useEffect, useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ShieldCheck } from 'lucide-react';
 import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { ErrorState } from '@/components/feedback/error-state';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
+import { usePermissions } from '@/hooks/use-permissions';
 import { displayLabel } from '@/lib/display-label';
+import { toast } from '@/lib/toast';
 import { PROJECT_RISK_CRITICALITY_LABEL } from '@/features/projects/constants/project-enum-labels';
 import {
+  createClientRisk,
+  listProjects,
+  type CreateProjectRiskPayload,
+} from '@/features/projects/api/projects.api';
+import { ProjectRiskEbiosDialog } from '@/features/projects/components/project-risk-ebios-dialog';
+import {
+  createComplianceEvidence,
   getComplianceRequirementDetail,
+  upsertComplianceRequirementStatus,
+  type ComplianceAssessmentStatusApi,
+  type ComplianceEvidenceKindApi,
   type ComplianceRequirementRowApi,
 } from '../api/compliance.api';
 import { frameworkDisplayLabel } from '../lib/compliance-labels';
-import { ComplianceStatusDisplay } from './compliance-status-display';
+import {
+  ComplianceStatusDisplay,
+  complianceStatusLabel,
+} from './compliance-status-display';
+
+const EVAL_STATUS_OPTIONS: Array<{
+  value: ComplianceAssessmentStatusApi;
+  label: string;
+}> = [
+  { value: 'COMPLIANT', label: complianceStatusLabel('COMPLIANT') },
+  { value: 'PARTIALLY_COMPLIANT', label: complianceStatusLabel('PARTIALLY_COMPLIANT') },
+  { value: 'NON_COMPLIANT', label: complianceStatusLabel('NON_COMPLIANT') },
+  { value: 'NOT_APPLICABLE', label: complianceStatusLabel('NOT_APPLICABLE') },
+];
+
+const REVIEW_MONTHS = 12;
+
+function isDueForReview(lastAssessmentDate: string | null | undefined): boolean {
+  if (!lastAssessmentDate) return false;
+  const d = new Date(lastAssessmentDate);
+  if (Number.isNaN(d.getTime())) return false;
+  const due = new Date(d);
+  due.setMonth(due.getMonth() + REVIEW_MONTHS);
+  return due.getTime() < Date.now();
+}
+
+function toDateInput(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toISOString().slice(0, 10);
+}
+
+function dateInputToIso(v: string): string | undefined {
+  const t = v.trim();
+  if (!t) return undefined;
+  return `${t}T12:00:00.000Z`;
+}
+
+function invalidateComplianceQueries(
+  queryClient: ReturnType<typeof useQueryClient>,
+  clientId: string,
+) {
+  void queryClient.invalidateQueries({ queryKey: ['compliance', 'requirements', clientId] });
+  void queryClient.invalidateQueries({ queryKey: ['compliance', 'requirement', clientId] });
+  void queryClient.invalidateQueries({ queryKey: ['compliance', clientId, 'dashboard'] });
+  void queryClient.invalidateQueries({ queryKey: ['compliance', clientId, 'statuses'] });
+  void queryClient.invalidateQueries({
+    queryKey: ['compliance', clientId, 'frameworks-summary'],
+  });
+}
 
 export function ComplianceRequirementDetailModal({
   open,
@@ -26,15 +99,25 @@ export function ComplianceRequirementDetailModal({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   requirementId: string | null;
-  /** Ligne liste — titre immédiat avant le fetch détail. */
-  preview?: Pick<
-    ComplianceRequirementRowApi,
-    'code' | 'title' | 'framework'
-  > | null;
+  preview?: Pick<ComplianceRequirementRowApi, 'code' | 'title' | 'framework'> | null;
 }) {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id ?? '';
+  const queryClient = useQueryClient();
+  const { has, isSuccess: permsSuccess } = usePermissions();
+  const canUpdate = permsSuccess && has('compliance.update');
+  const canUpdateProjects = permsSuccess && has('projects.update');
+
+  const [status, setStatus] = useState<ComplianceAssessmentStatusApi>('COMPLIANT');
+  const [comment, setComment] = useState('');
+  const [reviewDate, setReviewDate] = useState('');
+  const [evidenceKind, setEvidenceKind] = useState<ComplianceEvidenceKindApi>('OBSERVATION');
+  const [evidenceName, setEvidenceName] = useState('');
+  const [evidenceUrl, setEvidenceUrl] = useState('');
+  const [evidenceDescription, setEvidenceDescription] = useState('');
+  const [riskDialogOpen, setRiskDialogOpen] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const q = useQuery({
     queryKey: ['compliance', 'requirement', clientId, requirementId],
@@ -42,10 +125,26 @@ export function ComplianceRequirementDetailModal({
     enabled: open && Boolean(clientId) && Boolean(requirementId),
   });
 
-  const titleCode = displayLabel(
-    q.data?.requirement.code ?? preview?.code,
-    'Exigence',
-  );
+  const projectsQ = useQuery({
+    queryKey: ['projects', 'list', clientId, 'compliance-risk-link'],
+    queryFn: () => listProjects(authFetch, { limit: 100 }),
+    enabled: open && riskDialogOpen && Boolean(clientId) && canUpdateProjects,
+  });
+
+  useEffect(() => {
+    if (!open || !q.data) return;
+    const st = q.data.status?.status ?? 'COMPLIANT';
+    setStatus(st);
+    setComment(q.data.status?.comment ?? '');
+    setReviewDate(toDateInput(q.data.status?.lastAssessmentDate));
+    setFormError(null);
+    setEvidenceName('');
+    setEvidenceUrl('');
+    setEvidenceDescription('');
+    setEvidenceKind('OBSERVATION');
+  }, [open, q.data]);
+
+  const titleCode = displayLabel(q.data?.requirement.code ?? preview?.code, 'Exigence');
   const titleLabel = displayLabel(
     q.data?.requirement.title ?? preview?.title,
     'Détail de l’exigence',
@@ -56,139 +155,397 @@ export function ComplianceRequirementDetailModal({
       ? frameworkDisplayLabel(q.data.requirement.framework)
       : null;
 
+  const needsReview = isDueForReview(q.data?.status?.lastAssessmentDate);
+  const activeStatus = q.data?.status?.status;
+  const showRiskCta =
+    activeStatus === 'PARTIALLY_COMPLIANT' || activeStatus === 'NON_COMPLIANT';
+
+  const statusSelectLabel = useMemo(
+    () => EVAL_STATUS_OPTIONS.find((o) => o.value === status)?.label ?? 'Statut',
+    [status],
+  );
+
+  const saveMut = useMutation({
+    mutationFn: () =>
+      upsertComplianceRequirementStatus(authFetch, requirementId!, {
+        status,
+        comment: comment.trim(),
+        lastAssessmentDate: dateInputToIso(reviewDate) ?? null,
+      }),
+    onSuccess: async () => {
+      toast.success('Évaluation enregistrée');
+      setFormError(null);
+      invalidateComplianceQueries(queryClient, clientId);
+      await q.refetch();
+    },
+    onError: (e: Error) => {
+      setFormError(e.message);
+      toast.error(e.message);
+    },
+  });
+
+  const evidenceMut = useMutation({
+    mutationFn: () =>
+      createComplianceEvidence(authFetch, {
+        requirementId: requirementId!,
+        name: evidenceName.trim(),
+        kind: evidenceKind,
+        url: evidenceKind === 'URL' ? evidenceUrl.trim() : undefined,
+        description:
+          evidenceKind === 'OBSERVATION'
+            ? evidenceDescription.trim()
+            : evidenceDescription.trim() || undefined,
+      }),
+    onSuccess: async () => {
+      toast.success('Preuve ajoutée');
+      setEvidenceName('');
+      setEvidenceUrl('');
+      setEvidenceDescription('');
+      invalidateComplianceQueries(queryClient, clientId);
+      await q.refetch();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const createRiskMut = useMutation({
+    mutationFn: (payload: CreateProjectRiskPayload) => createClientRisk(authFetch, payload),
+    onSuccess: async () => {
+      toast.success('Risque créé et lié à l’exigence');
+      setRiskDialogOpen(false);
+      invalidateComplianceQueries(queryClient, clientId);
+      await q.refetch();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const projectList = projectsQ.data?.items ?? [];
+
   return (
-    <StariumModal
-      open={open}
-      onOpenChange={onOpenChange}
-      title={titleLabel}
-      description={
-        frameworkLabel
-          ? `${titleCode} · ${frameworkLabel}`
-          : titleCode
-      }
-      icon={ShieldCheck}
-      size="lg"
-      footer={
-        <Button
-          type="button"
-          variant="outline"
-          className="min-h-11 sm:min-h-9"
-          onClick={() => onOpenChange(false)}
-        >
-          Fermer
-        </Button>
-      }
-    >
-      {q.isLoading ? (
-        <LoadingState rows={4} />
-      ) : q.isError ? (
-        <ErrorState
-          message={
-            q.error instanceof Error
-              ? q.error.message
-              : 'Impossible de charger l’exigence.'
-          }
-          onRetry={() => void q.refetch()}
-        />
-      ) : q.data ? (
-        <div className="starium-form space-y-5">
-          {q.data.requirement.description ? (
-            <section>
-              <h3 className="starium-modal-seg-title">Description</h3>
-              <p className="text-sm leading-relaxed text-foreground">
-                {q.data.requirement.description}
+    <>
+      <StariumModal
+        open={open}
+        onOpenChange={onOpenChange}
+        title={titleLabel}
+        description={
+          frameworkLabel ? `${titleCode} · ${frameworkLabel}` : titleCode
+        }
+        icon={ShieldCheck}
+        size="lg"
+        footer={
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-11 sm:min-h-9"
+            onClick={() => onOpenChange(false)}
+          >
+            Fermer
+          </Button>
+        }
+      >
+        {q.isLoading ? (
+          <LoadingState rows={4} />
+        ) : q.isError ? (
+          <ErrorState
+            message={
+              q.error instanceof Error
+                ? q.error.message
+                : 'Impossible de charger l’exigence.'
+            }
+            onRetry={() => void q.refetch()}
+          />
+        ) : q.data ? (
+          <div className="starium-form space-y-5">
+            {needsReview ? (
+              <p
+                className="rounded-lg border border-border/70 bg-[color:var(--state-warning-bg)] px-3 py-2 text-sm font-semibold text-[color:var(--state-warning)]"
+                role="status"
+                aria-live="polite"
+              >
+                À réexaminer — dernière évaluation il y a plus de {REVIEW_MONTHS} mois.
               </p>
-            </section>
-          ) : null}
+            ) : null}
 
-          <section>
-            <h3 className="starium-modal-seg-title">État d’évaluation</h3>
-            <div className="space-y-2">
-              <ComplianceStatusDisplay
-                status={q.data.status?.status ?? 'NOT_ASSESSED'}
-              />
-              {q.data.status?.comment ? (
-                <p className="text-sm text-muted-foreground">
-                  {q.data.status.comment}
+            {q.data.requirement.description ? (
+              <section>
+                <h3 className="starium-modal-seg-title">Description</h3>
+                <p className="text-sm leading-relaxed text-foreground">
+                  {q.data.requirement.description}
                 </p>
+              </section>
+            ) : null}
+
+            <section>
+              <h3 className="starium-modal-seg-title">État d’évaluation</h3>
+              {!canUpdate ? (
+                <div className="space-y-2">
+                  <ComplianceStatusDisplay
+                    status={q.data.status?.status ?? 'NOT_ASSESSED'}
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    {q.data.status?.comment?.trim()
+                      ? q.data.status.comment
+                      : 'Aucun commentaire d’analyse.'}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Lecture seule — permission compliance.update requise pour évaluer.
+                  </p>
+                </div>
               ) : (
-                <p className="text-sm text-muted-foreground">
-                  Aucun commentaire d’analyse.
-                </p>
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="comp-eval-status">Statut</Label>
+                    <Select
+                      value={status}
+                      onValueChange={(v) =>
+                        setStatus((v ?? 'COMPLIANT') as ComplianceAssessmentStatusApi)
+                      }
+                    >
+                      <SelectTrigger id="comp-eval-status" className="w-full">
+                        <SelectValue>{statusSelectLabel}</SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {EVAL_STATUS_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="comp-eval-comment">Commentaire d’analyse</Label>
+                    <Textarea
+                      id="comp-eval-comment"
+                      value={comment}
+                      onChange={(e) => setComment(e.target.value)}
+                      rows={3}
+                      className="text-foreground"
+                      aria-required
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="comp-eval-date">Date de revue</Label>
+                    <Input
+                      id="comp-eval-date"
+                      type="date"
+                      value={reviewDate}
+                      onChange={(e) => setReviewDate(e.target.value)}
+                      className="text-foreground"
+                    />
+                  </div>
+                  {formError ? (
+                    <p className="text-sm text-destructive" role="alert">
+                      {formError}
+                    </p>
+                  ) : null}
+                  <Button
+                    type="button"
+                    className="min-h-11 sm:min-h-9"
+                    disabled={saveMut.isPending}
+                    onClick={() => saveMut.mutate()}
+                  >
+                    {saveMut.isPending ? 'Enregistrement…' : 'Enregistrer l’évaluation'}
+                  </Button>
+                </div>
               )}
-            </div>
-          </section>
+            </section>
 
-          <section>
-            <h3 className="starium-modal-seg-title">
-              Preuves ({q.data.evidences.length})
-            </h3>
-            {q.data.evidences.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Aucune preuve jointe.</p>
-            ) : (
-              <ul className="space-y-2">
-                {q.data.evidences.map((e) => (
-                  <li
-                    key={e.id}
-                    className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-sm"
+            <section>
+              <h3 className="starium-modal-seg-title">
+                Preuves ({q.data.evidences.length})
+              </h3>
+              {q.data.evidences.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Aucune preuve jointe.</p>
+              ) : (
+                <ul className="mb-3 space-y-2">
+                  {q.data.evidences.map((e) => (
+                    <li
+                      key={e.id}
+                      className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-sm"
+                    >
+                      <span className="font-medium text-foreground">
+                        {displayLabel(e.name, 'Preuve')}
+                      </span>
+                      {e.kind ? (
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          ({e.kind === 'URL'
+                            ? 'Lien'
+                            : e.kind === 'FILE'
+                              ? 'Fichier'
+                              : 'Observation'}
+                          )
+                        </span>
+                      ) : null}
+                      {e.url ? (
+                        <>
+                          {' '}
+                          <a
+                            href={e.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="font-medium text-[color:var(--brand-gold-700)] underline-offset-4 hover:underline"
+                          >
+                            Ouvrir le lien
+                          </a>
+                        </>
+                      ) : null}
+                      {e.description && !e.url ? (
+                        <p className="mt-1 text-xs text-muted-foreground">{e.description}</p>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {canUpdate ? (
+                <div className="space-y-3 rounded-lg border border-border/70 bg-muted/20 p-3">
+                  <p className="text-xs font-semibold text-foreground">Ajouter une preuve</p>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="comp-ev-kind">Type</Label>
+                    <Select
+                      value={evidenceKind}
+                      onValueChange={(v) =>
+                        setEvidenceKind((v ?? 'OBSERVATION') as ComplianceEvidenceKindApi)
+                      }
+                    >
+                      <SelectTrigger id="comp-ev-kind" className="w-full">
+                        <SelectValue>
+                          {evidenceKind === 'URL'
+                            ? 'Lien URL'
+                            : evidenceKind === 'FILE'
+                              ? 'Fichier'
+                              : 'Observation'}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="OBSERVATION">Observation</SelectItem>
+                        <SelectItem value="URL">Lien URL</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="comp-ev-name">Titre</Label>
+                    <Input
+                      id="comp-ev-name"
+                      value={evidenceName}
+                      onChange={(e) => setEvidenceName(e.target.value)}
+                      className="text-foreground"
+                    />
+                  </div>
+                  {evidenceKind === 'URL' ? (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="comp-ev-url">URL</Label>
+                      <Input
+                        id="comp-ev-url"
+                        type="url"
+                        value={evidenceUrl}
+                        onChange={(e) => setEvidenceUrl(e.target.value)}
+                        className="text-foreground"
+                        placeholder="https://…"
+                      />
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="comp-ev-desc">Observation</Label>
+                      <Textarea
+                        id="comp-ev-desc"
+                        value={evidenceDescription}
+                        onChange={(e) => setEvidenceDescription(e.target.value)}
+                        rows={2}
+                        className="text-foreground"
+                      />
+                    </div>
+                  )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="min-h-11 sm:min-h-9"
+                    disabled={evidenceMut.isPending || !evidenceName.trim()}
+                    onClick={() => evidenceMut.mutate()}
                   >
-                    <span className="font-medium text-foreground">
-                      {displayLabel(e.name, 'Preuve')}
-                    </span>
-                    {e.url ? (
-                      <>
-                        {' '}
-                        <a
-                          href={e.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="font-medium text-[color:var(--brand-gold-700)] underline-offset-4 hover:underline"
-                        >
-                          Ouvrir le lien
-                        </a>
-                      </>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+                    {evidenceMut.isPending ? 'Ajout…' : 'Ajouter la preuve'}
+                  </Button>
+                </div>
+              ) : null}
+            </section>
 
-          <section>
-            <h3 className="starium-modal-seg-title">
-              Risques projet liés ({q.data.linkedRiskCount})
-            </h3>
-            {q.data.linkedRisks.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Aucun risque lié.</p>
-            ) : (
-              <ul className="space-y-2">
-                {q.data.linkedRisks.map((r) => (
-                  <li
-                    key={r.code}
-                    className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-sm"
-                  >
-                    <div className="font-medium text-foreground">
-                      {displayLabel(r.title, 'Risque')}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {displayLabel(r.code, 'Code risque')}
-                      {' · '}
-                      {displayLabel(
-                        PROJECT_RISK_CRITICALITY_LABEL[r.criticalityLevel],
-                        'Criticité non renseignée',
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        </div>
-      ) : (
-        <p className="text-sm text-destructive" role="alert">
-          Exigence introuvable.
-        </p>
-      )}
-    </StariumModal>
+            <section>
+              <h3 className="starium-modal-seg-title">
+                Risques projet liés ({q.data.linkedRiskCount})
+              </h3>
+              {q.data.linkedRisks.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Aucun risque lié.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {q.data.linkedRisks.map((r) => (
+                    <li
+                      key={r.code}
+                      className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-sm"
+                    >
+                      <div className="font-medium text-foreground">
+                        {displayLabel(r.title, 'Risque')}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {displayLabel(r.code, 'Code risque')}
+                        {' · '}
+                        {displayLabel(
+                          PROJECT_RISK_CRITICALITY_LABEL[r.criticalityLevel],
+                          'Criticité non renseignée',
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {showRiskCta ? (
+                <div className="mt-3">
+                  {canUpdateProjects ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="min-h-11 sm:min-h-9"
+                      onClick={() => setRiskDialogOpen(true)}
+                    >
+                      Créer un risque lié
+                    </Button>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Droit projets requis pour créer un risque.
+                    </p>
+                  )}
+                </div>
+              ) : null}
+            </section>
+          </div>
+        ) : (
+          <p className="text-sm text-destructive" role="alert">
+            Exigence introuvable.
+          </p>
+        )}
+      </StariumModal>
+
+      {requirementId && canUpdateProjects ? (
+        <ProjectRiskEbiosDialog
+          open={riskDialogOpen}
+          onOpenChange={setRiskDialogOpen}
+          mode="create"
+          projectId={null}
+          risk={null}
+          isPending={createRiskMut.isPending}
+          riskApiScope="client"
+          projectOptions={projectList}
+          defaultTitle={
+            q.data
+              ? `${q.data.requirement.code} — ${q.data.requirement.title}`
+              : preview
+                ? `${preview.code} — ${preview.title}`
+                : undefined
+          }
+          defaultComplianceRequirementId={requirementId}
+          onSave={async (payload) => {
+            await createRiskMut.mutateAsync(payload);
+          }}
+        />
+      ) : null}
+    </>
   );
 }

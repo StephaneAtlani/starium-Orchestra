@@ -5,6 +5,9 @@ const BASE = '/api/compliance';
 
 export type ComplianceDashboardApi = {
   totalRequirementsActiveFrameworks: number;
+  /** A = N − NA − U (exigences applicables). */
+  applicableCount: number;
+  /** C / A en % ; null si A = 0. */
   compliancePercent: number | null;
   evaluatedCount: number;
   compliantCount: number;
@@ -128,6 +131,8 @@ export async function listComplianceRequirements(
   return res.json() as Promise<ComplianceRequirementRowApi[]>;
 }
 
+export type ComplianceEvidenceKindApi = 'URL' | 'OBSERVATION' | 'FILE';
+
 export type ComplianceRequirementDetailApi = {
   requirement: {
     id: string;
@@ -138,11 +143,18 @@ export type ComplianceRequirementDetailApi = {
     framework?: { name: string; version: string };
   };
   status: {
+    id?: string;
     status: ComplianceAssessmentStatusApi;
     comment: string | null;
     lastAssessmentDate?: string | null;
   } | null;
-  evidences: Array<{ id: string; name: string; url: string | null }>;
+  evidences: Array<{
+    id: string;
+    name: string;
+    url: string | null;
+    description?: string | null;
+    kind?: ComplianceEvidenceKindApi;
+  }>;
   linkedRisks: Array<{
     code: string;
     title: string;
@@ -158,4 +170,54 @@ export async function getComplianceRequirementDetail(
   const res = await authFetch(`${BASE}/requirements/${requirementId}`);
   if (!res.ok) throw await parseApiFormError(res);
   return res.json() as Promise<ComplianceRequirementDetailApi>;
+}
+
+export type UpsertComplianceStatusPayload = {
+  status: ComplianceAssessmentStatusApi;
+  comment: string;
+  lastAssessmentDate?: string | null;
+};
+
+export async function upsertComplianceRequirementStatus(
+  authFetch: AuthFetch,
+  requirementId: string,
+  payload: UpsertComplianceStatusPayload,
+) {
+  const res = await authFetch(`${BASE}/requirements/${requirementId}/status`, {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<{
+    id: string;
+    status: ComplianceAssessmentStatusApi;
+    comment: string | null;
+    lastAssessmentDate: string | null;
+  }>;
+}
+
+export type CreateComplianceEvidencePayload = {
+  requirementId: string;
+  name: string;
+  description?: string;
+  url?: string;
+  kind?: ComplianceEvidenceKindApi;
+};
+
+export async function createComplianceEvidence(
+  authFetch: AuthFetch,
+  payload: CreateComplianceEvidencePayload,
+) {
+  const res = await authFetch(`${BASE}/evidence`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<{
+    id: string;
+    name: string;
+    kind?: ComplianceEvidenceKindApi;
+  }>;
 }

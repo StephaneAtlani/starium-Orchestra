@@ -6,7 +6,7 @@ Liste **uniquement** du travail restant (pas de historique « fait »). Trajecto
 
 | Tag | Horizon |
 | --- | --- |
-| **COMP** | **P0 immédiat** — conformité évaluation (COMP-001-A) |
+| **COMP** | Conformité — V1 évaluation **livrée** ; suite = COMP.V2 (campagnes) |
 | **B0–B3** | V1 Beta (vagues) |
 | **NTH** | Nice-to-have beta |
 | **BUF** | Buffer pendant beta |
@@ -19,17 +19,12 @@ Liste **uniquement** du travail restant (pas de historique « fait »). Trajecto
 
 ## Priorité immédiate — Conformité (P0)
 
-> Décision 2026-09-17 : étendre le MVP (pas de rewrite campagnes). Cible produit = [RFC-COMP-001](./RFC/RFC-COMP-001%20—%20Pilotage%20de%20la%20conformité.md) · V1 = [RFC-COMP-001-A](./RFC/RFC-COMP-001-A%20—%20Évaluation%20opérationnelle%20(V1).md) · écarts = [RFC-COMP-001-ecarts-mvp](./RFC/RFC-COMP-001-ecarts-mvp.md) · V2 = [RFC-COMP-002](./RFC/RFC-COMP-002%20—%20Campagnes%20et%20dossier%20d'audit.md).
+> Décision 2026-09-17 : étendre le MVP (pas de rewrite campagnes). Cible produit = [RFC-COMP-001](./RFC/RFC-COMP-001%20—%20Pilotage%20de%20la%20conformité.md) · V1 = [RFC-COMP-001-A](./RFC/RFC-COMP-001-A%20—%20Évaluation%20opérationnelle%20(V1).md) (**✅ MVP livré**) · écarts = [RFC-COMP-001-ecarts-mvp](./RFC/RFC-COMP-001-ecarts-mvp.md) · V2 = [RFC-COMP-002](./RFC/RFC-COMP-002%20—%20Campagnes%20et%20dossier%20d'audit.md).
 
 | # | Item | Ref |
 | --- | --- | --- |
-| **COMP.0** | Inventaire C0 : upsert status, DTO, permissions, glossaire UI figé | COMP-001-ecarts · COMP-001-A §5 |
-| **COMP.1** | Modale **Évaluer** : statut + commentaire + règles justificatif (brancher `PATCH status`) | COMP-001-A |
-| **COMP.2** | Ajout **preuve** (URL / observation) depuis la modale | COMP-001-A |
-| **COMP.3** | **N/A** justifiée + signal « À réexaminer » si échéance dépassée | COMP-001-A |
-| **COMP.4** | Écart → **risque projet** (+ KPI dénominateur `A`) | COMP-001-A · PROJ-018 |
-| **COMP.5** | Manuel-70 + API.md + recettes A-01…A-08 | COMP-001-A §6 |
-| COMP.V2 | Campagnes / instantanés / import évaluations (**après** COMP.1–4) | COMP-002 |
+| ~~COMP.0~~ … ~~COMP.5~~ | **Clos** — évaluation opérationnelle V1 | COMP-001-A |
+| COMP.V2 | Campagnes / instantanés / import évaluations | COMP-002 |
 
 ---
 
@@ -187,9 +182,7 @@ Liste **uniquement** du travail restant (pas de historique « fait »). Trajecto
 
 ## Ordre d’attaque
 
-1. **COMP.0 → COMP.4** — conformité évaluation opérationnelle (**P0**, avant le reste beta hors gate)  
-2. B0.2–B0.3 — gate monorepo + préprod MFA / smoke Orion manuel  
-3. COMP.5 (doc) en parallèle des gates si possible  
-4. B1.3–B1.4 → B2.* → B3.*  
-5. BUF.1–2 en parallèle (doc)  
-6. Après go-live : V11.L1 + V11.1 puis MEET · **COMP.V2** selon charge  
+1. B0.2–B0.3 — gate monorepo + préprod MFA / smoke Orion manuel  
+2. B1.3–B1.4 → B2.* → B3.*  
+3. BUF.1–2 en parallèle (doc)  
+4. Après go-live : V11.L1 + V11.1 puis MEET · **COMP.V2** selon charge  

@@ -19,7 +19,7 @@
 
 ## 2. V1 Beta — go-live production (2026)
 
-**Promesse** : un DSI à temps partagé pilote un client actif — budgets, projets, achats→ligne, vision, réunions/points, équipes/capa/temps, ACL, Orion + Guide (réponses préconfigurées). **Priorité transverse P0 (2026-09)** : conformité **évaluation opérationnelle** ([RFC-COMP-001-A](./RFC/RFC-COMP-001-A%20—%20Évaluation%20opérationnelle%20(V1).md)) sur MVP existant — avant campagnes (COMP-002).
+**Promesse** : un DSI à temps partagé pilote un client actif — budgets, projets, achats→ligne, vision, réunions/points, équipes/capa/temps, ACL, Orion + Guide (réponses préconfigurées). Conformité **évaluation opérationnelle** ([RFC-COMP-001-A](./RFC/RFC-COMP-001-A%20—%20Évaluation%20opérationnelle%20(V1).md)) **livrée (MVP)** — campagnes = COMP-002.
 
 ### Modules IN
 
@@ -37,7 +37,7 @@ Licences SI (037) · CMDB · GED · Cartographie · IA générative · Orchestra
 
 | Vague | Focus | Exit |
 | --- | --- | --- |
-| **P0** Conformité | **COMP.0–4** évaluation opérationnelle (modale, preuves, N/A, KPI `A`, risque) | Parcours évaluer utilisable — [COMP-001-A](./RFC/RFC-COMP-001-A%20—%20Évaluation%20opérationnelle%20(V1).md) |
+| **P0** Conformité | **COMP.0–5** ✅ évaluation opérationnelle | Parcours évaluer utilisable — [COMP-001-A](./RFC/RFC-COMP-001-A%20—%20Évaluation%20opérationnelle%20(V1).md) |
 | **0** Gel socle | **Reste** : gate lint/typecheck/test monorepo · préprod MFA + smoke Orion (runbook §5). *Déjà en place* : index RFC-AI-001, seed Guide `premiers-pas`, specs isolation/no-match | Préprod bootable, zéro fuite client |
 | **1** Argent | Smoke achats→ligne→KPI · articles Guide budget | Atterrissage + projets financés lisibles CODIR |
 | **2** Portefeuille | PROJ-014→016 + FE · FE-CAPA-001 · Guide projets/capa | Portefeuille structuré + capa quotidienne |

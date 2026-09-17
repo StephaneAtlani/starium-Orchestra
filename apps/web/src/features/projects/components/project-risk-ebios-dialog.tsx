@@ -405,6 +405,10 @@ export type ProjectRiskEbiosDialogProps = {
   riskApiScope?: 'project' | 'client';
   /** Liste pour le sélecteur « Projet (facultatif) » — registre transverse. */
   projectOptions?: ProjectListItem[];
+  /** COMP-001-A : préremplit le titre à l’ouverture (création). */
+  defaultTitle?: string;
+  /** COMP-001-A : rattache le risque créé à l’exigence. */
+  defaultComplianceRequirementId?: string;
 };
 
 export function ProjectRiskEbiosDialog({
@@ -420,6 +424,8 @@ export function ProjectRiskEbiosDialog({
   isDeleting = false,
   riskApiScope = 'project',
   projectOptions = [],
+  defaultTitle,
+  defaultComplianceRequirementId,
 }: ProjectRiskEbiosDialogProps) {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
@@ -569,7 +575,7 @@ export function ProjectRiskEbiosDialog({
     }
     if (mode === 'create') {
       setLinkedProjectId(PROJECT_NONE);
-      setTitle('');
+      setTitle(defaultTitle?.trim() ?? '');
       setFearedEvent('');
       setThreatSource('');
       setDescription('');
@@ -593,7 +599,7 @@ export function ProjectRiskEbiosDialog({
       setOwnerUserId(OWNER_NONE);
       savedSnapshotRef.current = '';
     }
-  }, [open, mode, risk?.id, riskResolved, riskDetailQuery.data]);
+  }, [open, mode, risk?.id, riskResolved, riskDetailQuery.data, defaultTitle]);
 
   /** Défaut création : GENERAL / UNCLASSIFIED dès catalogue chargé. */
   useEffect(() => {
@@ -675,10 +681,14 @@ export function ProjectRiskEbiosDialog({
     if (riskApiScope === 'client') {
       payload.projectId = linkedProjectId === PROJECT_NONE ? null : linkedProjectId;
     }
+    if (defaultComplianceRequirementId) {
+      payload.complianceRequirementId = defaultComplianceRequirementId;
+    }
     return payload;
   }, [
     riskApiScope,
     linkedProjectId,
+    defaultComplianceRequirementId,
     title,
     fearedEvent,
     threatSource,
