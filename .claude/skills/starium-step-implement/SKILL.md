@@ -10,9 +10,10 @@ description: >-
 
 ## Entrée
 
-- Plan en statut GO
+- Plan en statut GO (`planPath`)
 - RFC liée
-- État `stage: "implement"`
+- Feature `stage: "implement"`
+- Travailler dans l'espace isolé si dirty préexistant (voir orchestrateur / commit)
 
 ## Skills à lire avant de coder
 
@@ -24,24 +25,30 @@ description: >-
 
 1. Implémenter **strictement** le périmètre du plan (pas d'expansion).
 2. Backend d'abord (DTO, service scopé client, controller, audit si sensible), puis frontend.
-3. Prisma + migration si prévu ; `prisma generate` après.
+3. Prisma : `prisma generate` si client touché ; **migration SQL seulement si**
+   le schéma de base change.
 4. Tests unitaires (isolation client, validations) ; tests UI si flux critique.
-5. Vérifs minimales :
+5. Vérifs minimales (ne remplacent pas `featureControls` de l'étape conformite) :
    ```bash
    pnpm --filter @starium-orchestra/api test -- <fichiers-ciblés>
-   # et/ou web
    pnpm --filter @starium-orchestra/web exec tsc --noEmit -p tsconfig.json
    pnpm audit:ui-ids   # si UI
    pnpm audit:modals   # si modale
    ```
-6. Ne pas committer ici — étape suivante = conformité puis docs puis commit.
+6. Ne pas committer ici.
+7. Toute correction qui change le contenu → invalide `validatedTreeId` /
+   `featureControls` passés (réexécution en conformite).
+
+## Échec
+
+Remonter à l'orchestrateur (retry ≤ 3 via `attempts.implement`) ; ne pas
+s'arrêter en silence.
 
 ## Sortie
 
-- Diff propre, borné
-- Tests verts sur le périmètre
-- État : `stage: "conformite"`
-- Notes courtes : dettes / points de vigilance (pour la review conformité)
+- Diff borné au plan
+- Feature `stage: "conformite"` + miroir global
+- Notes courtes : dettes / vigilance pour la review conformité
 
 ## Interdit
 
@@ -50,3 +57,4 @@ description: >-
 - Afficher un ID technique
 - Graphiques factices
 - Commit (réservé à `starium-step-commit`)
+- Modifier / écraser le travail préexistant (`preExistingDirty`)

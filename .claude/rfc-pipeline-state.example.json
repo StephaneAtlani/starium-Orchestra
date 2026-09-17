@@ -1,11 +1,22 @@
 {
   "rfcId": null,
   "rfcPath": null,
-  "featureIndex": 0,
-  "featureSlug": null,
   "stage": "plan",
-  "planPath": null,
   "commitPerFeature": true,
-  "backlog": [],
-  "notes": "Template — écrasé par starium-rfc-pipeline à l'init. Fichier gitignoré."
+  "pauseRequested": false,
+  "baseline": {
+    "branch": null,
+    "headCommit": null,
+    "capturedAt": null
+  },
+  "preExistingDirty": null,
+  "resumeObserved": null,
+  "activeFeatureId": null,
+  "features": [],
+  "backlogControls": {
+    "required": [],
+    "passed": [],
+    "failed": []
+  },
+  "notes": "Template — écrasé par starium-rfc-pipeline à l'init. Fichier gitignoré. baseline/preExistingDirty immuables après capture initiale."
 }

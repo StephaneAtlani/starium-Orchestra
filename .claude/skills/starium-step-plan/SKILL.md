@@ -13,7 +13,8 @@ description: >-
 
 - RFC cible (`docs/RFC/RFC-*.md`) + `docs/RFC/_RFC Liste.md`
 - Écarts éventuels (`*-ecarts-mvp.md`)
-- État pipeline si présent : `.claude/rfc-pipeline-state.json`
+- État pipeline : `.claude/rfc-pipeline-state.json`
+- Feature active : `status: in_progress`, `stage: plan`
 
 ## Actions (obligatoires)
 
@@ -24,21 +25,25 @@ description: >-
 4. **Rédiger** un plan Cursor (CreatePlan) ou un bloc plan markdown avec :
    - objectif métier (1–2 phrases)
    - fichiers à créer / modifier
-   - migrations Prisma si besoin
+   - migrations Prisma **seulement si** modification du schéma DB
    - critères d'acceptation testables
    - hors scope explicite
    - risques / décisions figées (pas d'option A/B non tranchée)
-5. **Conformité by design** : une ligne par standard (RGPD, RGAA, DS, Sécurité, mobile) dans le plan.
+5. **Conformité by design** : une ligne par standard (RGPD, RGAA, DS, Sécurité, mobile).
 
 ## Sortie
 
-- Plan approuvable (chemin du plan ou contenu)
+- Plan approuvable (`planPath`)
 - Proposition de message de commit cible (1 ligne, style repo)
-- Mettre à jour `.claude/rfc-pipeline-state.json` :
-  `stage: "review-plan"`, `featureSlug`, `rfcId`, `planPath`
+- Mettre à jour la feature active :
+  - `planPath`, `stage: "review-plan"`
+  - miroir `stage` global = `review-plan`
+- Invalider tout `featureControls` / `validatedTreeId` d'une run antérieure sur
+  cette feature si le plan change le périmètre de contenu.
 
 ## Interdit
 
 - Modifier le code applicatif
 - Commit
 - Implémenter « en avance »
+- Écraser `baseline` / `preExistingDirty`

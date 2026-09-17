@@ -10,9 +10,9 @@ description: >-
 
 ## Entrée
 
-- Code conforme (étape 4 OK)
+- Code conforme (étape 4 OK, `validatedTreeId` renseigné)
 - RFC / plan de la feature
-- État `stage: "docs"`
+- Feature `stage: "docs"`
 
 ## Action principale
 
@@ -25,13 +25,17 @@ Minimum pipeline :
 3. Aligner `docs/API.md` si endpoints ou contrats changent.
 4. Toucher `ARCHITECTURE.md` / `LIAISONS-MODULES.md` seulement si structure ou pont change.
 
+Si la doc de **comportement** change le contenu livré à contrôler (rare) :
+invalider `validatedTreeId` / contrôles et revenir en `conformite` via
+orchestrateur.
+
 ## Sortie
 
 - Doc alignée sur le **code réel**
-- État : `stage: "commit"`
+- Feature `stage: "commit"` + miroir global
 
 ## Interdit
 
 - Inventer des endpoints non implémentés
-- Documer des secrets / DCP
+- Documenter des secrets / DCP
 - Commit (étape suivante)

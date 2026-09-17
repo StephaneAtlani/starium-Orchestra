@@ -11,8 +11,9 @@ description: >-
 
 ## Entrée
 
-- Plan produit à l'étape 1
+- Plan produit à l'étape 1 (`planPath` sur la feature)
 - RFC + état `.claude/rfc-pipeline-state.json`
+- Feature `stage: review-plan`
 
 ## Checklist review (bloquante)
 
@@ -25,20 +26,21 @@ description: >-
 - [ ] **Tests** : cas isolation + happy path listés
 - [ ] **Hors scope** : explicite et respecté
 - [ ] **Décisions figées** : aucune option A/B ouverte dans le plan
-- [ ] **Migration** : si Prisma, nom + impact backfill clarifiés
+- [ ] **Migration Prisma** : seulement si schéma DB modifié ; nom + impact clarifiés
 
 ## Actions
 
-1. Lire le plan et le differ mentalement avec le code réel (spot-check 2–5 fichiers).
+1. Lire le plan et spot-check 2–5 fichiers du code réel.
 2. Lister les **écarts** avec sévérité `block` / `nit`.
-3. Si `block` : **amender le plan** (éditer le fichier plan) — ne pas passer à l'impl.
+3. Si `block` : **amender le plan** — rester en `review-plan`.
 4. Si aucun `block` : marquer le plan **GO**.
 
 ## Sortie
 
 - Verdict : `GO` | `NO-GO` + liste d'écarts
-- Plan mis à jour si besoin
-- État : `stage: "implement"` si GO, sinon rester `review-plan`
+- Si GO : feature `stage: "implement"` + `stage` global miroir
+- Si NO-GO : rester `review-plan` (ou `blocked` si arbitrage métier requis —
+  remonter à l'orchestrateur)
 
 ## Interdit
 
