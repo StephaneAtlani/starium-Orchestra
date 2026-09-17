@@ -3747,6 +3747,14 @@ enum ComplianceContributionStatus {
   NEEDS_MORE
 }
 
+/// Appréciation d’une preuve liée à une exigence (COMP.V2).
+enum ComplianceEvidenceAssessment {
+  TO_REVIEW
+  RELEVANT
+  PARTIAL
+  INSUFFICIENT
+}
+
 /// Campagne / revue de conformité (COMP.V2) — photographie sur un référentiel client figé.
 model ComplianceCampaign {
   id                     String                   @id @default(cuid())
@@ -3879,20 +3887,30 @@ model ComplianceStatus {
 }
 
 model ComplianceEvidence {
-  id              String   @id @default(cuid())
+  id              String                        @id @default(cuid())
   clientId        String
   requirementId   String
   name            String
   description     String?
   url             String?
   fileId          String?
+  /// Version courante de la chaîne (1 = initiale).
+  version         Int                           @default(1)
+  isCurrent       Boolean                       @default(true)
+  /// Preuve remplacée par cette version (même exigence).
+  supersedesId    String?
+  assessment      ComplianceEvidenceAssessment  @default(TO_REVIEW)
+  collectedAt     DateTime?
   createdByUserId String?
-  createdAt       DateTime @default(now())
+  createdAt       DateTime                      @default(now())
 
   client      Client                @relation(fields: [clientId], references: [id], onDelete: Cascade)
   requirement ComplianceRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  supersedes  ComplianceEvidence?  @relation("ComplianceEvidenceVersions", fields: [supersedesId], references: [id], onDelete: SetNull)
+  successors  ComplianceEvidence[] @relation("ComplianceEvidenceVersions")
 
   @@index([clientId, requirementId])
+  @@index([clientId, requirementId, isCurrent])
 }
 
 /// Domaine de risque configurable (taxonomie client, 1 → N types).

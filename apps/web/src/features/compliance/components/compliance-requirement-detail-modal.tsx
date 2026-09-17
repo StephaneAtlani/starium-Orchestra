@@ -35,12 +35,15 @@ import {
   cancelComplianceNa,
   createComplianceContribution,
   createComplianceEvidence,
+  createComplianceEvidenceVersion,
   getComplianceRequirementDetail,
   patchComplianceContribution,
+  patchComplianceEvidence,
   rejectComplianceNa,
   requestComplianceNa,
   upsertComplianceRequirementStatus,
   type ComplianceAssessmentStatusApi,
+  type ComplianceEvidenceAssessmentApi,
   type ComplianceEvidenceKindApi,
   type ComplianceRequirementRowApi,
 } from '../api/compliance.api';
@@ -68,6 +71,13 @@ const CONTRIB_STATUS_LABEL: Record<string, string> = {
   SUBMITTED: 'Soumise',
   ACCEPTED: 'Acceptée',
   NEEDS_MORE: 'À compléter',
+};
+
+const ASSESSMENT_LABEL: Record<ComplianceEvidenceAssessmentApi, string> = {
+  TO_REVIEW: 'À examiner',
+  RELEVANT: 'Pertinente',
+  PARTIAL: 'Partielle',
+  INSUFFICIENT: 'Insuffisante',
 };
 
 function memberLabel(m: ClientMember): string {
@@ -321,6 +331,32 @@ export function ComplianceRequirementDetailModal({
       patchComplianceContribution(authFetch, id, { status: 'ACCEPTED' }),
     onSuccess: async () => {
       toast.success('Contribution acceptée');
+      invalidateComplianceQueries(queryClient, clientId);
+      await q.refetch();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const evidenceAssessMut = useMutation({
+    mutationFn: ({
+      id,
+      assessment,
+    }: {
+      id: string;
+      assessment: ComplianceEvidenceAssessmentApi;
+    }) => patchComplianceEvidence(authFetch, id, { assessment }),
+    onSuccess: async () => {
+      toast.success('Appréciation enregistrée');
+      invalidateComplianceQueries(queryClient, clientId);
+      await q.refetch();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const evidenceVersionMut = useMutation({
+    mutationFn: (id: string) => createComplianceEvidenceVersion(authFetch, id),
+    onSuccess: async () => {
+      toast.success('Nouvelle version de preuve créée');
       invalidateComplianceQueries(queryClient, clientId);
       await q.refetch();
     },
@@ -744,36 +780,103 @@ export function ComplianceRequirementDetailModal({
                   {q.data.evidences.map((e) => (
                     <li
                       key={e.id}
-                      className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-sm"
+                      className="space-y-2 rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-sm"
                     >
-                      <span className="font-medium text-foreground">
-                        {displayLabel(e.name, 'Preuve')}
-                      </span>
-                      {e.kind ? (
-                        <span className="ml-2 text-xs text-muted-foreground">
-                          ({e.kind === 'URL'
-                            ? 'Lien'
-                            : e.kind === 'FILE'
-                              ? 'Fichier'
-                              : 'Observation'}
-                          )
+                      <div>
+                        <span className="font-medium text-foreground">
+                          {displayLabel(e.name, 'Preuve')}
                         </span>
-                      ) : null}
-                      {e.url ? (
-                        <>
-                          {' '}
-                          <a
-                            href={e.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="font-medium text-[color:var(--brand-gold-700)] underline-offset-4 hover:underline"
+                        {e.version ? (
+                          <span className="ml-2 text-xs text-muted-foreground">
+                            v{e.version}
+                          </span>
+                        ) : null}
+                        {e.kind ? (
+                          <span className="ml-2 text-xs text-muted-foreground">
+                            ({e.kind === 'URL'
+                              ? 'Lien'
+                              : e.kind === 'FILE'
+                                ? 'Fichier'
+                                : 'Observation'}
+                            )
+                          </span>
+                        ) : null}
+                        {e.url ? (
+                          <>
+                            {' '}
+                            <a
+                              href={e.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="font-medium text-[color:var(--brand-gold-700)] underline-offset-4 hover:underline"
+                            >
+                              Ouvrir le lien
+                            </a>
+                          </>
+                        ) : null}
+                        {e.description && !e.url ? (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {e.description}
+                          </p>
+                        ) : null}
+                      </div>
+                      {canUpdate ? (
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Label
+                            htmlFor={`ev-assess-${e.id}`}
+                            className="sr-only"
                           >
-                            Ouvrir le lien
-                          </a>
-                        </>
-                      ) : null}
-                      {e.description && !e.url ? (
-                        <p className="mt-1 text-xs text-muted-foreground">{e.description}</p>
+                            Appréciation
+                          </Label>
+                          <Select
+                            value={e.assessment ?? 'TO_REVIEW'}
+                            onValueChange={(v) =>
+                              evidenceAssessMut.mutate({
+                                id: e.id,
+                                assessment:
+                                  (v as ComplianceEvidenceAssessmentApi) ??
+                                  'TO_REVIEW',
+                              })
+                            }
+                          >
+                            <SelectTrigger
+                              id={`ev-assess-${e.id}`}
+                              className="h-11 w-full min-w-[10rem] sm:h-9 sm:w-44"
+                            >
+                              <SelectValue>
+                                {ASSESSMENT_LABEL[
+                                  (e.assessment ??
+                                    'TO_REVIEW') as ComplianceEvidenceAssessmentApi
+                                ]}
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {(
+                                Object.keys(
+                                  ASSESSMENT_LABEL,
+                                ) as ComplianceEvidenceAssessmentApi[]
+                              ).map((k) => (
+                                <SelectItem key={k} value={k}>
+                                  {ASSESSMENT_LABEL[k]}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="min-h-11 sm:min-h-9"
+                            disabled={evidenceVersionMut.isPending}
+                            onClick={() => evidenceVersionMut.mutate(e.id)}
+                          >
+                            Nouvelle version
+                          </Button>
+                        </div>
+                      ) : e.assessment ? (
+                        <p className="text-xs text-muted-foreground">
+                          {ASSESSMENT_LABEL[e.assessment]}
+                        </p>
                       ) : null}
                     </li>
                   ))}

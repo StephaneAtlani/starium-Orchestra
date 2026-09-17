@@ -8,6 +8,7 @@ import {
   ComplianceAssessmentStatus,
   ComplianceCampaignStatus,
   ComplianceContributionStatus,
+  ComplianceEvidenceAssessment,
   ComplianceNaRequestStatus,
   Prisma,
   ProjectRiskCriticality,
@@ -41,6 +42,10 @@ import {
   CreateComplianceContributionDto,
   PatchComplianceContributionDto,
 } from './dto/compliance-contribution.dto';
+import {
+  CreateComplianceEvidenceVersionDto,
+  PatchComplianceEvidenceDto,
+} from './dto/patch-compliance-evidence.dto';
 import { deriveComplianceFamilyLabel } from './compliance-family-label';
 import {
   CAMPAIGN_EVAL_IMPORT_TEMPLATE,
@@ -68,12 +73,16 @@ export function deriveComplianceEvidenceKind(row: {
   return 'OBSERVATION';
 }
 
-/** Une preuve justifie un conforme si URL, fichier, ou observation (description). */
+/** Une preuve courante justifie un conforme si contenu + pas insuffisante. */
 export function evidenceJustifiesCompliance(row: {
   url: string | null;
   fileId: string | null;
   description: string | null;
+  isCurrent?: boolean | null;
+  assessment?: string | null;
 }): boolean {
+  if (row.isCurrent === false) return false;
+  if (row.assessment === 'INSUFFICIENT') return false;
   return Boolean(
     row.url?.trim() || row.fileId?.trim() || row.description?.trim(),
   );
@@ -567,7 +576,7 @@ export class ComplianceService {
         },
       }),
       this.prisma.complianceEvidence.findMany({
-        where: { clientId, requirementId },
+        where: { clientId, requirementId, isCurrent: true },
         orderBy: { createdAt: 'desc' },
       }),
       this.prisma.projectRisk.findMany({
@@ -808,13 +817,19 @@ export class ComplianceService {
 
     if (dto.status === ComplianceAssessmentStatus.COMPLIANT) {
       const evidences = await this.prisma.complianceEvidence.findMany({
-        where: { clientId, requirementId },
-        select: { url: true, fileId: true, description: true },
+        where: { clientId, requirementId, isCurrent: true },
+        select: {
+          url: true,
+          fileId: true,
+          description: true,
+          isCurrent: true,
+          assessment: true,
+        },
       });
       const hasJustifying = evidences.some(evidenceJustifiesCompliance);
       if (!hasJustifying) {
         throw new BadRequestException(
-          'Un statut conforme exige au moins une preuve (URL, fichier ou observation) liée à l’exigence',
+          'Un statut conforme exige au moins une preuve courante non insuffisante (URL, fichier ou observation)',
         );
       }
     }
@@ -1316,6 +1331,129 @@ export class ComplianceService {
       requestId: context?.meta?.requestId,
     });
     return { ...row, kind: deriveComplianceEvidenceKind(row) };
+  }
+
+  async patchEvidence(
+    clientId: string,
+    evidenceId: string,
+    dto: PatchComplianceEvidenceDto,
+    context?: AuditContext,
+  ) {
+    const existing = await this.prisma.complianceEvidence.findFirst({
+      where: { id: evidenceId, clientId },
+    });
+    if (!existing) throw new NotFoundException('Preuve introuvable');
+
+    const updated = await this.prisma.complianceEvidence.update({
+      where: { id: evidenceId },
+      data: {
+        ...(dto.assessment !== undefined && { assessment: dto.assessment }),
+        ...(dto.name !== undefined && { name: dto.name.trim() }),
+        ...(dto.description !== undefined && {
+          description:
+            dto.description === null ? null : dto.description.trim(),
+        }),
+        ...(dto.collectedAt !== undefined && {
+          collectedAt: dto.collectedAt ? new Date(dto.collectedAt) : null,
+        }),
+      },
+    });
+
+    await this.auditLogs.create({
+      clientId,
+      userId: context?.actorUserId,
+      action: COMPLIANCE_AUDIT_ACTION.EVIDENCE_UPDATED,
+      resourceType: COMPLIANCE_AUDIT_RESOURCE_TYPE.COMPLIANCE_EVIDENCE,
+      resourceId: updated.id,
+      oldValue: {
+        assessment: existing.assessment,
+        name: existing.name,
+      },
+      newValue: {
+        assessment: updated.assessment,
+        name: updated.name,
+        version: updated.version,
+      },
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    });
+
+    return { ...updated, kind: deriveComplianceEvidenceKind(updated) };
+  }
+
+  async createEvidenceVersion(
+    clientId: string,
+    evidenceId: string,
+    dto: CreateComplianceEvidenceVersionDto,
+    context?: AuditContext,
+  ) {
+    const existing = await this.prisma.complianceEvidence.findFirst({
+      where: { id: evidenceId, clientId },
+    });
+    if (!existing) throw new NotFoundException('Preuve introuvable');
+    if (!existing.isCurrent) {
+      throw new BadRequestException(
+        'Seule la version courante d’une preuve peut être versionnée',
+      );
+    }
+
+    const url =
+      dto.url !== undefined ? dto.url?.trim() || null : existing.url;
+    const fileId =
+      dto.fileId !== undefined ? dto.fileId?.trim() || null : existing.fileId;
+    const description =
+      dto.description !== undefined
+        ? dto.description?.trim() || null
+        : existing.description;
+    if (!url && !fileId && !description) {
+      throw new BadRequestException(
+        'La nouvelle version doit conserver une URL, un fichier ou une observation',
+      );
+    }
+
+    const created = await this.prisma.$transaction(async (tx) => {
+      await tx.complianceEvidence.update({
+        where: { id: existing.id },
+        data: { isCurrent: false },
+      });
+      return tx.complianceEvidence.create({
+        data: {
+          clientId,
+          requirementId: existing.requirementId,
+          name: dto.name?.trim() || existing.name,
+          description,
+          url,
+          fileId,
+          version: existing.version + 1,
+          isCurrent: true,
+          supersedesId: existing.id,
+          assessment: ComplianceEvidenceAssessment.TO_REVIEW,
+          collectedAt: dto.collectedAt
+            ? new Date(dto.collectedAt)
+            : existing.collectedAt,
+          createdByUserId: context?.actorUserId ?? null,
+        },
+      });
+    });
+
+    await this.auditLogs.create({
+      clientId,
+      userId: context?.actorUserId,
+      action: COMPLIANCE_AUDIT_ACTION.EVIDENCE_VERSIONED,
+      resourceType: COMPLIANCE_AUDIT_RESOURCE_TYPE.COMPLIANCE_EVIDENCE,
+      resourceId: created.id,
+      newValue: {
+        previousId: existing.id,
+        version: created.version,
+        requirementId: created.requirementId,
+      },
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    });
+
+    return { ...created, kind: deriveComplianceEvidenceKind(created) };
   }
 
   async dashboard(clientId: string) {

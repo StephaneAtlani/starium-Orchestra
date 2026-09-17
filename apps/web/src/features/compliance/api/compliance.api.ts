@@ -213,6 +213,12 @@ export async function listComplianceRequirements(
 
 export type ComplianceEvidenceKindApi = 'URL' | 'OBSERVATION' | 'FILE';
 
+export type ComplianceEvidenceAssessmentApi =
+  | 'TO_REVIEW'
+  | 'RELEVANT'
+  | 'PARTIAL'
+  | 'INSUFFICIENT';
+
 export type ComplianceNaRequestStatusApi =
   | 'PENDING'
   | 'APPROVED'
@@ -256,6 +262,9 @@ export type ComplianceRequirementDetailApi = {
     url: string | null;
     description?: string | null;
     kind?: ComplianceEvidenceKindApi;
+    version?: number;
+    assessment?: ComplianceEvidenceAssessmentApi;
+    isCurrent?: boolean;
   }>;
   linkedRisks: Array<{
     code: string;
@@ -442,6 +451,38 @@ export async function createComplianceEvidence(
     name: string;
     kind?: ComplianceEvidenceKindApi;
   }>;
+}
+
+export async function patchComplianceEvidence(
+  authFetch: AuthFetch,
+  evidenceId: string,
+  payload: { assessment?: ComplianceEvidenceAssessmentApi; name?: string },
+) {
+  const res = await authFetch(`${BASE}/evidence/${evidenceId}`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json();
+}
+
+export async function createComplianceEvidenceVersion(
+  authFetch: AuthFetch,
+  evidenceId: string,
+  payload?: {
+    name?: string;
+    description?: string | null;
+    url?: string | null;
+  },
+) {
+  const res = await authFetch(`${BASE}/evidence/${evidenceId}/versions`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(payload ?? {}),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json();
 }
 
 /** COMP.V2 — campagnes / revues. */

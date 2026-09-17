@@ -3050,6 +3050,11 @@ Guards métier client (`X-Client-Id`, module `compliance`). Isolation : toute le
 #### Preuves
 
 - **POST /api/compliance/evidence** — Body :
+  - `requirementId`, `name`, `kind?`, `url?`, `fileId?`, `description?`
+  - Observation seule (sans URL) **autorisée**. Permission **`compliance.update`**.
+- **PATCH /api/compliance/evidence/:id** — Body `{ assessment?, name?, description?, collectedAt? }`. Appréciation : `TO_REVIEW` \| `RELEVANT` \| `PARTIAL` \| `INSUFFICIENT`. Permission **`compliance.update`**. Audit `compliance.evidence.updated`.
+- **POST /api/compliance/evidence/:id/versions** — Crée une nouvelle version courante (ancienne `isCurrent=false`). Body optionnel `{ name?, description?, url?, fileId?, collectedAt? }`. Audit `compliance.evidence.versioned`.
+- Un statut **conforme** exige une preuve **courante** non `INSUFFICIENT`.
   - `requirementId`, `name` (requis)
   - `kind?` : `URL` \| `OBSERVATION` \| `FILE` (V1 : pas de colonne Prisma ; dérivé à la lecture)
   - `url?`, `fileId?`, `description?`

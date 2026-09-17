@@ -45,6 +45,10 @@ import {
   CreateComplianceContributionDto,
   PatchComplianceContributionDto,
 } from './dto/compliance-contribution.dto';
+import {
+  CreateComplianceEvidenceVersionDto,
+  PatchComplianceEvidenceDto,
+} from './dto/patch-compliance-evidence.dto';
 
 @Controller('compliance')
 @UseGuards(JwtAuthGuard, ActiveClientGuard, ModuleAccessGuard, PermissionsGuard)
@@ -445,6 +449,32 @@ export class ComplianceController {
   ) {
     const context: AuditContext = { actorUserId, meta };
     return this.compliance.createEvidence(clientId!, dto, actorUserId, context);
+  }
+
+  @Patch('evidence/:id')
+  @RequirePermissions('compliance.update')
+  patchEvidence(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+    @Body() dto: PatchComplianceEvidenceDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.compliance.patchEvidence(clientId!, id, dto, context);
+  }
+
+  @Post('evidence/:id/versions')
+  @RequirePermissions('compliance.update')
+  createEvidenceVersion(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+    @Body() dto: CreateComplianceEvidenceVersionDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.compliance.createEvidenceVersion(clientId!, id, dto, context);
   }
 
   @Get('dashboard')
