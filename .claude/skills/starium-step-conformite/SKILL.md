@@ -36,7 +36,8 @@ Compléments :
    `starium-ui-reviewer` si disponible.
 2. Modale : `pnpm audit:modals` + `starium-modales`.
 3. `apps/web` : `pnpm audit:ui-ids`.
-4. Prisma : generate ; migration seulement si schéma DB modifié.
+4. Prisma : `prisma generate` ; migration seulement si schéma DB modifié —
+   **exécuter migrate/generate soi-même** (voir `starium-step-implement`).
 5. Critères d'acceptation du plan GO.
 
 Si OK : renseigner `featureControls.passed`, `validatedTreeId = codeRef`.

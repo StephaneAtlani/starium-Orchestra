@@ -25,10 +25,16 @@ description: Vérifie qu'un changement de code respecte les règles Starium Orch
    Prisma / config.
 2. Parcourir les checklists ci-dessous ; noter les écarts avec `fichier:ligne`.
 3. Si une RFC s'applique : relire ses critères d'acceptation, API, permissions, modèle de données.
-4. Lancer les vérifications outillées disponibles.
+4. Lancer les vérifications outillées disponibles **dans le run agent** (Shell) —
+   ne jamais se contenter d’indiquer à l’utilisateur les commandes à lancer.
+   Si Prisma / migration touchés : `prisma generate` + `prisma:migrate` avant les tests.
 5. Synthétiser : **OK** / **écarts actionnables** / **risques** (fuite inter-client, authz).
 
 ```bash
+# Si schéma / migration dans le diff :
+pnpm --filter @starium-orchestra/api prisma:generate
+pnpm --filter @starium-orchestra/api prisma:migrate
+
 pnpm typecheck
 pnpm --filter @starium-orchestra/api test    # ou --filter @starium-orchestra/web test
 pnpm audit:modals                            # si une modale est touchée

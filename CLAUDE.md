@@ -229,8 +229,9 @@ Détail : `docs/design-system/MODALES.md` et la skill `starium-modales`.
 3. Planifier pour un changement moyen ou large.
 4. Implémenter **un changement borné à la fois**.
 5. Créer / mettre à jour les tests.
-6. `pnpm typecheck` + tests du workspace touché (+ `pnpm audit:modals` si modale, `pnpm audit:ui-ids`
- si UI).
+6. **Exécuter soi-même** (jamais déléguer à l’utilisateur) : `prisma generate` +
+   `prisma:migrate` si schéma/migration, puis `pnpm typecheck` + tests du workspace
+   touché (+ `pnpm audit:modals` si modale, `pnpm audit:ui-ids` si UI).
 7. Relire le diff.
 8. Mettre à jour la doc si le comportement documenté change (skill `starium-documentation`).
 

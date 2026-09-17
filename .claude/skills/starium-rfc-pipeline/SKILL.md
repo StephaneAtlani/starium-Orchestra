@@ -216,6 +216,19 @@ travail préexistant. Jamais `git add -A`.
 Commits : via `starium-step-commit` ssi `commitPerFeature === true` **ou**
 demande user explicite. **Pas de push** sauf demande explicite.
 
+## Exécution outillée — jamais déléguer à l’utilisateur
+
+L’agent **lance lui-même** dans le run (Shell), sans coller des commandes « à faire »
+à l’utilisateur en fin de feature :
+
+- `prisma generate` après tout changement de schéma
+- `prisma migrate deploy` (`pnpm --filter @starium-orchestra/api prisma:migrate`)
+  dès qu’une migration est ajoutée / requise pour tester
+- tests ciblés, typecheck, `audit:ui-ids` / `audit:modals` selon le périmètre
+
+Échec d’outil → retries (politique d’échec) ou `blocked` avec diagnostic, **pas**
+« lance la migrate de ton côté ».
+
 ## Initialisation
 
 1. Lire `docs/RFC/_RFC Liste.md` + la RFC.

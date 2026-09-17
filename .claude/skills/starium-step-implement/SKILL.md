@@ -26,7 +26,14 @@ description: >-
 1. Implémenter **strictement** le périmètre du plan (pas d'expansion).
 2. Backend d'abord (DTO, service scopé client, controller, audit si sensible), puis frontend.
 3. Prisma : `prisma generate` si client touché ; **migration SQL seulement si**
-   le schéma de base change.
+   le schéma de base change. **Exécuter soi-même** (ne jamais déléguer à
+   l’utilisateur) :
+   ```bash
+   pnpm --filter @starium-orchestra/api prisma:generate
+   # si migration créée :
+   pnpm --filter @starium-orchestra/api prisma:migrate   # migrate deploy
+   ```
+   Vérifier le succès dans le run avant de passer à `conformite`.
 4. Tests unitaires (isolation client, validations) ; tests UI si flux critique.
 5. Vérifs minimales (ne remplacent pas `featureControls` de l'étape conformite) :
    ```bash
