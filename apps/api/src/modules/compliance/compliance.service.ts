@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import {
   ComplianceAssessmentStatus,
+  ComplianceCampaignStatus,
   Prisma,
   ProjectRiskCriticality,
 } from '@prisma/client';
@@ -23,6 +24,9 @@ import { CreateComplianceEvidenceDto, ComplianceEvidenceKindDto } from './dto/cr
 import { PatchComplianceStatusDto } from './dto/patch-compliance-status.dto';
 import { ListComplianceRequirementsQueryDto } from './dto/list-compliance-requirements.query.dto';
 import { ListComplianceStatusQueryDto } from './dto/list-compliance-status.query.dto';
+import { CreateComplianceCampaignDto } from './dto/create-compliance-campaign.dto';
+import { CloseComplianceCampaignDto } from './dto/close-compliance-campaign.dto';
+import { CreateComplianceCampaignSnapshotDto } from './dto/create-compliance-campaign-snapshot.dto';
 import { deriveComplianceFamilyLabel } from './compliance-family-label';
 
 type PlatformAuditMeta = {
@@ -1347,5 +1351,393 @@ export class ComplianceService {
       }),
       scope: 'platform' as const,
     }));
+  }
+
+  // --- COMP.V2 Campagnes / instantanés ---
+
+  async listCampaigns(clientId: string, frameworkId?: string) {
+    return this.prisma.complianceCampaign.findMany({
+      where: {
+        clientId,
+        ...(frameworkId ? { frameworkId } : {}),
+      },
+      orderBy: [{ createdAt: 'desc' }],
+      include: {
+        _count: { select: { snapshots: true } },
+        framework: { select: { id: true, name: true, version: true } },
+      },
+    });
+  }
+
+  async getCampaign(clientId: string, id: string) {
+    const campaign = await this.prisma.complianceCampaign.findFirst({
+      where: { id, clientId },
+      include: {
+        _count: { select: { snapshots: true } },
+        framework: { select: { id: true, name: true, version: true } },
+        snapshots: {
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            label: true,
+            createdAt: true,
+            createdByUserId: true,
+          },
+        },
+      },
+    });
+    if (!campaign) throw new NotFoundException('Campagne introuvable');
+    return campaign;
+  }
+
+  async createCampaign(
+    clientId: string,
+    dto: CreateComplianceCampaignDto,
+    context?: AuditContext,
+  ) {
+    const framework = await this.prisma.complianceFramework.findFirst({
+      where: { id: dto.frameworkId, clientId },
+    });
+    if (!framework) {
+      throw new NotFoundException('Référentiel client introuvable');
+    }
+
+    const openImmediately = dto.openImmediately === true;
+    const name =
+      dto.name?.trim() ||
+      `Revue ${framework.name} ${new Date().toISOString().slice(0, 10)}`;
+    const freq = dto.reviewFrequencyMonths ?? 12;
+
+    const created = await this.prisma.complianceCampaign.create({
+      data: {
+        clientId,
+        frameworkId: framework.id,
+        name: name.slice(0, 200),
+        status: openImmediately
+          ? ComplianceCampaignStatus.OPEN
+          : ComplianceCampaignStatus.DRAFT,
+        frozenFrameworkName: framework.name,
+        frozenFrameworkVersion: framework.version,
+        reviewFrequencyMonths: freq,
+        openedAt: openImmediately ? new Date() : null,
+        createdByUserId: context?.actorUserId ?? null,
+      },
+    });
+
+    await this.auditLogs.create({
+      clientId,
+      userId: context?.actorUserId,
+      action: COMPLIANCE_AUDIT_ACTION.CAMPAIGN_CREATED,
+      resourceType: COMPLIANCE_AUDIT_RESOURCE_TYPE.COMPLIANCE_CAMPAIGN,
+      resourceId: created.id,
+      newValue: {
+        name: created.name,
+        status: created.status,
+        frameworkName: framework.name,
+        frameworkVersion: framework.version,
+      },
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    });
+
+    if (openImmediately) {
+      await this.auditLogs.create({
+        clientId,
+        userId: context?.actorUserId,
+        action: COMPLIANCE_AUDIT_ACTION.CAMPAIGN_OPENED,
+        resourceType: COMPLIANCE_AUDIT_RESOURCE_TYPE.COMPLIANCE_CAMPAIGN,
+        resourceId: created.id,
+        newValue: { status: ComplianceCampaignStatus.OPEN },
+        ipAddress: context?.meta?.ipAddress,
+        userAgent: context?.meta?.userAgent,
+        requestId: context?.meta?.requestId,
+      });
+    }
+
+    if (dto.createSnapshot === true) {
+      await this.createCampaignSnapshot(
+        clientId,
+        created.id,
+        { label: 'Instantané initial' },
+        context,
+      );
+    }
+
+    return this.getCampaign(clientId, created.id);
+  }
+
+  async openCampaign(clientId: string, id: string, context?: AuditContext) {
+    const campaign = await this.requireCampaign(clientId, id);
+    if (campaign.status !== ComplianceCampaignStatus.DRAFT) {
+      throw new BadRequestException(
+        'Seule une campagne en brouillon peut être ouverte',
+      );
+    }
+    const framework = await this.prisma.complianceFramework.findFirst({
+      where: { id: campaign.frameworkId, clientId },
+    });
+    if (!framework) {
+      throw new NotFoundException('Référentiel client introuvable');
+    }
+
+    const updated = await this.prisma.complianceCampaign.update({
+      where: { id: campaign.id },
+      data: {
+        status: ComplianceCampaignStatus.OPEN,
+        openedAt: new Date(),
+        frozenFrameworkName: framework.name,
+        frozenFrameworkVersion: framework.version,
+      },
+    });
+
+    await this.auditLogs.create({
+      clientId,
+      userId: context?.actorUserId,
+      action: COMPLIANCE_AUDIT_ACTION.CAMPAIGN_OPENED,
+      resourceType: COMPLIANCE_AUDIT_RESOURCE_TYPE.COMPLIANCE_CAMPAIGN,
+      resourceId: updated.id,
+      oldValue: { status: campaign.status },
+      newValue: {
+        status: updated.status,
+        frozenFrameworkName: updated.frozenFrameworkName,
+        frozenFrameworkVersion: updated.frozenFrameworkVersion,
+      },
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    });
+
+    return this.getCampaign(clientId, updated.id);
+  }
+
+  async closeCampaign(
+    clientId: string,
+    id: string,
+    dto: CloseComplianceCampaignDto,
+    context?: AuditContext,
+  ) {
+    const campaign = await this.requireCampaign(clientId, id);
+    if (campaign.status !== ComplianceCampaignStatus.OPEN) {
+      throw new BadRequestException(
+        'Seule une campagne ouverte peut être clôturée',
+      );
+    }
+
+    const withSnapshot = dto.createSnapshot !== false;
+    if (withSnapshot) {
+      await this.createCampaignSnapshot(
+        clientId,
+        campaign.id,
+        { label: 'Instantané de clôture' },
+        context,
+      );
+    }
+
+    const updated = await this.prisma.complianceCampaign.update({
+      where: { id: campaign.id },
+      data: {
+        status: ComplianceCampaignStatus.CLOSED,
+        closedAt: new Date(),
+        closeNote: dto.closeNote?.trim() || null,
+      },
+    });
+
+    await this.auditLogs.create({
+      clientId,
+      userId: context?.actorUserId,
+      action: COMPLIANCE_AUDIT_ACTION.CAMPAIGN_CLOSED,
+      resourceType: COMPLIANCE_AUDIT_RESOURCE_TYPE.COMPLIANCE_CAMPAIGN,
+      resourceId: updated.id,
+      oldValue: { status: campaign.status },
+      newValue: {
+        status: updated.status,
+        closeNote: updated.closeNote,
+        withSnapshot,
+      },
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    });
+
+    return this.getCampaign(clientId, updated.id);
+  }
+
+  async listCampaignSnapshots(clientId: string, campaignId: string) {
+    await this.requireCampaign(clientId, campaignId);
+    return this.prisma.complianceCampaignSnapshot.findMany({
+      where: { clientId, campaignId },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        label: true,
+        createdAt: true,
+        createdByUserId: true,
+      },
+    });
+  }
+
+  async getCampaignSnapshot(
+    clientId: string,
+    campaignId: string,
+    snapshotId: string,
+  ) {
+    await this.requireCampaign(clientId, campaignId);
+    const snap = await this.prisma.complianceCampaignSnapshot.findFirst({
+      where: { id: snapshotId, campaignId, clientId },
+    });
+    if (!snap) throw new NotFoundException('Instantané introuvable');
+    return snap;
+  }
+
+  async createCampaignSnapshot(
+    clientId: string,
+    campaignId: string,
+    dto: CreateComplianceCampaignSnapshotDto,
+    context?: AuditContext,
+  ) {
+    const campaign = await this.requireCampaign(clientId, campaignId);
+    if (
+      campaign.status !== ComplianceCampaignStatus.OPEN &&
+      campaign.status !== ComplianceCampaignStatus.CLOSED
+    ) {
+      throw new BadRequestException(
+        'Instantané autorisé uniquement sur campagne ouverte ou clôturée',
+      );
+    }
+
+    const payload = await this.buildCampaignSnapshotPayload(
+      clientId,
+      campaign.frameworkId,
+      campaign,
+    );
+
+    const snap = await this.prisma.complianceCampaignSnapshot.create({
+      data: {
+        clientId,
+        campaignId: campaign.id,
+        label: dto.label?.trim() || null,
+        payload: payload as Prisma.InputJsonValue,
+        createdByUserId: context?.actorUserId ?? null,
+      },
+    });
+
+    await this.auditLogs.create({
+      clientId,
+      userId: context?.actorUserId,
+      action: COMPLIANCE_AUDIT_ACTION.CAMPAIGN_SNAPSHOT,
+      resourceType: COMPLIANCE_AUDIT_RESOURCE_TYPE.COMPLIANCE_CAMPAIGN_SNAPSHOT,
+      resourceId: snap.id,
+      newValue: {
+        campaignId: campaign.id,
+        label: snap.label,
+        requirementCount: payload.totals.requirementCount,
+      },
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    });
+
+    return snap;
+  }
+
+  private async requireCampaign(clientId: string, id: string) {
+    const campaign = await this.prisma.complianceCampaign.findFirst({
+      where: { id, clientId },
+    });
+    if (!campaign) throw new NotFoundException('Campagne introuvable');
+    return campaign;
+  }
+
+  private async buildCampaignSnapshotPayload(
+    clientId: string,
+    frameworkId: string,
+    campaign: {
+      id: string;
+      name: string;
+      frozenFrameworkName: string;
+      frozenFrameworkVersion: string;
+      status: ComplianceCampaignStatus;
+    },
+  ) {
+    const requirements = await this.prisma.complianceRequirement.findMany({
+      where: { frameworkId },
+      orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
+      select: {
+        id: true,
+        code: true,
+        title: true,
+        category: true,
+        statuses: {
+          where: { clientId },
+          take: 1,
+          select: {
+            status: true,
+            lastAssessmentDate: true,
+            comment: true,
+          },
+        },
+        evidences: {
+          where: { clientId },
+          select: { id: true },
+        },
+      },
+    });
+
+    let compliant = 0;
+    let partial = 0;
+    let nonCompliant = 0;
+    let notApplicable = 0;
+    let notAssessed = 0;
+
+    const items = requirements.map((r) => {
+      const st = r.statuses[0]?.status ?? null;
+      if (!st) notAssessed += 1;
+      else if (st === ComplianceAssessmentStatus.COMPLIANT) compliant += 1;
+      else if (st === ComplianceAssessmentStatus.PARTIALLY_COMPLIANT)
+        partial += 1;
+      else if (st === ComplianceAssessmentStatus.NON_COMPLIANT)
+        nonCompliant += 1;
+      else if (st === ComplianceAssessmentStatus.NOT_APPLICABLE)
+        notApplicable += 1;
+
+      return {
+        requirementId: r.id,
+        code: r.code,
+        title: r.title,
+        category: r.category,
+        status: st,
+        lastAssessmentDate: r.statuses[0]?.lastAssessmentDate ?? null,
+        comment: r.statuses[0]?.comment ?? null,
+        evidenceCount: r.evidences.length,
+      };
+    });
+
+    const N = requirements.length;
+    const A = N - notApplicable - notAssessed;
+    const compliancePercent =
+      A > 0 ? Math.round((compliant / A) * 1000) / 10 : null;
+
+    return {
+      capturedAt: new Date().toISOString(),
+      campaign: {
+        id: campaign.id,
+        name: campaign.name,
+        status: campaign.status,
+        frozenFrameworkName: campaign.frozenFrameworkName,
+        frozenFrameworkVersion: campaign.frozenFrameworkVersion,
+      },
+      totals: {
+        requirementCount: N,
+        compliantCount: compliant,
+        partiallyCompliantCount: partial,
+        nonCompliantCount: nonCompliant,
+        notApplicableCount: notApplicable,
+        notAssessedCount: notAssessed,
+        applicableCount: A,
+        compliancePercent,
+      },
+      requirements: items,
+    };
   }
 }

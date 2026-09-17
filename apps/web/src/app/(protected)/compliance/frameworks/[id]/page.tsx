@@ -7,7 +7,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
-import { buttonVariants } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { ErrorState } from '@/components/feedback/error-state';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
@@ -24,6 +24,7 @@ import { ComplianceFrameworkDomainTree } from '@/features/compliance/components/
 import { ComplianceFrameworkDetailRail } from '@/features/compliance/components/compliance-framework-detail-rail';
 import { ComplianceRemediationModal } from '@/features/compliance/components/compliance-remediation-modal';
 import { ComplianceRequirementDetailModal } from '@/features/compliance/components/compliance-requirement-detail-modal';
+import { ComplianceStartReviewModal } from '@/features/compliance/components/compliance-start-review-modal';
 
 export default function ComplianceFrameworkDetailPage() {
   const params = useParams();
@@ -35,6 +36,7 @@ export default function ComplianceFrameworkDetailPage() {
 
   const [selectedReqId, setSelectedReqId] = useState<string | null>(null);
   const [remediationOpen, setRemediationOpen] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
 
   const overviewQ = useQuery({
     queryKey: ['compliance', 'framework', clientId, frameworkId, 'overview'],
@@ -89,6 +91,14 @@ export default function ComplianceFrameworkDetailPage() {
           }
           actions={
             <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                className="min-h-11 sm:min-h-9"
+                onClick={() => setReviewOpen(true)}
+              >
+                Lancer une revue
+              </Button>
               <Link
                 href="/compliance/frameworks"
                 className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
@@ -184,6 +194,13 @@ export default function ComplianceFrameworkDetailPage() {
               queryKey: ['compliance', 'framework', clientId, frameworkId, 'overview'],
             });
           }}
+        />
+
+        <ComplianceStartReviewModal
+          open={reviewOpen}
+          onOpenChange={setReviewOpen}
+          frameworkId={frameworkId}
+          frameworkLabel={frameworkLabel}
         />
       </PageContainer>
     </RequireActiveClient>

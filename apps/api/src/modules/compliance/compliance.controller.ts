@@ -28,11 +28,102 @@ import { ListComplianceStatusQueryDto } from './dto/list-compliance-status.query
 
 import { ActivateComplianceFrameworkDto } from './dto/activate-compliance-framework.dto';
 import { PatchClientComplianceFrameworkDto } from './dto/patch-client-compliance-framework.dto';
+import { CreateComplianceCampaignDto } from './dto/create-compliance-campaign.dto';
+import { CloseComplianceCampaignDto } from './dto/close-compliance-campaign.dto';
+import { CreateComplianceCampaignSnapshotDto } from './dto/create-compliance-campaign-snapshot.dto';
 
 @Controller('compliance')
 @UseGuards(JwtAuthGuard, ActiveClientGuard, ModuleAccessGuard, PermissionsGuard)
 export class ComplianceController {
   constructor(private readonly compliance: ComplianceService) {}
+
+  /** COMP.V2 — campagnes / revues. */
+  @Get('campaigns')
+  @RequirePermissions('compliance.read')
+  listCampaigns(
+    @ActiveClientId() clientId: string | undefined,
+    @Query('frameworkId') frameworkId?: string,
+  ) {
+    return this.compliance.listCampaigns(clientId!, frameworkId);
+  }
+
+  @Post('campaigns')
+  @RequirePermissions('compliance.update')
+  createCampaign(
+    @ActiveClientId() clientId: string | undefined,
+    @Body() dto: CreateComplianceCampaignDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.compliance.createCampaign(clientId!, dto, context);
+  }
+
+  @Get('campaigns/:id')
+  @RequirePermissions('compliance.read')
+  getCampaign(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+  ) {
+    return this.compliance.getCampaign(clientId!, id);
+  }
+
+  @Post('campaigns/:id/open')
+  @RequirePermissions('compliance.update')
+  openCampaign(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.compliance.openCampaign(clientId!, id, context);
+  }
+
+  @Post('campaigns/:id/close')
+  @RequirePermissions('compliance.update')
+  closeCampaign(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+    @Body() dto: CloseComplianceCampaignDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.compliance.closeCampaign(clientId!, id, dto, context);
+  }
+
+  @Get('campaigns/:id/snapshots')
+  @RequirePermissions('compliance.read')
+  listCampaignSnapshots(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+  ) {
+    return this.compliance.listCampaignSnapshots(clientId!, id);
+  }
+
+  @Post('campaigns/:id/snapshots')
+  @RequirePermissions('compliance.update')
+  createCampaignSnapshot(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+    @Body() dto: CreateComplianceCampaignSnapshotDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.compliance.createCampaignSnapshot(clientId!, id, dto, context);
+  }
+
+  @Get('campaigns/:campaignId/snapshots/:snapshotId')
+  @RequirePermissions('compliance.read')
+  getCampaignSnapshot(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('campaignId') campaignId: string,
+    @Param('snapshotId') snapshotId: string,
+  ) {
+    return this.compliance.getCampaignSnapshot(clientId!, campaignId, snapshotId);
+  }
 
   /** Catalogue plateforme proposé (actifs) — avant activation client. */
   @Get('frameworks/catalog')

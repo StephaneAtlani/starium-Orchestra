@@ -2995,6 +2995,20 @@ Guards métier client (`X-Client-Id`, module `compliance`).
 
 **UI client** : `/compliance/frameworks` — cartes catalogue (périmètre, compteurs, badge famille, Activer) + liste des instances client.
 
+### Campagnes / revues (COMP.V2) — `/api/compliance/campaigns`
+
+- **GET /campaigns?frameworkId=** — Liste des campagnes du client (filtre optionnel). Permission **`compliance.read`**.
+- **POST /campaigns** — Body `{ frameworkId, name?, reviewFrequencyMonths?, openImmediately?, createSnapshot? }`. Fige `frozenFrameworkName` / `frozenFrameworkVersion`. Permission **`compliance.update`**. Audit `compliance.campaign.created` (+ `opened` / `snapshot` si demandé).
+- **GET /campaigns/:id** — Détail + liste légère des instantanés.
+- **POST /campaigns/:id/open** — Brouillon → ouverte (re-fige name/version du référentiel courant).
+- **POST /campaigns/:id/close** — Body `{ closeNote?, createSnapshot? }` (snapshot de clôture par défaut).
+- **GET|POST /campaigns/:id/snapshots** — Liste / création d’instantané (payload JSON exigences + totaux `C/A`).
+- **GET /campaigns/:campaignId/snapshots/:snapshotId** — Instantané complet.
+
+**Décisions V2.1 figées** : exigence plate (pas de Criterion) ; périmètre = client ; pas de module actions correctives dédié ; stockage instantané en JSON DB.
+
+**UI** : bouton **Lancer une revue** sur `/compliance/frameworks/[id]`.
+
 ### Évaluation opérationnelle (RFC-COMP-001-A) — `/api/compliance`
 
 Guards métier client (`X-Client-Id`, module `compliance`). Isolation : toute lecture / écriture filtrée sur le client actif.

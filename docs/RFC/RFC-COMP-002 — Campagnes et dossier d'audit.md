@@ -1,7 +1,7 @@
 # RFC-COMP-002 — Campagnes et dossier d’audit (V2)
 
 Version : 0.1 — 17 septembre 2026  
-**Statut** : 📝 Draft — **après** [RFC-COMP-001-A](./RFC-COMP-001-A%20—%20Évaluation%20opérationnelle%20(V1).md)  
+**Statut** : 🚧 V2.1 en cours — campagnes + instantanés + UI « Lancer une revue » (après [RFC-COMP-001-A](./RFC-COMP-001-A%20—%20Évaluation%20opérationnelle%20(V1).md))
 **UX cible (mock)** : [RFC-COMP-003](./RFC-COMP-003%20—%20CDC%20Conformité%20(fidélité%20mock).md) — revue / remédiation / détail référentiel  
 **Spécification détaillée** : sections 5–17 de [RFC-COMP-001](./RFC-COMP-001%20—%20Pilotage%20de%20la%20conformité.md) (campagnes, contributions, preuves versionnées, instantanés, imports évaluations, rappels)
 
@@ -31,12 +31,12 @@ Prérequis : V1 évaluation opérationnelle livrée et stable.
 
 ---
 
-## 3. Décisions ouvertes (à trancher en kickoff V2)
+## 3. Décisions V2.1 (figées 2026-09-17)
 
-1. Introduire `ComplianceCriterion` / `ComplianceExpectation` ou garder exigence plate + champs JSON ?  
-2. Périmètre = client seul vs sites/org units Starium ?  
-3. Module actions correctives minimal vs uniquement projets/risques ?  
-4. Stockage exports : TTL et bucket documents existant.
+1. **Exigence plate** — pas de `ComplianceCriterion` / `ComplianceExpectation` ; réutiliser `ComplianceRequirement` + `ComplianceStatus`.
+2. **Périmètre** = client actif uniquement (pas de sites / org units dans ce lot).
+3. **Actions correctives** — uniquement via projets / risques existants ; pas de module actions dédié.
+4. **Exports / instantanés** — payload JSON en base (`ComplianceCampaignSnapshot`) ; pas de bucket documents dans V2.1.
 
 ---
 

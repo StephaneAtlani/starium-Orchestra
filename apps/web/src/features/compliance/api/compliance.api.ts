@@ -301,3 +301,78 @@ export async function createComplianceEvidence(
     kind?: ComplianceEvidenceKindApi;
   }>;
 }
+
+/** COMP.V2 — campagnes / revues. */
+export type ComplianceCampaignStatusApi =
+  | 'DRAFT'
+  | 'OPEN'
+  | 'CLOSED'
+  | 'ARCHIVED';
+
+export type ComplianceCampaignListItemApi = {
+  id: string;
+  name: string;
+  status: ComplianceCampaignStatusApi;
+  frozenFrameworkName: string;
+  frozenFrameworkVersion: string;
+  openedAt: string | null;
+  closedAt: string | null;
+  createdAt: string;
+  _count: { snapshots: number };
+  framework: { id: string; name: string; version: string };
+};
+
+export type ComplianceCampaignDetailApi = ComplianceCampaignListItemApi & {
+  closeNote: string | null;
+  reviewFrequencyMonths: number;
+  snapshots: Array<{
+    id: string;
+    label: string | null;
+    createdAt: string;
+  }>;
+};
+
+export async function listComplianceCampaigns(
+  authFetch: AuthFetch,
+  frameworkId?: string,
+): Promise<ComplianceCampaignListItemApi[]> {
+  const qs = frameworkId
+    ? `?frameworkId=${encodeURIComponent(frameworkId)}`
+    : '';
+  const res = await authFetch(`${BASE}/campaigns${qs}`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ComplianceCampaignListItemApi[]>;
+}
+
+export async function createComplianceCampaign(
+  authFetch: AuthFetch,
+  payload: {
+    frameworkId: string;
+    name?: string;
+    openImmediately?: boolean;
+    createSnapshot?: boolean;
+    reviewFrequencyMonths?: number;
+  },
+): Promise<ComplianceCampaignDetailApi> {
+  const res = await authFetch(`${BASE}/campaigns`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ComplianceCampaignDetailApi>;
+}
+
+export async function closeComplianceCampaign(
+  authFetch: AuthFetch,
+  campaignId: string,
+  payload?: { closeNote?: string; createSnapshot?: boolean },
+): Promise<ComplianceCampaignDetailApi> {
+  const res = await authFetch(`${BASE}/campaigns/${campaignId}/close`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(payload ?? {}),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ComplianceCampaignDetailApi>;
+}

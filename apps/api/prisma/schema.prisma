@@ -382,6 +382,7 @@ model Client {
   complianceFrameworks             ComplianceFramework[]
   complianceStatuses               ComplianceStatus[]
   complianceEvidences              ComplianceEvidence[]
+  complianceCampaigns              ComplianceCampaign[]
   riskDomains                      RiskDomain[]
   riskTypes                        RiskType[]
   budgetDashboardConfigs           BudgetDashboardConfig[]
@@ -3713,10 +3714,63 @@ model ComplianceFramework {
 
   client       Client?                 @relation(fields: [clientId], references: [id], onDelete: Cascade)
   requirements ComplianceRequirement[]
+  campaigns    ComplianceCampaign[]
 
   @@index([clientId])
   @@index([clientId, isActive])
   @@unique([sourceLibraryPath])
+}
+
+enum ComplianceCampaignStatus {
+  DRAFT
+  OPEN
+  CLOSED
+  ARCHIVED
+}
+
+/// Campagne / revue de conformité (COMP.V2) — photographie sur un référentiel client figé.
+model ComplianceCampaign {
+  id                     String                   @id @default(cuid())
+  clientId               String
+  frameworkId            String
+  /// Nom métier affiché (jamais l'id).
+  name                   String
+  status                 ComplianceCampaignStatus @default(DRAFT)
+  /// Copie figée à l'ouverture (version/périmètre inchangés ensuite).
+  frozenFrameworkName    String
+  frozenFrameworkVersion String
+  reviewFrequencyMonths  Int                      @default(12)
+  openedAt               DateTime?
+  closedAt               DateTime?
+  closeNote              String?
+  createdByUserId        String?
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @updatedAt
+
+  client     Client                        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  framework  ComplianceFramework           @relation(fields: [frameworkId], references: [id], onDelete: Restrict)
+  snapshots  ComplianceCampaignSnapshot[]
+
+  @@index([clientId])
+  @@index([clientId, frameworkId])
+  @@index([clientId, status])
+}
+
+/// Instantané immuable d'une campagne (évaluations + preuves au moment de la coupure).
+model ComplianceCampaignSnapshot {
+  id              String   @id @default(cuid())
+  clientId        String
+  campaignId      String
+  label           String?
+  /// Payload JSON : exigences, statuts, comptes preuves, totaux.
+  payload         Json
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+
+  campaign ComplianceCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([clientId, campaignId])
+  @@index([campaignId])
 }
 
 model ComplianceRequirement {

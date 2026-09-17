@@ -38,6 +38,17 @@ describe('ComplianceService', () => {
         create: jest.fn(),
       },
       projectRisk: { count: jest.fn(), groupBy: jest.fn() },
+      complianceCampaign: {
+        findMany: jest.fn(),
+        findFirst: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+      },
+      complianceCampaignSnapshot: {
+        findMany: jest.fn(),
+        findFirst: jest.fn(),
+        create: jest.fn(),
+      },
     };
     auditLogs = { create: jest.fn().mockResolvedValue(undefined) };
     service = new ComplianceService(prisma, auditLogs);
@@ -562,6 +573,101 @@ describe('ComplianceService', () => {
           familyLabel: 'NIS2',
           scope: 'platform',
         }),
+      );
+    });
+  });
+
+  describe('campaigns (COMP.V2)', () => {
+    it('crée une campagne ouverte avec instantané', async () => {
+      prisma.complianceFramework.findFirst.mockResolvedValue({
+        id: 'fw-1',
+        clientId: 'c1',
+        name: 'NIS2',
+        version: '3',
+      });
+      prisma.complianceCampaign.create.mockResolvedValue({
+        id: 'camp-1',
+        clientId: 'c1',
+        frameworkId: 'fw-1',
+        name: 'Revue NIS2 2026-09-17',
+        status: 'OPEN',
+        frozenFrameworkName: 'NIS2',
+        frozenFrameworkVersion: '3',
+      });
+      const campaignRow = {
+        id: 'camp-1',
+        clientId: 'c1',
+        frameworkId: 'fw-1',
+        name: 'Revue NIS2 2026-09-17',
+        status: 'OPEN',
+        frozenFrameworkName: 'NIS2',
+        frozenFrameworkVersion: '3',
+        _count: { snapshots: 1 },
+        framework: { id: 'fw-1', name: 'NIS2', version: '3' },
+        snapshots: [],
+      };
+      prisma.complianceCampaign.findFirst.mockResolvedValue(campaignRow);
+      prisma.complianceRequirement.findMany.mockResolvedValue([
+        {
+          id: 'req-1',
+          code: 'A.1',
+          title: 'Ctrl',
+          category: 'Domaine',
+          statuses: [
+            {
+              status: 'COMPLIANT',
+              lastAssessmentDate: null,
+              comment: null,
+            },
+          ],
+          evidences: [{ id: 'e1' }],
+        },
+      ]);
+      prisma.complianceCampaignSnapshot.create.mockResolvedValue({
+        id: 'snap-1',
+        campaignId: 'camp-1',
+        label: 'Instantané initial',
+      });
+
+      const out = await service.createCampaign(
+        'c1',
+        {
+          frameworkId: 'fw-1',
+          openImmediately: true,
+          createSnapshot: true,
+        },
+        { actorUserId: 'u1' },
+      );
+
+      expect(prisma.complianceCampaign.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          clientId: 'c1',
+          frameworkId: 'fw-1',
+          status: 'OPEN',
+          frozenFrameworkName: 'NIS2',
+          frozenFrameworkVersion: '3',
+        }),
+      });
+      expect(prisma.complianceCampaignSnapshot.create).toHaveBeenCalled();
+      expect(out.id).toBe('camp-1');
+    });
+
+    it('refuse d’ouvrir une campagne non brouillon', async () => {
+      prisma.complianceCampaign.findFirst.mockResolvedValue({
+        id: 'camp-1',
+        clientId: 'c1',
+        status: 'OPEN',
+        frameworkId: 'fw-1',
+      });
+      await expect(service.openCampaign('c1', 'camp-1')).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+    });
+
+    it('refuse une campagne d’un autre client', async () => {
+      prisma.complianceCampaign.findFirst.mockResolvedValue(null);
+      await expect(service.getCampaign('c1', 'camp-x')).rejects.toBeInstanceOf(
+        NotFoundException,
       );
     });
   });
