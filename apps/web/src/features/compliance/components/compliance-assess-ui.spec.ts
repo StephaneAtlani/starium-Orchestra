@@ -2,35 +2,40 @@ import { describe, expect, it } from 'vitest';
 import { assessHeadingAndTooltip } from './compliance-assess-ui';
 
 describe('assessHeadingAndTooltip', () => {
-  it('titre court + description → h2 + description dans le (i)', () => {
+  it('titre court + description distincte → h2 + (i)', () => {
     expect(
       assessHeadingAndTooltip(
-        'Politiques de sécurité de l’information',
+        'Politique de sécurité de l’information',
         'Définies, approuvées, publiées',
         'A.5.1',
       ),
     ).toEqual({
-      heading: 'Politiques de sécurité de l’information',
-      tooltipTitle: null,
+      heading: 'Politique de sécurité de l’information',
       tooltipDescription: 'Définies, approuvées, publiées',
     });
   });
 
-  it('pavé long sans description → h2 = code, pavé dans le (i)', () => {
-    const long =
-      'Taking into account the state-of-the-art and, where applicable, relevant European and international standards, as well as the cost of implementation, the measures referred to in the first subparagraph shall ensure a level of security of network and information systems appropriate to the risks posed.';
-    expect(assessHeadingAndTooltip(long, null, 'Art. 21')).toEqual({
-      heading: 'Art. 21',
-      tooltipTitle: null,
+  it('title≡description court (NIS2) → h2 = title + (i) = description', () => {
+    expect(
+      assessHeadingAndTooltip('incident handling;', 'incident handling;', '21.2.b'),
+    ).toEqual({
+      heading: 'incident handling;',
+      tooltipDescription: 'incident handling;',
+    });
+  });
+
+  it('title≡description long → h2 = code + (i) = description', () => {
+    const long = 'A'.repeat(120);
+    expect(assessHeadingAndTooltip(long, long, '21.1')).toEqual({
+      heading: '21.1',
       tooltipDescription: long,
     });
   });
 
-  it('title≡description long → code en h2, texte dans le (i)', () => {
-    const long = 'A'.repeat(120);
-    expect(assessHeadingAndTooltip(long, long, 'X.1')).toEqual({
-      heading: 'X.1',
-      tooltipTitle: null,
+  it('pavé title sans description → h2 = code + (i) = pavé', () => {
+    const long = 'B'.repeat(120);
+    expect(assessHeadingAndTooltip(long, null, '21.1')).toEqual({
+      heading: '21.1',
       tooltipDescription: long,
     });
   });
@@ -40,7 +45,6 @@ describe('assessHeadingAndTooltip', () => {
       assessHeadingAndTooltip('Politique de sécurité', null, 'A.5.1'),
     ).toEqual({
       heading: 'Politique de sécurité',
-      tooltipTitle: null,
       tooltipDescription: null,
     });
   });

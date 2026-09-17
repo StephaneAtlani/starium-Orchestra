@@ -110,9 +110,8 @@ export function isSavableAssessmentStatus(
 const SHORT_TITLE_MAX = 96;
 
 /**
- * Intitulé court → toujours en h2.
- * Description (ou pavé long stocké à tort en `title`) → uniquement dans le (i) au hover.
- * Jamais de description en sous-titre / à la place du titre.
+ * h2 = intitulé court (si le title est un pavé → code).
+ * (i) = description au hover dès qu’elle existe (même si title === description).
  */
 export function assessHeadingAndTooltip(
   title: string,
@@ -120,34 +119,24 @@ export function assessHeadingAndTooltip(
   code?: string | null,
 ): {
   heading: string | null;
-  tooltipTitle: string | null;
   tooltipDescription: string | null;
 } {
   const t = title.trim() || null;
   const d = description?.trim() || null;
   const c = code?.trim() || null;
   if (!t && !d) {
-    return { heading: c, tooltipTitle: null, tooltipDescription: null };
+    return { heading: c, tooltipDescription: null };
   }
 
-  const same = Boolean(t && d && t === d);
-  const distinctDesc = d && !same ? d : null;
-  const longBlob = Boolean(t && t.length > SHORT_TITLE_MAX);
+  const longTitle = Boolean(t && t.length > SHORT_TITLE_MAX);
 
-  // Pavé réglementaire en title (ex. NIS2) → code en h2, texte dans le (i)
-  if (longBlob && !distinctDesc) {
-    return {
-      heading: c,
-      tooltipTitle: null,
-      tooltipDescription: t,
-    };
-  }
+  // Pavé en title → code en h2 ; sinon le title
+  const heading = longTitle ? c : t;
 
-  return {
-    heading: t,
-    tooltipTitle: null,
-    tooltipDescription: distinctDesc,
-  };
+  // Description dans le (i) si présente ; sinon pavé title sans description
+  const tooltipDescription = d ?? (longTitle ? t : null);
+
+  return { heading, tooltipDescription };
 }
 
 function ComplianceInfoTip({
@@ -185,7 +174,7 @@ function ComplianceInfoTip({
   );
 }
 
-/** Badges + intitulé court en h2 ; (i) = description au hover. */
+/** Badges + titre court en h2 ; (i) = description au hover. */
 export function ComplianceAssessHeader({
   frameworkName,
   code,
@@ -202,7 +191,6 @@ export function ComplianceAssessHeader({
     description,
     code,
   );
-  const hasTip = Boolean(tooltipDescription);
 
   return (
     <header className="shrink-0 border-b border-border/70 bg-background px-5 pr-14 pb-4 pt-5 sm:px-6">
@@ -214,31 +202,22 @@ export function ComplianceAssessHeader({
           {code}
         </span>
       </div>
-      {heading ? (
-        <div className="mt-2.5 flex min-w-0 items-start gap-2">
+      <div className="mt-2.5 flex min-w-0 items-start gap-2">
+        {heading ? (
           <h2 className="min-w-0 flex-1 text-lg font-extrabold leading-snug tracking-tight text-foreground sm:text-xl">
             {heading}
           </h2>
-          {hasTip ? (
-            <ComplianceInfoTip
-              title={null}
-              description={tooltipDescription}
-              ariaLabel="Voir la description de l’exigence"
-            />
-          ) : null}
-        </div>
-      ) : (
-        <div className="mt-2.5 flex min-w-0 items-center gap-2">
+        ) : (
           <h2 className="sr-only">{code}</h2>
-          {hasTip ? (
-            <ComplianceInfoTip
-              title={null}
-              description={tooltipDescription}
-              ariaLabel="Voir la description de l’exigence"
-            />
-          ) : null}
-        </div>
-      )}
+        )}
+        {tooltipDescription ? (
+          <ComplianceInfoTip
+            title={null}
+            description={tooltipDescription}
+            ariaLabel="Voir la description de l’exigence"
+          />
+        ) : null}
+      </div>
     </header>
   );
 }
