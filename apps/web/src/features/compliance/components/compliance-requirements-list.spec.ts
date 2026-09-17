@@ -74,7 +74,7 @@ describe('filterComplianceRequirements', () => {
     ).toEqual(['b']);
   });
 
-  it('filtre par état Non évalué', () => {
+  it('filtre par état À évaluer', () => {
     expect(
       filterComplianceRequirements(rows, {
         search: '',

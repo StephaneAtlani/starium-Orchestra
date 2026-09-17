@@ -83,8 +83,12 @@ function FrameworkCard({ summary }: { summary: ComplianceFrameworkSummaryApi }) 
   const audit = formatAuditDate(summary.nextAuditAt);
 
   return (
-    <Card size="sm" className="starium-panel overflow-hidden border border-border shadow-sm">
-      <CardContent className="space-y-3 pt-3">
+    <Link
+      href={`/compliance/frameworks/${summary.id}`}
+      className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <Card size="sm" className="starium-panel h-full overflow-hidden border border-border shadow-sm transition-colors hover:border-border">
+        <CardContent className="space-y-3 pt-3">
         <div className="flex items-start gap-3">
           <span
             aria-hidden
@@ -124,7 +128,7 @@ function FrameworkCard({ summary }: { summary: ComplianceFrameworkSummaryApi }) 
               value={summary.nonCompliantCount}
               className="text-destructive"
             />
-            <StatRow label="Non évaluées" value={summary.notAssessedCount} />
+            <StatRow label="À évaluer" value={summary.notAssessedCount} />
           </div>
         </div>
 
@@ -135,8 +139,9 @@ function FrameworkCard({ summary }: { summary: ComplianceFrameworkSummaryApi }) 
           </span>
           <RegistryBadge className={badge.className}>{badge.label}</RegistryBadge>
         </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </Link>
   );
 }
 

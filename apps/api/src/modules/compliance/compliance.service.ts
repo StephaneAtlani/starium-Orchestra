@@ -73,6 +73,109 @@ export interface ComplianceFrameworkSummary {
   compliancePercent: number | null;
 }
 
+export type ComplianceUiStatus =
+  | ComplianceAssessmentStatus
+  | 'NOT_ASSESSED';
+
+export interface ComplianceFrameworkDomainSummary {
+  key: string;
+  label: string;
+  requirementCount: number;
+  compliantCount: number;
+  partiallyCompliantCount: number;
+  nonCompliantCount: number;
+  notApplicableCount: number;
+  notAssessedCount: number;
+  applicableCount: number;
+  compliancePercent: number | null;
+}
+
+export interface ComplianceFrameworkOverviewRequirement {
+  id: string;
+  code: string;
+  title: string;
+  category: string | null;
+  status: ComplianceUiStatus;
+  evidenceCount: number;
+  linkedRiskCount: number;
+}
+
+export interface ComplianceFrameworkOverview {
+  framework: {
+    id: string;
+    name: string;
+    version: string;
+    isActive: boolean;
+    nextAuditAt: Date | null;
+  };
+  requirementCount: number;
+  compliantCount: number;
+  partiallyCompliantCount: number;
+  nonCompliantCount: number;
+  notApplicableCount: number;
+  notAssessedCount: number;
+  applicableCount: number;
+  compliancePercent: number | null;
+  domains: ComplianceFrameworkDomainSummary[];
+  requirements: ComplianceFrameworkOverviewRequirement[];
+  remediation: ComplianceFrameworkOverviewRequirement[];
+}
+
+function emptyStatusBucket() {
+  return {
+    compliantCount: 0,
+    partiallyCompliantCount: 0,
+    nonCompliantCount: 0,
+    notApplicableCount: 0,
+    notAssessedCount: 0,
+  };
+}
+
+function bumpStatusBucket(
+  bucket: ReturnType<typeof emptyStatusBucket>,
+  status: ComplianceAssessmentStatus | undefined,
+) {
+  if (!status) {
+    bucket.notAssessedCount += 1;
+    return;
+  }
+  switch (status) {
+    case ComplianceAssessmentStatus.COMPLIANT:
+      bucket.compliantCount += 1;
+      break;
+    case ComplianceAssessmentStatus.PARTIALLY_COMPLIANT:
+      bucket.partiallyCompliantCount += 1;
+      break;
+    case ComplianceAssessmentStatus.NON_COMPLIANT:
+      bucket.nonCompliantCount += 1;
+      break;
+    case ComplianceAssessmentStatus.NOT_APPLICABLE:
+      bucket.notApplicableCount += 1;
+      break;
+  }
+}
+
+function countsToApplicable(bucket: ReturnType<typeof emptyStatusBucket>) {
+  const n =
+    bucket.compliantCount +
+    bucket.partiallyCompliantCount +
+    bucket.nonCompliantCount +
+    bucket.notApplicableCount +
+    bucket.notAssessedCount;
+  const applicableCount = n - bucket.notApplicableCount - bucket.notAssessedCount;
+  return {
+    requirementCount: n,
+    applicableCount,
+    compliancePercent:
+      applicableCount > 0
+        ? Math.round((100 * bucket.compliantCount) / applicableCount)
+        : null,
+  };
+}
+
+const UNCATEGORIZED_DOMAIN_KEY = '__uncategorized__';
+const UNCATEGORIZED_DOMAIN_LABEL = 'Sans domaine';
+
 @Injectable()
 export class ComplianceService {
   constructor(
@@ -174,6 +277,145 @@ export class ComplianceService {
           evaluatedCount > 0 ? Math.round((100 * compliantCount) / evaluatedCount) : null,
       } satisfies ComplianceFrameworkSummary;
     });
+  }
+
+  /**
+   * Fiche détail référentiel (COMP.UX.1–3) : counts, domaines (category),
+   * exigences + sous-ensemble remédiation (Partiel / Écart).
+   */
+  async getFrameworkOverview(
+    clientId: string,
+    frameworkId: string,
+  ): Promise<ComplianceFrameworkOverview> {
+    const framework = await this.prisma.complianceFramework.findFirst({
+      where: { id: frameworkId, clientId },
+      select: {
+        id: true,
+        name: true,
+        version: true,
+        isActive: true,
+        nextAuditAt: true,
+      },
+    });
+    if (!framework) throw new NotFoundException('Référentiel introuvable');
+
+    const requirements = await this.prisma.complianceRequirement.findMany({
+      where: { frameworkId },
+      select: {
+        id: true,
+        code: true,
+        title: true,
+        category: true,
+        sortOrder: true,
+      },
+      orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
+    });
+
+    const requirementIds = requirements.map((r) => r.id);
+    const [statuses, evidenceGroups, riskGroups] = await Promise.all([
+      requirementIds.length === 0
+        ? Promise.resolve([])
+        : this.prisma.complianceStatus.findMany({
+            where: { clientId, requirementId: { in: requirementIds } },
+            select: { requirementId: true, status: true },
+          }),
+      requirementIds.length === 0
+        ? Promise.resolve([])
+        : this.prisma.complianceEvidence.groupBy({
+            by: ['requirementId'],
+            where: { clientId, requirementId: { in: requirementIds } },
+            _count: { _all: true },
+          }),
+      requirementIds.length === 0
+        ? Promise.resolve([])
+        : this.prisma.projectRisk.groupBy({
+            by: ['complianceRequirementId'],
+            where: {
+              clientId,
+              complianceRequirementId: { in: requirementIds },
+            },
+            _count: { _all: true },
+          }),
+    ]);
+
+    const statusByRequirement = new Map(
+      statuses.map((s) => [s.requirementId, s.status]),
+    );
+    const evidenceCountByRequirement = new Map(
+      evidenceGroups.map((g) => [g.requirementId, g._count._all]),
+    );
+    const riskCountByRequirement = new Map(
+      riskGroups
+        .filter((g) => g.complianceRequirementId != null)
+        .map((g) => [g.complianceRequirementId as string, g._count._all]),
+    );
+
+    const global = emptyStatusBucket();
+    const domainBuckets = new Map<
+      string,
+      { label: string; bucket: ReturnType<typeof emptyStatusBucket> }
+    >();
+
+    const overviewRequirements: ComplianceFrameworkOverviewRequirement[] =
+      requirements.map((req) => {
+        const st = statusByRequirement.get(req.id);
+        bumpStatusBucket(global, st);
+
+        const cat = req.category?.trim() ?? '';
+        const domainKey = cat || UNCATEGORIZED_DOMAIN_KEY;
+        const domainLabel = cat || UNCATEGORIZED_DOMAIN_LABEL;
+        let domain = domainBuckets.get(domainKey);
+        if (!domain) {
+          domain = { label: domainLabel, bucket: emptyStatusBucket() };
+          domainBuckets.set(domainKey, domain);
+        }
+        bumpStatusBucket(domain.bucket, st);
+
+        const uiStatus: ComplianceUiStatus = st ?? 'NOT_ASSESSED';
+        return {
+          id: req.id,
+          code: req.code,
+          title: req.title,
+          category: req.category,
+          status: uiStatus,
+          evidenceCount: evidenceCountByRequirement.get(req.id) ?? 0,
+          linkedRiskCount: riskCountByRequirement.get(req.id) ?? 0,
+        };
+      });
+
+    const domains: ComplianceFrameworkDomainSummary[] = Array.from(
+      domainBuckets.entries(),
+    )
+      .map(([key, { label, bucket }]) => {
+        const derived = countsToApplicable(bucket);
+        return {
+          key,
+          label,
+          ...bucket,
+          ...derived,
+        };
+      })
+      .sort((a, b) => {
+        if (a.key === UNCATEGORIZED_DOMAIN_KEY) return 1;
+        if (b.key === UNCATEGORIZED_DOMAIN_KEY) return -1;
+        return a.label.localeCompare(b.label, 'fr');
+      });
+
+    const derivedGlobal = countsToApplicable(global);
+    const remediation = overviewRequirements.filter(
+      (r) =>
+        r.status === ComplianceAssessmentStatus.PARTIALLY_COMPLIANT ||
+        r.status === ComplianceAssessmentStatus.NON_COMPLIANT,
+    );
+
+    return {
+      framework,
+      ...global,
+      ...derivedGlobal,
+      domains,
+      requirements: overviewRequirements,
+      remediation,
+    };
   }
 
   async createFramework(

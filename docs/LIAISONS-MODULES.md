@@ -150,7 +150,7 @@ Statuts : **live** = code + usage ; **partial** = FK/socle sans tout le parcours
 | `cycle-calendar-reviews` | Cycles | Projets | Agrégat | `GET …/governance-cycles/calendar-events` (reviews + instances, ACL projets) | RFC-PROJ-013-9 C1 |
 | `meet-risk` | Réunions | Risques | Overlay | `MeetingBlocker.riskId` | RFC-MEET-001 |
 | `meet-attendee` | Réunions | RH | FK | `MeetingAttendee.resourceId` | RFC-MEET-001 |
-| `compliance-risk` | Conformité | Risques | FK | `ProjectRisk.complianceRequirementId` | RFC-PROJ-RISK-001 |
+| `compliance-risk` | Conformité | Risques | FK | `ProjectRisk.complianceRequirementId` — CTA modale exigence → `POST /api/risks` (COMP-001-A) | RFC-PROJ-RISK-001 · RFC-COMP-001-A |
 | `compliance-catalog` | Admin plateforme | Conformité (client) | Copie | Activation : `ComplianceFramework` `clientId=null` → instance client + exigences | RFC-ADM-002 |
 | `project-budget` | Projets | Budgets | N:N | `ProjectBudgetLink` | RFC-PROJ-010 |
 | `scenario-budget` | Projets | Budgets | FK | `ProjectScenarioFinancialLine` | RFC-PROJ-SC-002 |

@@ -24,6 +24,10 @@ Liste **uniquement** du travail restant (pas de historique « fait »). Trajecto
 | # | Item | Ref |
 | --- | --- | --- |
 | ~~COMP.0~~ … ~~COMP.5~~ | **Clos** — évaluation opérationnelle V1 | COMP-001-A |
+| **COMP.UX.0** | Libellés mock + pastilles statut + prev/next modale | COMP-003 — **✅ livré** |
+| ~~COMP.UX.1~~ | Fiche détail référentiel (hero + répartition + liste groupée) | COMP-003 — **✅** |
+| ~~COMP.UX.2~~ | Rail donut / maturité domaine (API) | COMP-003 — **✅** |
+| ~~COMP.UX.3~~ | Plan remédiation (filtre écarts + actions) | COMP-003 — **✅** |
 | COMP.V2 | Campagnes / instantanés / import évaluations | COMP-002 |
 
 ---

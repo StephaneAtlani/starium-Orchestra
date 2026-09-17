@@ -211,7 +211,7 @@ export function ComplianceRequirementsList({
       <p className="shrink-0 text-sm text-muted-foreground" aria-live="polite">
         {summary.total} exigence{summary.total > 1 ? 's' : ''}
         {summary.notAssessed > 0
-          ? ` · ${summary.notAssessed} non évaluée${summary.notAssessed > 1 ? 's' : ''}`
+          ? ` · ${summary.notAssessed} à évaluer`
           : ''}
         {summary.gaps > 0 ? ` · ${summary.gaps} écart${summary.gaps > 1 ? 's' : ''}` : ''}
         {summary.partial > 0
@@ -324,6 +324,8 @@ export function ComplianceRequirementsList({
         }}
         requirementId={selectedId}
         preview={selectedPreview}
+        navigationIds={filtered.map((r) => r.id)}
+        onNavigate={(id) => setSelectedId(id)}
       />
     </div>
   );

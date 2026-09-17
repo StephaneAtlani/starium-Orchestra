@@ -17,7 +17,7 @@ const STATUS_META: Record<
     icon: CheckCircle2,
   },
   PARTIALLY_COMPLIANT: {
-    label: 'Partiellement conforme',
+    label: 'Partiel',
     className: 'text-[color:var(--brand-gold-700)]',
     icon: Clock3,
   },
@@ -32,7 +32,7 @@ const STATUS_META: Record<
     icon: MinusCircle,
   },
   NOT_ASSESSED: {
-    label: 'Non évalué',
+    label: 'À évaluer',
     className: 'text-muted-foreground',
     icon: HelpCircle,
   },

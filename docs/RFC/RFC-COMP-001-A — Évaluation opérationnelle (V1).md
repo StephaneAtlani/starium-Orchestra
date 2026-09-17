@@ -4,7 +4,7 @@ Version : 1.0 — 17 septembre 2026
 **Statut** : ✅ Implémentée (MVP) — 2026-09-17  
 **RFC mère** : [RFC-COMP-001](./RFC-COMP-001%20—%20Pilotage%20de%20la%20conformité.md)  
 **Écarts** : [RFC-COMP-001-ecarts-mvp](./RFC-COMP-001-ecarts-mvp.md)  
-**Suite** : [RFC-COMP-002](./RFC-COMP-002%20—%20Campagnes%20et%20dossier%20d'audit.md)
+**Suite** : [RFC-COMP-002](./RFC-COMP-002%20—%20Campagnes%20et%20dossier%20d'audit.md) · **Fidélité mock** : [RFC-COMP-003](./RFC-COMP-003%20—%20CDC%20Conformité%20(fidélité%20mock).md)
 
 ---
 
@@ -24,12 +24,12 @@ Starium ne certifie pas. Pas de campagne ni de dossier d’audit ZIP en V1.
 
 | Capacité | Détail |
 | --- | --- |
-| Évaluer | Modale exigence : statut, commentaire obligatoire si ≠ non évalué, date revue optionnelle |
+| Évaluer | Modale exigence : pastilles statut (COMP-003 UX.0), commentaire obligatoire, date revue optionnelle, prev/next liste filtrée |
 | Preuves | Créer preuve (titre + URL et/ou observation) liée à l’exigence ; lister / compter |
 | N/A | Statut `NOT_APPLICABLE` + justification dans commentaire (permission update) |
-| Liste | Filtres déjà livrés + refresh après mutation |
-| KPI | Dashboard : dénominateur `A`, effectifs, jamais 100 % si `A=0` |
-| Écart | Depuis modale : lier / créer risque projet (`complianceRequirementId`) ; CTA action si module dispo |
+| Liste | Filtres déjà livrés + refresh après mutation ; libellés Partiel / Écart / À évaluer |
+| KPI | Dashboard : dénominateur `A`, effectifs, « Non calculable » si `A=0` |
+| Écart | Depuis modale : créer risque projet (`complianceRequirementId`) si Partiel/Écart + `projects.update` |
 | Audit | Log patch status + create evidence |
 | RGAA / DS / mobile | Norme Starium sur la modale |
 

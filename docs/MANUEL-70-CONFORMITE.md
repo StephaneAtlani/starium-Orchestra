@@ -80,11 +80,12 @@ Sans `compliance.update`, la modale reste en **lecture seule**.
 2. Filtrer (statut, référentiel, recherche).
 3. Cliquer une ligne → **modale détail**.
 4. Si badge **À réexaminer** : dernière évaluation &gt; 12 mois — reprendre l’analyse.
-5. Choisir le **statut** (conforme / partiellement conforme / non conforme / non applicable).
+5. Choisir le **statut** via les pastilles (Conforme / Partiel / Écart / Non applicable).
 6. Saisir un **commentaire d’analyse** (obligatoire).
 7. Optionnel : date de revue.
 8. **Preuve avant conforme** : pour passer en *conforme*, ajouter d’abord au moins une preuve (URL ou observation structurée), puis Enregistrer.
 9. Cliquer **Enregistrer l’évaluation**.
+10. Naviguer **précédent / suivant** dans le pied de modale pour enchaîner la liste filtrée sans fermer.
 
 ### Procédure — ajouter une preuve
 
@@ -92,6 +93,14 @@ Sans `compliance.update`, la modale reste en **lecture seule**.
 2. Type : **URL** (lien) ou **Observation** (constat textuel sans URL).
 3. Titre + champs conditionnels → **Ajouter la preuve**.
 4. La liste et le compteur se rafraîchissent.
+
+### Procédure — fiche référentiel
+
+1. Depuis le dashboard (carte) ou `/compliance/frameworks`, ouvrir un référentiel.
+2. Lire le hero (taux `C/A`, répartition).
+3. Déplier un domaine → cliquer une exigence → modale d’évaluation.
+4. **Plan de remédiation** : liste des partiels / écarts → **Évaluer**.
+5. Onglets en haut pour basculer entre référentiels actifs.
 
 ### Procédure — N/A
 
@@ -141,5 +150,6 @@ Sans `projects.update` : hint discret — pas de bouton.
 ## 8) Références
 
 - [RFC-COMP-001-A](./RFC/RFC-COMP-001-A%20—%20Évaluation%20opérationnelle%20(V1).md)
+- [RFC-COMP-003](./RFC/RFC-COMP-003%20—%20CDC%20Conformité%20(fidélité%20mock).md) — cible UX mock
 - `docs/API.md` — section évaluation opérationnelle `/api/compliance`
 - Cible produit longue : [RFC-COMP-001](./RFC/RFC-COMP-001%20—%20Pilotage%20de%20la%20conformité.md)

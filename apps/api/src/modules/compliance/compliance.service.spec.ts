@@ -14,7 +14,11 @@ describe('ComplianceService', () => {
 
   beforeEach(() => {
     prisma = {
-      complianceFramework: { findMany: jest.fn(), create: jest.fn() },
+      complianceFramework: {
+        findMany: jest.fn(),
+        findFirst: jest.fn(),
+        create: jest.fn(),
+      },
       complianceRequirement: { findMany: jest.fn(), findFirst: jest.fn() },
       complianceStatus: {
         findMany: jest.fn(),
@@ -28,7 +32,7 @@ describe('ComplianceService', () => {
         findMany: jest.fn(),
         create: jest.fn(),
       },
-      projectRisk: { count: jest.fn() },
+      projectRisk: { count: jest.fn(), groupBy: jest.fn() },
     };
     auditLogs = { create: jest.fn().mockResolvedValue(undefined) };
     service = new ComplianceService(prisma, auditLogs);
@@ -344,6 +348,77 @@ describe('ComplianceService', () => {
           where: expect.objectContaining({ clientId: 'c1', requirementId: { in: ['r1'] } }),
         }),
       );
+    });
+  });
+
+  describe('getFrameworkOverview', () => {
+    it('refuse un référentiel hors client', async () => {
+      prisma.complianceFramework.findFirst.mockResolvedValue(null);
+      await expect(service.getFrameworkOverview('c1', 'fw-x')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+
+    it('groupe par category et calcule C/A + remédiation', async () => {
+      prisma.complianceFramework.findFirst.mockResolvedValue({
+        id: 'fw-1',
+        name: 'ISO',
+        version: '2022',
+        isActive: true,
+        nextAuditAt: null,
+      });
+      prisma.complianceRequirement.findMany.mockResolvedValue([
+        { id: 'r1', code: 'A.5.1', title: 'Pol', category: 'Org', sortOrder: 0 },
+        { id: 'r2', code: 'A.5.2', title: 'Rôles', category: 'Org', sortOrder: 1 },
+        { id: 'r3', code: 'A.8.1', title: 'Tech', category: 'Tech', sortOrder: 0 },
+        { id: 'r4', code: 'X.1', title: 'Misc', category: null, sortOrder: 0 },
+      ]);
+      prisma.complianceStatus.findMany.mockResolvedValue([
+        { requirementId: 'r1', status: ComplianceAssessmentStatus.COMPLIANT },
+        { requirementId: 'r2', status: ComplianceAssessmentStatus.NON_COMPLIANT },
+        { requirementId: 'r3', status: ComplianceAssessmentStatus.PARTIALLY_COMPLIANT },
+      ]);
+      prisma.complianceEvidence.groupBy.mockResolvedValue([
+        { requirementId: 'r1', _count: { _all: 2 } },
+      ]);
+      prisma.projectRisk.groupBy.mockResolvedValue([
+        { complianceRequirementId: 'r2', _count: { _all: 1 } },
+      ]);
+
+      const ov = await service.getFrameworkOverview('c1', 'fw-1');
+
+      expect(ov.requirementCount).toBe(4);
+      expect(ov.applicableCount).toBe(3);
+      expect(ov.compliantCount).toBe(1);
+      expect(ov.compliancePercent).toBe(33);
+      expect(ov.domains.map((d) => d.label)).toEqual(['Org', 'Tech', 'Sans domaine']);
+      expect(ov.remediation.map((r) => r.code)).toEqual(['A.5.2', 'A.8.1']);
+      expect(ov.requirements.find((r) => r.id === 'r1')?.evidenceCount).toBe(2);
+      expect(ov.requirements.find((r) => r.id === 'r2')?.linkedRiskCount).toBe(1);
+      expect(ov.requirements.find((r) => r.id === 'r4')?.status).toBe('NOT_ASSESSED');
+    });
+
+    it('A=0 ⇒ compliancePercent null', async () => {
+      prisma.complianceFramework.findFirst.mockResolvedValue({
+        id: 'fw-1',
+        name: 'ISO',
+        version: '2022',
+        isActive: true,
+        nextAuditAt: null,
+      });
+      prisma.complianceRequirement.findMany.mockResolvedValue([
+        { id: 'r1', code: 'A', title: 'T', category: 'D', sortOrder: 0 },
+      ]);
+      prisma.complianceStatus.findMany.mockResolvedValue([
+        { requirementId: 'r1', status: ComplianceAssessmentStatus.NOT_APPLICABLE },
+      ]);
+      prisma.complianceEvidence.groupBy.mockResolvedValue([]);
+      prisma.projectRisk.groupBy.mockResolvedValue([]);
+
+      const ov = await service.getFrameworkOverview('c1', 'fw-1');
+      expect(ov.applicableCount).toBe(0);
+      expect(ov.compliancePercent).toBeNull();
+      expect(ov.remediation).toEqual([]);
     });
   });
 });

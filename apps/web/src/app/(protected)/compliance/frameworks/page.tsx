@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
@@ -144,10 +145,13 @@ export default function ComplianceFrameworksPage() {
                 <Card key={f.id}>
                   <CardContent className="flex flex-wrap items-center justify-between gap-2 py-4">
                     <div>
-                      <p className="font-medium">
+                      <Link
+                        href={`/compliance/frameworks/${f.id}`}
+                        className="font-medium text-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
                         {f.name}{' '}
                         <span className="text-muted-foreground">({f.version})</span>
-                      </p>
+                      </Link>
                     </div>
                     <Badge variant={f.isActive ? 'default' : 'secondary'}>
                       {f.isActive ? 'Actif' : 'Inactif'}

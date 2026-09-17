@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ShieldCheck } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ShieldCheck } from 'lucide-react';
 import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,6 +22,7 @@ import { useActiveClient } from '@/hooks/use-active-client';
 import { usePermissions } from '@/hooks/use-permissions';
 import { displayLabel } from '@/lib/display-label';
 import { toast } from '@/lib/toast';
+import { cn } from '@/lib/utils';
 import { PROJECT_RISK_CRITICALITY_LABEL } from '@/features/projects/constants/project-enum-labels';
 import {
   createClientRisk,
@@ -88,6 +89,9 @@ function invalidateComplianceQueries(
   void queryClient.invalidateQueries({
     queryKey: ['compliance', clientId, 'frameworks-summary'],
   });
+  void queryClient.invalidateQueries({
+    queryKey: ['compliance', 'framework', clientId],
+  });
 }
 
 export function ComplianceRequirementDetailModal({
@@ -95,11 +99,16 @@ export function ComplianceRequirementDetailModal({
   onOpenChange,
   requirementId,
   preview,
+  navigationIds = [],
+  onNavigate,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   requirementId: string | null;
   preview?: Pick<ComplianceRequirementRowApi, 'code' | 'title' | 'framework'> | null;
+  /** Ordre de parcours (liste filtrée) — prev/next sans fermer la modale. */
+  navigationIds?: string[];
+  onNavigate?: (requirementId: string) => void;
 }) {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
@@ -160,10 +169,13 @@ export function ComplianceRequirementDetailModal({
   const showRiskCta =
     activeStatus === 'PARTIALLY_COMPLIANT' || activeStatus === 'NON_COMPLIANT';
 
-  const statusSelectLabel = useMemo(
-    () => EVAL_STATUS_OPTIONS.find((o) => o.value === status)?.label ?? 'Statut',
-    [status],
-  );
+  const navIndex =
+    requirementId && navigationIds.length > 0
+      ? navigationIds.indexOf(requirementId)
+      : -1;
+  const canGoPrev = Boolean(onNavigate) && navIndex > 0;
+  const canGoNext =
+    Boolean(onNavigate) && navIndex >= 0 && navIndex < navigationIds.length - 1;
 
   const saveMut = useMutation({
     mutationFn: () =>
@@ -232,14 +244,55 @@ export function ComplianceRequirementDetailModal({
         icon={ShieldCheck}
         size="lg"
         footer={
-          <Button
-            type="button"
-            variant="outline"
-            className="min-h-11 sm:min-h-9"
-            onClick={() => onOpenChange(false)}
-          >
-            Fermer
-          </Button>
+          <div className="flex w-full flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-1">
+              {onNavigate && navigationIds.length > 1 ? (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="min-h-11 min-w-11 sm:min-h-9 sm:min-w-9"
+                    disabled={!canGoPrev}
+                    aria-label="Exigence précédente"
+                    onClick={() => {
+                      if (!canGoPrev) return;
+                      onNavigate(navigationIds[navIndex - 1]!);
+                    }}
+                  >
+                    <ChevronLeft className="size-4" aria-hidden />
+                  </Button>
+                  <span className="px-1 text-xs tabular-nums text-muted-foreground" aria-live="polite">
+                    {navIndex >= 0 ? `${navIndex + 1} / ${navigationIds.length}` : null}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="min-h-11 min-w-11 sm:min-h-9 sm:min-w-9"
+                    disabled={!canGoNext}
+                    aria-label="Exigence suivante"
+                    onClick={() => {
+                      if (!canGoNext) return;
+                      onNavigate(navigationIds[navIndex + 1]!);
+                    }}
+                  >
+                    <ChevronRight className="size-4" aria-hidden />
+                  </Button>
+                </>
+              ) : (
+                <span className="sr-only">Navigation liste indisponible</span>
+              )}
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11 sm:min-h-9"
+              onClick={() => onOpenChange(false)}
+            >
+              Fermer
+            </Button>
+          </div>
         }
       >
         {q.isLoading ? (
@@ -293,24 +346,33 @@ export function ComplianceRequirementDetailModal({
               ) : (
                 <div className="space-y-3">
                   <div className="space-y-1.5">
-                    <Label htmlFor="comp-eval-status">Statut</Label>
-                    <Select
-                      value={status}
-                      onValueChange={(v) =>
-                        setStatus((v ?? 'COMPLIANT') as ComplianceAssessmentStatusApi)
-                      }
+                    <span id="comp-eval-status-label" className="text-sm font-medium">
+                      Statut
+                    </span>
+                    <div
+                      role="radiogroup"
+                      aria-labelledby="comp-eval-status-label"
+                      className="starium-tab-group flex flex-wrap gap-2"
                     >
-                      <SelectTrigger id="comp-eval-status" className="w-full">
-                        <SelectValue>{statusSelectLabel}</SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {EVAL_STATUS_OPTIONS.map((opt) => (
-                          <SelectItem key={opt.value} value={opt.value}>
+                      {EVAL_STATUS_OPTIONS.map((opt) => {
+                        const selected = status === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            role="radio"
+                            aria-checked={selected}
+                            className={cn(
+                              'starium-tab-btn min-h-11 px-3 text-sm sm:min-h-9',
+                              selected && 'starium-tab-btn--active',
+                            )}
+                            onClick={() => setStatus(opt.value)}
+                          >
                             {opt.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="comp-eval-comment">Commentaire d’analyse</Label>

@@ -37,7 +37,7 @@ Licences SI (037) · CMDB · GED · Cartographie · IA générative · Orchestra
 
 | Vague | Focus | Exit |
 | --- | --- | --- |
-| **P0** Conformité | **COMP.0–5** ✅ évaluation opérationnelle | Parcours évaluer utilisable — [COMP-001-A](./RFC/RFC-COMP-001-A%20—%20Évaluation%20opérationnelle%20(V1).md) |
+| **P0** Conformité | **COMP.0–5** ✅ · **COMP.UX.0–3** ✅ | [COMP-001-A](./RFC/RFC-COMP-001-A%20—%20Évaluation%20opérationnelle%20(V1).md) · fiche FW [COMP-003](./RFC/RFC-COMP-003%20—%20CDC%20Conformité%20(fidélité%20mock).md) · suite campagnes COMP-002 |
 | **0** Gel socle | **Reste** : gate lint/typecheck/test monorepo · préprod MFA + smoke Orion (runbook §5). *Déjà en place* : index RFC-AI-001, seed Guide `premiers-pas`, specs isolation/no-match | Préprod bootable, zéro fuite client |
 | **1** Argent | Smoke achats→ligne→KPI · articles Guide budget | Atterrissage + projets financés lisibles CODIR |
 | **2** Portefeuille | PROJ-014→016 + FE · FE-CAPA-001 · Guide projets/capa | Portefeuille structuré + capa quotidienne |

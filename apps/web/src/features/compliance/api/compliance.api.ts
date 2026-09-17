@@ -67,6 +67,63 @@ export async function listComplianceFrameworkSummaries(
   return res.json() as Promise<ComplianceFrameworkSummaryApi[]>;
 }
 
+export type ComplianceUiStatusApi =
+  | ComplianceAssessmentStatusApi
+  | 'NOT_ASSESSED';
+
+export type ComplianceFrameworkDomainApi = {
+  key: string;
+  label: string;
+  requirementCount: number;
+  compliantCount: number;
+  partiallyCompliantCount: number;
+  nonCompliantCount: number;
+  notApplicableCount: number;
+  notAssessedCount: number;
+  applicableCount: number;
+  compliancePercent: number | null;
+};
+
+export type ComplianceFrameworkOverviewRequirementApi = {
+  id: string;
+  code: string;
+  title: string;
+  category: string | null;
+  status: ComplianceUiStatusApi;
+  evidenceCount: number;
+  linkedRiskCount: number;
+};
+
+export type ComplianceFrameworkOverviewApi = {
+  framework: {
+    id: string;
+    name: string;
+    version: string;
+    isActive: boolean;
+    nextAuditAt: string | null;
+  };
+  requirementCount: number;
+  compliantCount: number;
+  partiallyCompliantCount: number;
+  nonCompliantCount: number;
+  notApplicableCount: number;
+  notAssessedCount: number;
+  applicableCount: number;
+  compliancePercent: number | null;
+  domains: ComplianceFrameworkDomainApi[];
+  requirements: ComplianceFrameworkOverviewRequirementApi[];
+  remediation: ComplianceFrameworkOverviewRequirementApi[];
+};
+
+export async function getComplianceFrameworkOverview(
+  authFetch: AuthFetch,
+  frameworkId: string,
+): Promise<ComplianceFrameworkOverviewApi> {
+  const res = await authFetch(`${BASE}/frameworks/${frameworkId}/overview`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ComplianceFrameworkOverviewApi>;
+}
+
 export type ComplianceAssessmentStatusApi =
   | 'COMPLIANT'
   | 'PARTIALLY_COMPLIANT'

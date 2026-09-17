@@ -53,6 +53,16 @@ export class ComplianceController {
     return this.compliance.frameworksSummary(clientId!);
   }
 
+  /** Fiche détail référentiel : domaines, exigences, remédiation (COMP.UX.1–3). */
+  @Get('frameworks/:id/overview')
+  @RequirePermissions('compliance.read')
+  getFrameworkOverview(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+  ) {
+    return this.compliance.getFrameworkOverview(clientId!, id);
+  }
+
   @Post('frameworks')
   @RequirePermissions('compliance.update')
   createFramework(

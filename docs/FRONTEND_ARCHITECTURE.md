@@ -421,6 +421,10 @@ On n’introduit pas de faux préfixe `/workspace/*` dans l’URL.
 /budgets/exercises — liste des exercices budgétaires (RFC-FE-003)
 /budgets/[id]
 /projects
+/compliance/dashboard   — KPI synthèse (C/A, « Non calculable » si A=0) — RFC-COMP-001-A
+/compliance/frameworks  — référentiels actifs + catalogue (activate) — RFC-ADM-002
+/compliance/frameworks/[id] — fiche détail (domaines, donut, remédiation) — COMP-003 UX.1–3
+/compliance/requirements — liste + modale évaluer / preuves / risque — RFC-COMP-001-A · COMP-003 UX.0
 ...
 /users
 /roles
@@ -904,6 +908,21 @@ L’Admin Studio est le cockpit de gestion plateforme. Il fait partie du core pl
 * ne dépend pas du client actif
 * réutilise le même App Shell
 * navigation dédiée dans la sidebar si `platformRole === PLATFORM_ADMIN`
+
+---
+
+## 24 bis. Conformité — workspace client
+
+Routes sous client actif (`X-Client-Id`), feature `apps/web/src/features/compliance/` :
+
+| Route | Rôle |
+| --- | --- |
+| `/compliance/dashboard` | Bandeau KPI (`GET …/dashboard`) + cartes `frameworks/summary` |
+| `/compliance/frameworks` | Activation catalogue + liste référentiels client |
+| `/compliance/frameworks/[id]` | Fiche détail : hero, domaines, rail donut, remédiation (COMP.UX.1–3) |
+| `/compliance/requirements` | Liste filtrable ; modale détail = évaluer (pastilles), preuves, prev/next, CTA risque |
+
+Permissions UI : `compliance.read` (écrans) · `compliance.update` (évaluation / preuves) · `projects.update` (créer risque lié). API : [docs/API.md](./API.md) § évaluation opérationnelle. Cible mock : [RFC-COMP-003](./RFC/RFC-COMP-003%20—%20CDC%20Conformité%20(fidélité%20mock).md).
 
 ---
 

@@ -3006,7 +3006,7 @@ Guards métier client (`X-Client-Id`, module `compliance`). Isolation : toute le
   - Tout statut évalué : commentaire obligatoire.
   - `COMPLIANT` : au moins une preuve justifiante déjà liée à l’exigence (URL, fichier ou **observation** = description non vide) — sinon **400**.
   - `PARTIALLY_COMPLIANT` / `NON_COMPLIANT` / `NOT_APPLICABLE` : commentaire obligatoire ; preuve optionnelle.
-- Audit : upsert status. UI : modale exigence `/compliance/requirements` (`compliance.update`).
+- Audit : upsert status. UI : modale exigence `/compliance/requirements` — pastilles statut + prev/next liste filtrée (`compliance.update`) ; CTA risque si Partiel/Écart + `projects.update` ([RFC-COMP-003](./RFC/RFC-COMP-003%20—%20CDC%20Conformité%20(fidélité%20mock).md) UX.0).
 
 #### Patch statut existant
 
@@ -3028,6 +3028,16 @@ Guards métier client (`X-Client-Id`, module `compliance`). Isolation : toute le
   - `applicableCount` (`A` = `N − NA − U`)
   - `compliantCount` (`C`), `partiallyCompliantCount`, `nonCompliantCount`, `criticalRisksLinked`
   - `compliancePercent` = `round(100 × C / A)` ou **`null`** si `A = 0` (UI : « Non calculable », jamais 100 % factice)
+
+#### Fiche détail référentiel (COMP.UX.1–3)
+
+- **GET /api/compliance/frameworks/:id/overview** — Permission **`compliance.read`**. Scope client. **404** si hors client.
+  - `framework` : `id`, `name`, `version`, `isActive`, `nextAuditAt`
+  - counts globaux + `applicableCount` / `compliancePercent` (même formule `C/A`)
+  - `domains[]` : groupement sur `category` (vide → « Sans domaine ») avec counts + `compliancePercent`
+  - `requirements[]` : `id`, `code`, `title`, `category`, `status` (`NOT_ASSESSED` si absent), `evidenceCount`, `linkedRiskCount`
+  - `remediation[]` : sous-ensemble Partiel + Écart
+  - UI : `/compliance/frameworks/[id]`
 
 #### Risque lié (pont projets)
 

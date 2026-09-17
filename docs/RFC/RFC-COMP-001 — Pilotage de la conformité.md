@@ -7,8 +7,9 @@ Version : 1.0 — 17 septembre 2026
 | **Statut** | 📝 Draft — proposition fonctionnelle (cible produit) |
 | **Livraison V1** | **[RFC-COMP-001-A](./RFC-COMP-001-A%20—%20Évaluation%20opérationnelle%20(V1).md)** — évaluation opérationnelle sur MVP existant |
 | **Livraison V2** | **[RFC-COMP-002](./RFC-COMP-002%20—%20Campagnes%20et%20dossier%20d'audit.md)** — campagnes, contributions, instantanés |
+| **Fidélité mock** | **[RFC-COMP-003](./RFC-COMP-003%20—%20CDC%20Conformité%20(fidélité%20mock).md)** — export `ui_kits/app/exports/conformite/` |
 | **Écarts MVP** | **[RFC-COMP-001-ecarts-mvp](./RFC-COMP-001-ecarts-mvp.md)** |
-| **Backlog** | `COMP.0` → `COMP.5` — priorité P0 dans [`docs/BACKLOG.md`](../BACKLOG.md) |
+| **Backlog** | `COMP.UX.*` + `COMP.V2` dans [`docs/BACKLOG.md`](../BACKLOG.md) |
 | **Dépendances** | [RFC-ADM-002](./RFC-ADM-002%20—%20Catalogue%20référentiels%20conformité%20(plateforme).md) (catalogue) · [RFC-PROJ-018](./RFC-PROJ-018%20—%20ProjectRisk%20EBIOS%20RM%20minimal.md) (lien risque) |
 
 > **Décision produit (2026-09-17)** : ce document reste la **cible métier complète**. L’implémentation immédiate suit **COMP-001-A** (étendre le MVP), pas un rewrite campagnes. Les §§ campagnes / contributions / instantanés / import évaluations sont **reportés à COMP-002**.

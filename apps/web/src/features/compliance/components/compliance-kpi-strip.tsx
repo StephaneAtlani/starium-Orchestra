@@ -76,8 +76,8 @@ export function ComplianceKpiStrip({
           value={String(gaps)}
           footer={
             dashboard.notAssessedRequirementCount > 0
-              ? `${dashboard.notAssessedRequirementCount} non ${pluralize(dashboard.notAssessedRequirementCount, 'évaluée', 'évaluées')}`
-              : 'partiels et non conformes'
+              ? `${dashboard.notAssessedRequirementCount} à évaluer`
+              : 'partiels et écarts'
           }
           footerTone={gaps > 0 ? 'warning' : 'muted'}
           icon={<AlertTriangle aria-hidden />}

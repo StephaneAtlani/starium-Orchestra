@@ -36,7 +36,7 @@ export default function ComplianceRequirementsPage() {
           className="shrink-0"
           eyebrow="Gouvernance › Conformité"
           title="Exigences"
-          description="Contrôles à évaluer par référentiel — filtrez les écarts et les non évalués."
+          description="Contrôles à évaluer par référentiel — filtrez les écarts et les exigences à évaluer."
           actions={
             <div className="flex flex-wrap gap-2">
               <Link
