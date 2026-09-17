@@ -242,7 +242,7 @@ export function ComplianceRequirementDetailModal({
           frameworkLabel ? `${titleCode} · ${frameworkLabel}` : titleCode
         }
         icon={ShieldCheck}
-        size="lg"
+        size="xl"
         footer={
           <div className="flex w-full flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-1">

@@ -395,10 +395,11 @@ export default function AdminComplianceFrameworksPage() {
                 const archived = Boolean(row.archivedAt);
                 return (
                   <TableRow key={row.id}>
-                    <TableCell className="font-medium">
+                    <TableCell className="max-w-[28rem] whitespace-normal font-medium">
                       <Link
                         href={`/admin/compliance-frameworks/${row.id}`}
-                        className="text-[color:var(--brand-gold-700)] underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                        title={row.name}
+                        className="line-clamp-2 break-words text-[color:var(--brand-gold-700)] underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
                       >
                         {row.name}
                       </Link>
