@@ -280,7 +280,14 @@ Détail : `docs/design-system/MODALES.md` et la skill `starium-modales`.
 | `starium-release-gate` | Passage préprod/prod — checklist go/no-go (lint, build, env, Prisma, smoke) |
 | `starium-rfc` | Rédaction ou implémentation d'une RFC |
 | `starium-documentation` | Mise à jour / synchronisation de `docs/` |
+| `starium-rfc-pipeline` | Orchestrateur autonome : plan → review → implement → conformité → docs → commit |
+| `starium-step-plan` | Étape plan (1 feature) |
+| `starium-step-review-plan` | Étape review du plan |
+| `starium-step-implement` | Étape implémentation |
+| `starium-step-conformite` | Étape conformité (wrap `starium-conformite`) |
+| `starium-step-docs` | Étape documentation |
+| `starium-step-commit` | Étape commit par feature (pas de push) |
 
-**Commandes** (`.claude/commands/`) : `/rfc`, `/conformite`, `/audit-ui`, `/doc-sync`, `/nouveau-module`.
+**Commandes** (`.claude/commands/`) : `/rfc`, `/rfc-pipeline`, `/conformite`, `/audit-ui`, `/doc-sync`, `/nouveau-module`.
 
 **Agent** (`.claude/agents/`) : `starium-ui-reviewer` — revue DS + RGAA + mobile d'un diff frontend.
