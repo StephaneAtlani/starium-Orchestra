@@ -3004,10 +3004,14 @@ Guards métier client (`X-Client-Id`, module `compliance`).
 - **POST /campaigns/:id/close** — Body `{ closeNote?, createSnapshot? }` (snapshot de clôture par défaut).
 - **GET|POST /campaigns/:id/snapshots** — Liste / création d’instantané (payload JSON exigences + totaux `C/A`).
 - **GET /campaigns/:campaignId/snapshots/:snapshotId** — Instantané complet.
+- **GET /campaigns/:campaignId/snapshots/:snapshotId/export.zip** — Dossier d’audit ZIP (`synthese.html`, `evaluations.csv`, `snapshot.json`, `preuves-manifeste.csv`). Pas de binaires de preuves (métadonnées seulement). Permission **`compliance.update`**. Audit `compliance.campaign.snapshot_exported`.
+- **GET /campaigns/evaluations-import-template** — Modèle CSV (`code;status;comment;lastAssessmentDate;evidenceNote`). Permission **`compliance.read`**.
+- **POST /campaigns/:id/evaluations-import/preview** — Body `{ csvContent }`. Campagne **OPEN** uniquement. Réponse : lignes validées/erreurs + `fingerprint`. Permission **`compliance.update`**.
+- **POST /campaigns/:id/evaluations-import/confirm** — Body `{ fingerprint, csvContent, idempotencyKey? }`. Import **atomique** (0 erreur obligatoire) ; `COMPLIANT` crée une observation si aucune preuve justifiante. Audit `compliance.campaign.evaluations_imported`. Permission **`compliance.update`**.
 
 **Décisions V2.1 figées** : exigence plate (pas de Criterion) ; périmètre = client ; pas de module actions correctives dédié ; stockage instantané en JSON DB.
 
-**UI** : bouton **Lancer une revue** sur `/compliance/frameworks/[id]`.
+**UI** : bouton **Lancer une revue** sur `/compliance/frameworks/[id]` (liste, clôture, import CSV, consultation d’instantanés) ; bandeau **Revues** sur `/compliance/dashboard`.
 
 ### Évaluation opérationnelle (RFC-COMP-001-A) — `/api/compliance`
 

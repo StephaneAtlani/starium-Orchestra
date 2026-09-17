@@ -363,6 +363,33 @@ export async function createComplianceCampaign(
   return res.json() as Promise<ComplianceCampaignDetailApi>;
 }
 
+export async function getComplianceCampaign(
+  authFetch: AuthFetch,
+  campaignId: string,
+): Promise<ComplianceCampaignDetailApi> {
+  const res = await authFetch(`${BASE}/campaigns/${campaignId}`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ComplianceCampaignDetailApi>;
+}
+
+export async function createComplianceCampaignSnapshot(
+  authFetch: AuthFetch,
+  campaignId: string,
+  payload?: { label?: string },
+): Promise<{ id: string; label: string | null; createdAt: string }> {
+  const res = await authFetch(`${BASE}/campaigns/${campaignId}/snapshots`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(payload ?? {}),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<{
+    id: string;
+    label: string | null;
+    createdAt: string;
+  }>;
+}
+
 export async function closeComplianceCampaign(
   authFetch: AuthFetch,
   campaignId: string,
@@ -375,4 +402,107 @@ export async function closeComplianceCampaign(
   });
   if (!res.ok) throw await parseApiFormError(res);
   return res.json() as Promise<ComplianceCampaignDetailApi>;
+}
+
+export async function getComplianceCampaignEvaluationsTemplate(
+  authFetch: AuthFetch,
+): Promise<{ filename: string; csv: string }> {
+  const res = await authFetch(
+    `${BASE}/campaigns/evaluations-import-template`,
+  );
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<{ filename: string; csv: string }>;
+}
+
+export type CampaignEvalImportPreviewApi = {
+  campaignId: string;
+  fingerprint: string;
+  totalRows: number;
+  validCount: number;
+  errorCount: number;
+  rows: Array<{
+    line: number;
+    code: string;
+    status: string | null;
+    comment: string;
+    error: string | null;
+    ok: boolean;
+  }>;
+};
+
+export async function previewCampaignEvaluationsImport(
+  authFetch: AuthFetch,
+  campaignId: string,
+  csvContent: string,
+): Promise<CampaignEvalImportPreviewApi> {
+  const res = await authFetch(
+    `${BASE}/campaigns/${campaignId}/evaluations-import/preview`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ csvContent }),
+    },
+  );
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<CampaignEvalImportPreviewApi>;
+}
+
+export async function confirmCampaignEvaluationsImport(
+  authFetch: AuthFetch,
+  campaignId: string,
+  payload: { fingerprint: string; csvContent: string },
+): Promise<{ imported: number }> {
+  const res = await authFetch(
+    `${BASE}/campaigns/${campaignId}/evaluations-import/confirm`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+    },
+  );
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<{ imported: number }>;
+}
+
+export async function getComplianceCampaignSnapshot(
+  authFetch: AuthFetch,
+  campaignId: string,
+  snapshotId: string,
+): Promise<{
+  id: string;
+  label: string | null;
+  createdAt: string;
+  payload: {
+    totals?: {
+      requirementCount?: number;
+      compliancePercent?: number | null;
+      compliantCount?: number;
+      partiallyCompliantCount?: number;
+      nonCompliantCount?: number;
+      notAssessedCount?: number;
+    };
+    campaign?: { name?: string; frozenFrameworkName?: string };
+  };
+}> {
+  const res = await authFetch(
+    `${BASE}/campaigns/${campaignId}/snapshots/${snapshotId}`,
+  );
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json();
+}
+
+export async function downloadComplianceCampaignSnapshotZip(
+  authFetch: AuthFetch,
+  campaignId: string,
+  snapshotId: string,
+): Promise<{ blob: Blob; filename: string }> {
+  const res = await authFetch(
+    `${BASE}/campaigns/${campaignId}/snapshots/${snapshotId}/export.zip`,
+  );
+  if (!res.ok) throw await parseApiFormError(res);
+  const cd = res.headers.get('content-disposition') ?? '';
+  const match = /filename="([^"]+)"/i.exec(cd);
+  const filename = match?.[1] ?? 'conformite-audit.zip';
+  const blob = await res.blob();
+  return { blob, filename };
 }

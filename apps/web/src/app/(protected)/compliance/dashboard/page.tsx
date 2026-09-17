@@ -21,6 +21,7 @@ import { ComplianceKpiStrip } from '@/features/compliance/components/compliance-
 import { ComplianceFrameworkCards } from '@/features/compliance/components/compliance-framework-cards';
 import { ComplianceControlsTable } from '@/features/compliance/components/compliance-controls-table';
 import { ComplianceRequirementsModal } from '@/features/compliance/components/compliance-requirements-modal';
+import { ComplianceCampaignsPanel } from '@/features/compliance/components/compliance-campaigns-panel';
 
 export default function ComplianceDashboardPage() {
   const authFetch = useAuthenticatedFetch();
@@ -107,6 +108,8 @@ export default function ComplianceDashboardPage() {
             isLoading={frameworksQ.isLoading}
           />
         )}
+
+        <ComplianceCampaignsPanel />
 
         <ComplianceControlsTable
           rows={statusesQ.data}

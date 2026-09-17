@@ -27,7 +27,17 @@ import { ListComplianceStatusQueryDto } from './dto/list-compliance-status.query
 import { CreateComplianceCampaignDto } from './dto/create-compliance-campaign.dto';
 import { CloseComplianceCampaignDto } from './dto/close-compliance-campaign.dto';
 import { CreateComplianceCampaignSnapshotDto } from './dto/create-compliance-campaign-snapshot.dto';
+import {
+  ConfirmCampaignEvaluationsImportDto,
+  PreviewCampaignEvaluationsImportDto,
+} from './dto/campaign-evaluations-import.dto';
 import { deriveComplianceFamilyLabel } from './compliance-family-label';
+import {
+  CAMPAIGN_EVAL_IMPORT_TEMPLATE,
+  fingerprintImportRows,
+  parseEvaluationsCsv,
+} from './campaign-evaluations-import';
+import { buildCampaignSnapshotZip } from './campaign-snapshot-zip';
 
 type PlatformAuditMeta = {
   ipAddress?: string;
@@ -1590,6 +1600,94 @@ export class ComplianceService {
     return snap;
   }
 
+  /**
+   * Dossier d’audit ZIP (HTML + CSV + JSON) à partir d’un instantané figé.
+   * Les fichiers binaires de preuves ne sont pas inclus — manifeste métadonnées uniquement.
+   */
+  async exportCampaignSnapshotZip(
+    clientId: string,
+    campaignId: string,
+    snapshotId: string,
+    context?: AuditContext,
+  ): Promise<{ filename: string; buffer: Buffer }> {
+    const snap = await this.getCampaignSnapshot(
+      clientId,
+      campaignId,
+      snapshotId,
+    );
+    const payload = (snap.payload ?? {}) as {
+      requirements?: Array<{
+        requirementId?: string;
+        code?: string;
+      }>;
+      campaign?: { name?: string };
+      capturedAt?: string;
+      totals?: Record<string, unknown>;
+    };
+
+    const reqIds = (payload.requirements ?? [])
+      .map((r) => r.requirementId)
+      .filter((id): id is string => Boolean(id));
+
+    const evidences =
+      reqIds.length === 0
+        ? []
+        : await this.prisma.complianceEvidence.findMany({
+            where: { clientId, requirementId: { in: reqIds } },
+            select: {
+              name: true,
+              url: true,
+              fileId: true,
+              description: true,
+              requirement: { select: { code: true } },
+            },
+          });
+
+    const buffer = await buildCampaignSnapshotZip({
+      label: snap.label,
+      payload: payload as Parameters<typeof buildCampaignSnapshotZip>[0]['payload'],
+      evidences: evidences.map((e) => ({
+        code: e.requirement.code,
+        name: e.name,
+        kind:
+          e.url || e.fileId
+            ? 'DOCUMENT'
+            : e.description?.trim()
+              ? 'OBSERVATION'
+              : 'AUTRE',
+        hasUrl: Boolean(e.url?.trim()),
+        hasFile: Boolean(e.fileId),
+        isObservation: Boolean(e.description?.trim()) && !e.url && !e.fileId,
+      })),
+    });
+
+    const safeName = (snap.label ?? 'instantane')
+      .normalize('NFD')
+      .replace(/\p{M}/gu, '')
+      .replace(/[^a-zA-Z0-9._-]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 60);
+    const filename = `conformite-audit-${safeName || 'instantane'}-${snap.id.slice(0, 8)}.zip`;
+
+    await this.auditLogs.create({
+      clientId,
+      userId: context?.actorUserId,
+      action: COMPLIANCE_AUDIT_ACTION.CAMPAIGN_EXPORT,
+      resourceType: COMPLIANCE_AUDIT_RESOURCE_TYPE.COMPLIANCE_CAMPAIGN_SNAPSHOT,
+      resourceId: snap.id,
+      newValue: {
+        campaignId,
+        filename,
+        bytes: buffer.length,
+      },
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    });
+
+    return { filename, buffer };
+  }
+
   async createCampaignSnapshot(
     clientId: string,
     campaignId: string,
@@ -1738,6 +1836,192 @@ export class ComplianceService {
         compliancePercent,
       },
       requirements: items,
+    };
+  }
+
+  getCampaignEvaluationsImportTemplate(): string {
+    return CAMPAIGN_EVAL_IMPORT_TEMPLATE;
+  }
+
+  async previewCampaignEvaluationsImport(
+    clientId: string,
+    campaignId: string,
+    dto: PreviewCampaignEvaluationsImportDto,
+  ) {
+    const campaign = await this.requireCampaign(clientId, campaignId);
+    if (campaign.status !== ComplianceCampaignStatus.OPEN) {
+      throw new BadRequestException(
+        'Import réservé aux campagnes ouvertes',
+      );
+    }
+
+    let parsed;
+    try {
+      parsed = parseEvaluationsCsv(dto.csvContent);
+    } catch (e) {
+      throw new BadRequestException(
+        e instanceof Error ? e.message : 'CSV invalide',
+      );
+    }
+
+    const requirements = await this.prisma.complianceRequirement.findMany({
+      where: { frameworkId: campaign.frameworkId },
+      select: { id: true, code: true },
+    });
+    const byCode = new Map(
+      requirements.map((r) => [r.code.trim().toLowerCase(), r]),
+    );
+
+    const rows = parsed.rows.map((row) => {
+      let error = row.error;
+      const req = byCode.get(row.code.trim().toLowerCase());
+      if (!error && !req) {
+        error = `Code inconnu dans le référentiel figé « ${row.code} »`;
+      }
+      if (
+        !error &&
+        row.status === ComplianceAssessmentStatus.COMPLIANT &&
+        !row.evidenceNote?.trim()
+      ) {
+        // Preuve observation auto depuis commentaire à la confirmation
+      }
+      return {
+        line: row.line,
+        code: row.code,
+        requirementId: req?.id ?? null,
+        status: row.status,
+        comment: row.comment,
+        lastAssessmentDate: row.lastAssessmentDate,
+        evidenceNote: row.evidenceNote,
+        error,
+        ok: !error && Boolean(req) && Boolean(row.status),
+      };
+    });
+
+    const validRows = rows.filter((r) => r.ok);
+    const fingerprint = fingerprintImportRows(
+      validRows.map((r) => ({
+        code: r.code,
+        status: r.status,
+        comment: r.comment,
+        lastAssessmentDate: r.lastAssessmentDate,
+        evidenceNote: r.evidenceNote,
+      })),
+    );
+
+    return {
+      campaignId: campaign.id,
+      fingerprint,
+      delimiter: parsed.delimiter,
+      totalRows: rows.length,
+      validCount: validRows.length,
+      errorCount: rows.length - validRows.length,
+      rows,
+    };
+  }
+
+  async confirmCampaignEvaluationsImport(
+    clientId: string,
+    campaignId: string,
+    dto: ConfirmCampaignEvaluationsImportDto,
+    context?: AuditContext,
+  ) {
+    const preview = await this.previewCampaignEvaluationsImport(clientId, campaignId, {
+      csvContent: dto.csvContent,
+    });
+    if (preview.fingerprint !== dto.fingerprint) {
+      throw new BadRequestException(
+        'Empreinte d’aperçu obsolète — relancez l’aperçu',
+      );
+    }
+    if (preview.errorCount > 0 || preview.validCount === 0) {
+      throw new BadRequestException(
+        'Corrigez toutes les erreurs avant confirmation (import atomique)',
+      );
+    }
+
+    const valid = preview.rows.filter((r) => r.ok);
+    await this.prisma.$transaction(async (tx) => {
+      for (const row of valid) {
+        const requirementId = row.requirementId!;
+        const status = row.status!;
+
+        if (status === ComplianceAssessmentStatus.COMPLIANT) {
+          const evidences = await tx.complianceEvidence.findMany({
+            where: { clientId, requirementId },
+            select: { url: true, fileId: true, description: true },
+          });
+          const has = evidences.some(evidenceJustifiesCompliance);
+          if (!has) {
+            const note =
+              row.evidenceNote?.trim() ||
+              row.comment.trim() ||
+              'Observation créée à l’import CSV';
+            await tx.complianceEvidence.create({
+              data: {
+                clientId,
+                requirementId,
+                name: 'Observation import CSV',
+                description: note.slice(0, 2000),
+                createdByUserId: context?.actorUserId ?? null,
+              },
+            });
+          }
+        }
+
+        const existing = await tx.complianceStatus.findUnique({
+          where: {
+            clientId_requirementId: { clientId, requirementId },
+          },
+        });
+        const dateVal = row.lastAssessmentDate
+          ? new Date(row.lastAssessmentDate)
+          : null;
+        const safeDate =
+          dateVal && !Number.isNaN(dateVal.getTime()) ? dateVal : null;
+
+        if (existing) {
+          await tx.complianceStatus.update({
+            where: { id: existing.id },
+            data: {
+              status,
+              comment: row.comment.trim(),
+              lastAssessmentDate: safeDate,
+            },
+          });
+        } else {
+          await tx.complianceStatus.create({
+            data: {
+              clientId,
+              requirementId,
+              status,
+              comment: row.comment.trim(),
+              lastAssessmentDate: safeDate,
+            },
+          });
+        }
+      }
+    });
+
+    await this.auditLogs.create({
+      clientId,
+      userId: context?.actorUserId,
+      action: COMPLIANCE_AUDIT_ACTION.CAMPAIGN_IMPORT,
+      resourceType: COMPLIANCE_AUDIT_RESOURCE_TYPE.COMPLIANCE_CAMPAIGN,
+      resourceId: campaignId,
+      newValue: {
+        fingerprint: dto.fingerprint,
+        imported: valid.length,
+        idempotencyKey: dto.idempotencyKey ?? null,
+      },
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    });
+
+    return {
+      imported: valid.length,
+      fingerprint: dto.fingerprint,
     };
   }
 }

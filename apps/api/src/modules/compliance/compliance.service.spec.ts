@@ -49,6 +49,9 @@ describe('ComplianceService', () => {
         findFirst: jest.fn(),
         create: jest.fn(),
       },
+      $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
+        fn(prisma),
+      ),
     };
     auditLogs = { create: jest.fn().mockResolvedValue(undefined) };
     service = new ComplianceService(prisma, auditLogs);
@@ -668,6 +671,98 @@ describe('ComplianceService', () => {
       prisma.complianceCampaign.findFirst.mockResolvedValue(null);
       await expect(service.getCampaign('c1', 'camp-x')).rejects.toBeInstanceOf(
         NotFoundException,
+      );
+    });
+
+    it('prévisualise un CSV d’évaluations (codes connus)', async () => {
+      prisma.complianceCampaign.findFirst.mockResolvedValue({
+        id: 'camp-1',
+        clientId: 'c1',
+        status: 'OPEN',
+        frameworkId: 'fw-1',
+      });
+      prisma.complianceRequirement.findMany.mockResolvedValue([
+        { id: 'req-1', code: 'A.1' },
+        { id: 'req-2', code: 'A.2' },
+      ]);
+
+      const out = await service.previewCampaignEvaluationsImport('c1', 'camp-1', {
+        csvContent:
+          'code;status;comment;lastAssessmentDate;evidenceNote\nA.1;PARTIEL;En cours;2026-09-01;\nA.9;CONFORME;x;;',
+      });
+
+      expect(out.validCount).toBe(1);
+      expect(out.errorCount).toBe(1);
+      expect(out.fingerprint).toBeTruthy();
+      expect(out.rows[1].error).toMatch(/inconnu/i);
+    });
+
+    it('refuse la confirmation si empreinte obsolète', async () => {
+      prisma.complianceCampaign.findFirst.mockResolvedValue({
+        id: 'camp-1',
+        clientId: 'c1',
+        status: 'OPEN',
+        frameworkId: 'fw-1',
+      });
+      prisma.complianceRequirement.findMany.mockResolvedValue([
+        { id: 'req-1', code: 'A.1' },
+      ]);
+
+      await expect(
+        service.confirmCampaignEvaluationsImport(
+          'c1',
+          'camp-1',
+          {
+            fingerprint: 'deadbeef',
+            csvContent:
+              'code;status;comment;lastAssessmentDate;evidenceNote\nA.1;PARTIEL;Ok;2026-09-01;',
+          },
+          { actorUserId: 'u1' },
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('importe atomiquement après aperçu valide', async () => {
+      prisma.complianceCampaign.findFirst.mockResolvedValue({
+        id: 'camp-1',
+        clientId: 'c1',
+        status: 'OPEN',
+        frameworkId: 'fw-1',
+      });
+      prisma.complianceRequirement.findMany.mockResolvedValue([
+        { id: 'req-1', code: 'A.1' },
+      ]);
+      prisma.complianceStatus.findUnique.mockResolvedValue(null);
+      prisma.complianceStatus.create.mockResolvedValue({ id: 'st-1' });
+      prisma.$transaction.mockImplementation(async (fn: (tx: typeof prisma) => Promise<unknown>) =>
+        fn(prisma),
+      );
+
+      const preview = await service.previewCampaignEvaluationsImport(
+        'c1',
+        'camp-1',
+        {
+          csvContent:
+            'code;status;comment;lastAssessmentDate;evidenceNote\nA.1;PARTIEL;Ok;2026-09-01;',
+        },
+      );
+      const out = await service.confirmCampaignEvaluationsImport(
+        'c1',
+        'camp-1',
+        {
+          fingerprint: preview.fingerprint,
+          csvContent:
+            'code;status;comment;lastAssessmentDate;evidenceNote\nA.1;PARTIEL;Ok;2026-09-01;',
+        },
+        { actorUserId: 'u1' },
+      );
+
+      expect(out.imported).toBe(1);
+      expect(prisma.complianceStatus.create).toHaveBeenCalled();
+      expect(auditLogs.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'compliance.campaign.evaluations_imported',
+        }),
       );
     });
   });

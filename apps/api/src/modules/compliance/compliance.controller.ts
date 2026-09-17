@@ -2,11 +2,13 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   Param,
   Patch,
   Post,
   Put,
   Query,
+  StreamableFile,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -31,6 +33,10 @@ import { PatchClientComplianceFrameworkDto } from './dto/patch-client-compliance
 import { CreateComplianceCampaignDto } from './dto/create-compliance-campaign.dto';
 import { CloseComplianceCampaignDto } from './dto/close-compliance-campaign.dto';
 import { CreateComplianceCampaignSnapshotDto } from './dto/create-compliance-campaign-snapshot.dto';
+import {
+  ConfirmCampaignEvaluationsImportDto,
+  PreviewCampaignEvaluationsImportDto,
+} from './dto/campaign-evaluations-import.dto';
 
 @Controller('compliance')
 @UseGuards(JwtAuthGuard, ActiveClientGuard, ModuleAccessGuard, PermissionsGuard)
@@ -45,6 +51,16 @@ export class ComplianceController {
     @Query('frameworkId') frameworkId?: string,
   ) {
     return this.compliance.listCampaigns(clientId!, frameworkId);
+  }
+
+  @Get('campaigns/evaluations-import-template')
+  @RequirePermissions('compliance.read')
+  evaluationsImportTemplate() {
+    return {
+      filename: 'orchestra-conformite-evaluations-modele.csv',
+      contentType: 'text/csv; charset=utf-8',
+      csv: this.compliance.getCampaignEvaluationsImportTemplate(),
+    };
   }
 
   @Post('campaigns')
@@ -115,6 +131,34 @@ export class ComplianceController {
     return this.compliance.createCampaignSnapshot(clientId!, id, dto, context);
   }
 
+  @Post('campaigns/:id/evaluations-import/preview')
+  @RequirePermissions('compliance.update')
+  previewEvaluationsImport(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+    @Body() dto: PreviewCampaignEvaluationsImportDto,
+  ) {
+    return this.compliance.previewCampaignEvaluationsImport(clientId!, id, dto);
+  }
+
+  @Post('campaigns/:id/evaluations-import/confirm')
+  @RequirePermissions('compliance.update')
+  confirmEvaluationsImport(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+    @Body() dto: ConfirmCampaignEvaluationsImportDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.compliance.confirmCampaignEvaluationsImport(
+      clientId!,
+      id,
+      dto,
+      context,
+    );
+  }
+
   @Get('campaigns/:campaignId/snapshots/:snapshotId')
   @RequirePermissions('compliance.read')
   getCampaignSnapshot(
@@ -123,6 +167,31 @@ export class ComplianceController {
     @Param('snapshotId') snapshotId: string,
   ) {
     return this.compliance.getCampaignSnapshot(clientId!, campaignId, snapshotId);
+  }
+
+  /** Export ZIP dossier d’audit (HTML + CSV + JSON). Pas pour lecture seule pure. */
+  @Get('campaigns/:campaignId/snapshots/:snapshotId/export.zip')
+  @RequirePermissions('compliance.update')
+  @Header('Content-Type', 'application/zip')
+  async exportCampaignSnapshotZip(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('campaignId') campaignId: string,
+    @Param('snapshotId') snapshotId: string,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ): Promise<StreamableFile> {
+    const context: AuditContext = { actorUserId, meta };
+    const { filename, buffer } =
+      await this.compliance.exportCampaignSnapshotZip(
+        clientId!,
+        campaignId,
+        snapshotId,
+        context,
+      );
+    return new StreamableFile(buffer, {
+      type: 'application/zip',
+      disposition: `attachment; filename="${filename}"`,
+    });
   }
 
   /** Catalogue plateforme proposé (actifs) — avant activation client. */

@@ -11,6 +11,8 @@ export const COMPLIANCE_AUDIT_ACTION = {
   CAMPAIGN_OPENED: 'compliance.campaign.opened',
   CAMPAIGN_CLOSED: 'compliance.campaign.closed',
   CAMPAIGN_SNAPSHOT: 'compliance.campaign.snapshot',
+  CAMPAIGN_IMPORT: 'compliance.campaign.evaluations_imported',
+  CAMPAIGN_EXPORT: 'compliance.campaign.snapshot_exported',
 } as const;
 
 export const COMPLIANCE_AUDIT_RESOURCE_TYPE = {
