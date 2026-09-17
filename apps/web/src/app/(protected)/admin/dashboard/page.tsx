@@ -83,6 +83,12 @@ export default function AdminPlatformDashboardPage() {
               Types versions figées
             </Link>
             <Link
+              href="/admin/compliance-frameworks"
+              className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
+            >
+              Référentiels conformité
+            </Link>
+            <Link
               href="/admin/audit"
               className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
             >

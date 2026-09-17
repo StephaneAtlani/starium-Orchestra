@@ -38,6 +38,10 @@ apps/api/prisma/*.db-journal
 
 # Misc
 *.tsbuildinfo
+
+# Cache runtime (clone CISO Assistant, etc.)
+apps/api/.cache/
+.cache/
 .turbo/
 
 # Fichiers uploadés (avatars API)

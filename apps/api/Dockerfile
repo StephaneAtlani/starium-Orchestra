@@ -1,5 +1,6 @@
 FROM node:20-alpine AS base
-RUN corepack enable && corepack prepare pnpm@9.14.2 --activate
+RUN apk add --no-cache git \
+  && corepack enable && corepack prepare pnpm@9.14.2 --activate
 WORKDIR /app
 
 FROM base AS builder

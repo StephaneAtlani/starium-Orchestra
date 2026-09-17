@@ -1036,7 +1036,7 @@ const LINKS: LinkDef[] = [
     horizon: "next",
     rfc: "RFC-PROJ-INT-010 lot 5",
     flows: ["projet", "futur"],
-    note: "MVP Team+canaux live. Cases Planner / dossier / sync auto encore planifiés.",
+    note: "MVP Team+canaux + lot 2 live (2026-09-16). Lot 5 : cases Planner / dossier / sync auto encore ❌.",
   },
   {
     id: "fut-finance",

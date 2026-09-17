@@ -3689,23 +3689,27 @@ model ProjectMilestoneLabelAssignment {
   @@index([labelId])
 }
 
-/// Instance référentiel conformité par client (MVP — pas de catalogue global).
+/// Référentiel conformité : catalogue **plateforme** (`clientId` null) ou instance **client**.
+/// Les évaluations (status/evidence) restent toujours sur les instances client.
 model ComplianceFramework {
-  id        String   @id @default(cuid())
-  clientId  String
-  name      String
-  version   String
-  isActive  Boolean  @default(true)
-  /// Prochaine échéance d'audit / recertification (cartes référentiels).
+  id          String    @id @default(cuid())
+  /// null = référentiel proposé par la plateforme à tous les clients.
+  clientId    String?
+  name        String
+  version     String
+  isActive    Boolean   @default(true)
+  /// Archivage logique catalogue plateforme (ou désactivation longue).
+  archivedAt  DateTime?
+  /// Prochaine échéance d'audit / recertification (cartes référentiels — instances client).
   nextAuditAt DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  client       Client                  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client       Client?                 @relation(fields: [clientId], references: [id], onDelete: Cascade)
   requirements ComplianceRequirement[]
 
-  @@unique([clientId, name, version])
   @@index([clientId])
+  @@index([clientId, isActive])
 }
 
 model ComplianceRequirement {

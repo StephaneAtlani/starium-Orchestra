@@ -888,6 +888,7 @@ L’Admin Studio est le cockpit de gestion plateforme. Il fait partie du core pl
 /admin/clients
 /admin/users
 /admin/audit
+/admin/compliance-frameworks
 ```
 
 ### Capacités MVP
@@ -895,6 +896,7 @@ L’Admin Studio est le cockpit de gestion plateforme. Il fait partie du core pl
 * créer un client
 * voir les utilisateurs globaux
 * consulter les audit logs
+* gérer le **catalogue de référentiels conformité** proposés aux clients (RFC-ADM-002), dont import CISO Assistant
 
 ### Règles
 

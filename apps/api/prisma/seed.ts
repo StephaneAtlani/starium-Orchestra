@@ -42,6 +42,7 @@ import { ensureDemoActionPlans } from "./seed-action-plans-demo";
 import { ensureDemoProjectReviews } from "./seed-project-demo-reviews";
 import { ensureDemoProjectRisks } from "./seed-project-demo-risks";
 import { ensureDemoCompliance } from "./seed-compliance-demo";
+import { ensurePlatformComplianceCatalog } from "./seed-platform-compliance-catalog";
 import { ensureDemoProjectTaskBuckets } from "./seed-project-demo-buckets";
 import { ensureDemoProjectActivities } from "./seed-project-demo-activities";
 import { ensureDemoProjectTasks } from "./seed-project-demo-tasks";
@@ -4205,6 +4206,9 @@ async function main() {
   }
 
   await ensureDefaultActivityTypesForAllClients();
+
+  await ensurePlatformComplianceCatalog(prisma);
+  console.log("✅ Catalogue conformité plateforme (ISO 27001, NIS2, RGPD)");
 
   await ensureClientAdminTeamsModuleRole();
 

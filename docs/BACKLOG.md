@@ -1,11 +1,12 @@
 # Backlog — reste à faire
 
-**Date** : 2026-09-07 · Aligné [`ROADMAP.md`](./ROADMAP.md) + [`LIAISONS-MODULES.md`](./LIAISONS-MODULES.md) + [`API.md`](./API.md) §5.7a.
+**Date** : 2026-09-17 · Aligné [`ROADMAP.md`](./ROADMAP.md) + [`LIAISONS-MODULES.md`](./LIAISONS-MODULES.md) + [`API.md`](./API.md) §5.7a.
 
 Liste **uniquement** du travail restant (pas de historique « fait »). Trajectoire / horizons : [`ROADMAP.md`](./ROADMAP.md).
 
 | Tag | Horizon |
 | --- | --- |
+| **COMP** | **P0 immédiat** — conformité évaluation (COMP-001-A) |
 | **B0–B3** | V1 Beta (vagues) |
 | **NTH** | Nice-to-have beta |
 | **BUF** | Buffer pendant beta |
@@ -13,6 +14,22 @@ Liste **uniquement** du travail restant (pas de historique « fait »). Trajecto
 | **F26** | Fin 2026 |
 | **27** | 2027 |
 | **VIS** | 2028+ |
+
+---
+
+## Priorité immédiate — Conformité (P0)
+
+> Décision 2026-09-17 : étendre le MVP (pas de rewrite campagnes). Cible produit = [RFC-COMP-001](./RFC/RFC-COMP-001%20—%20Pilotage%20de%20la%20conformité.md) · V1 = [RFC-COMP-001-A](./RFC/RFC-COMP-001-A%20—%20Évaluation%20opérationnelle%20(V1).md) · écarts = [RFC-COMP-001-ecarts-mvp](./RFC/RFC-COMP-001-ecarts-mvp.md) · V2 = [RFC-COMP-002](./RFC/RFC-COMP-002%20—%20Campagnes%20et%20dossier%20d'audit.md).
+
+| # | Item | Ref |
+| --- | --- | --- |
+| **COMP.0** | Inventaire C0 : upsert status, DTO, permissions, glossaire UI figé | COMP-001-ecarts · COMP-001-A §5 |
+| **COMP.1** | Modale **Évaluer** : statut + commentaire + règles justificatif (brancher `PATCH status`) | COMP-001-A |
+| **COMP.2** | Ajout **preuve** (URL / observation) depuis la modale | COMP-001-A |
+| **COMP.3** | **N/A** justifiée + signal « À réexaminer » si échéance dépassée | COMP-001-A |
+| **COMP.4** | Écart → **risque projet** (+ KPI dénominateur `A`) | COMP-001-A · PROJ-018 |
+| **COMP.5** | Manuel-70 + API.md + recettes A-01…A-08 | COMP-001-A §6 |
+| COMP.V2 | Campagnes / instantanés / import évaluations (**après** COMP.1–4) | COMP-002 |
 
 ---
 
@@ -141,7 +158,7 @@ Liste **uniquement** du travail restant (pas de historique « fait »). Trajecto
 | --- | --- | --- |
 | 27.1 | CMDB | `fut-cmdb-*` |
 | 27.2 | GED + `SupplierQuotation` | `fut-ged-*` |
-| 27.3 | Preuves conformité → GED | `fut-evidence-ged` |
+| 27.3 | Preuves conformité → GED (après COMP.1–2 URL/observation) | `fut-evidence-ged` · COMP |
 
 ---
 
@@ -170,7 +187,9 @@ Liste **uniquement** du travail restant (pas de historique « fait »). Trajecto
 
 ## Ordre d’attaque
 
-1. B0.2–B0.3 — gate monorepo + préprod MFA / smoke Orion manuel  
-2. B1.3–B1.4 → B2.* → B3.*  
-3. BUF.1–2 en parallèle (doc)  
-4. Après go-live : V11.L1 + V11.1 puis MEET  
+1. **COMP.0 → COMP.4** — conformité évaluation opérationnelle (**P0**, avant le reste beta hors gate)  
+2. B0.2–B0.3 — gate monorepo + préprod MFA / smoke Orion manuel  
+3. COMP.5 (doc) en parallèle des gates si possible  
+4. B1.3–B1.4 → B2.* → B3.*  
+5. BUF.1–2 en parallèle (doc)  
+6. Après go-live : V11.L1 + V11.1 puis MEET · **COMP.V2** selon charge  

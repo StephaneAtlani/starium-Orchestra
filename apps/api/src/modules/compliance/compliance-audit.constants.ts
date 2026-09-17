@@ -1,6 +1,9 @@
 export const COMPLIANCE_AUDIT_ACTION = {
   FRAMEWORK_CREATED: 'compliance.framework.created',
   FRAMEWORK_UPDATED: 'compliance.framework.updated',
+  FRAMEWORK_ARCHIVED: 'compliance.framework.archived',
+  FRAMEWORK_RESTORED: 'compliance.framework.restored',
+  FRAMEWORK_ACTIVATED: 'compliance.framework.activated',
   REQUIREMENT_CREATED: 'compliance.requirement.created',
   STATUS_UPDATED: 'compliance.status.updated',
   EVIDENCE_CREATED: 'compliance.evidence.created',

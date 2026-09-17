@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -16,11 +17,18 @@ import {
   COMPLIANCE_AUDIT_RESOURCE_TYPE,
 } from './compliance-audit.constants';
 import { CreateComplianceFrameworkDto } from './dto/create-compliance-framework.dto';
+import { UpdateComplianceFrameworkDto } from './dto/update-compliance-framework.dto';
 import { CreateComplianceRequirementDto } from './dto/create-compliance-requirement.dto';
 import { CreateComplianceEvidenceDto } from './dto/create-compliance-evidence.dto';
 import { PatchComplianceStatusDto } from './dto/patch-compliance-status.dto';
 import { ListComplianceRequirementsQueryDto } from './dto/list-compliance-requirements.query.dto';
 import { ListComplianceStatusQueryDto } from './dto/list-compliance-status.query.dto';
+
+type PlatformAuditMeta = {
+  ipAddress?: string;
+  userAgent?: string;
+  requestId?: string;
+};
 
 /** Avancement d'un référentiel — `GET /compliance/frameworks/summary`. */
 export interface ComplianceFrameworkSummary {
@@ -558,5 +566,329 @@ export class ComplianceService {
       requirementsWithoutEvidence,
       criticalRisksLinked,
     };
+  }
+
+  // --- Catalogue plateforme (clientId null) ---
+
+  async listPlatformFrameworks(includeArchived = false) {
+    return this.prisma.complianceFramework.findMany({
+      where: {
+        clientId: null,
+        ...(includeArchived ? {} : { archivedAt: null }),
+      },
+      include: {
+        _count: { select: { requirements: true } },
+      },
+      orderBy: [{ name: 'asc' }, { version: 'asc' }],
+    });
+  }
+
+  async getPlatformFramework(id: string) {
+    const fw = await this.prisma.complianceFramework.findFirst({
+      where: { id, clientId: null },
+      include: {
+        requirements: { orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }] },
+      },
+    });
+    if (!fw) throw new NotFoundException('Référentiel plateforme introuvable');
+    return fw;
+  }
+
+  async createPlatformFramework(
+    dto: CreateComplianceFrameworkDto,
+    actorUserId?: string,
+    meta?: PlatformAuditMeta,
+  ) {
+    const name = dto.name.trim();
+    const version = dto.version.trim();
+    const existing = await this.prisma.complianceFramework.findFirst({
+      where: { clientId: null, name, version },
+    });
+    if (existing) {
+      throw new ConflictException(
+        `Le référentiel « ${name} » (${version}) existe déjà dans le catalogue plateforme`,
+      );
+    }
+    const row = await this.prisma.complianceFramework.create({
+      data: {
+        clientId: null,
+        name,
+        version,
+        isActive: dto.isActive ?? true,
+        nextAuditAt: dto.nextAuditAt ? new Date(dto.nextAuditAt) : null,
+      },
+    });
+    await this.auditLogs.createPlatform({
+      userId: actorUserId,
+      action: COMPLIANCE_AUDIT_ACTION.FRAMEWORK_CREATED,
+      resourceType: COMPLIANCE_AUDIT_RESOURCE_TYPE.COMPLIANCE_FRAMEWORK,
+      resourceId: row.id,
+      newValue: { name: row.name, version: row.version, scope: 'platform' },
+      ipAddress: meta?.ipAddress,
+      userAgent: meta?.userAgent,
+      requestId: meta?.requestId,
+    });
+    return row;
+  }
+
+  async updatePlatformFramework(
+    id: string,
+    dto: UpdateComplianceFrameworkDto,
+    actorUserId?: string,
+    meta?: PlatformAuditMeta,
+  ) {
+    const current = await this.prisma.complianceFramework.findFirst({
+      where: { id, clientId: null },
+    });
+    if (!current) throw new NotFoundException('Référentiel plateforme introuvable');
+
+    if (dto.name !== undefined || dto.version !== undefined) {
+      const name = (dto.name ?? current.name).trim();
+      const version = (dto.version ?? current.version).trim();
+      const clash = await this.prisma.complianceFramework.findFirst({
+        where: {
+          clientId: null,
+          name,
+          version,
+          NOT: { id },
+        },
+      });
+      if (clash) {
+        throw new ConflictException(
+          `Le référentiel « ${name} » (${version}) existe déjà dans le catalogue`,
+        );
+      }
+    }
+
+    const updated = await this.prisma.complianceFramework.update({
+      where: { id },
+      data: {
+        ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
+        ...(dto.version !== undefined ? { version: dto.version.trim() } : {}),
+        ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
+        ...(dto.nextAuditAt !== undefined
+          ? {
+              nextAuditAt: dto.nextAuditAt ? new Date(dto.nextAuditAt) : null,
+            }
+          : {}),
+      },
+    });
+
+    await this.auditLogs.createPlatform({
+      userId: actorUserId,
+      action: COMPLIANCE_AUDIT_ACTION.FRAMEWORK_UPDATED,
+      resourceType: COMPLIANCE_AUDIT_RESOURCE_TYPE.COMPLIANCE_FRAMEWORK,
+      resourceId: updated.id,
+      oldValue: { name: current.name, version: current.version },
+      newValue: { name: updated.name, version: updated.version },
+      ipAddress: meta?.ipAddress,
+      userAgent: meta?.userAgent,
+      requestId: meta?.requestId,
+    });
+    return updated;
+  }
+
+  async archivePlatformFramework(
+    id: string,
+    actorUserId?: string,
+    meta?: PlatformAuditMeta,
+  ) {
+    const current = await this.prisma.complianceFramework.findFirst({
+      where: { id, clientId: null },
+    });
+    if (!current) throw new NotFoundException('Référentiel plateforme introuvable');
+    if (current.archivedAt) return current;
+
+    const now = new Date();
+    const updated = await this.prisma.complianceFramework.update({
+      where: { id },
+      data: { isActive: false, archivedAt: now },
+    });
+    await this.auditLogs.createPlatform({
+      userId: actorUserId,
+      action: COMPLIANCE_AUDIT_ACTION.FRAMEWORK_ARCHIVED,
+      resourceType: COMPLIANCE_AUDIT_RESOURCE_TYPE.COMPLIANCE_FRAMEWORK,
+      resourceId: id,
+      oldValue: { name: current.name, version: current.version },
+      newValue: { archivedAt: now.toISOString() },
+      ipAddress: meta?.ipAddress,
+      userAgent: meta?.userAgent,
+      requestId: meta?.requestId,
+    });
+    return updated;
+  }
+
+  async restorePlatformFramework(
+    id: string,
+    actorUserId?: string,
+    meta?: PlatformAuditMeta,
+  ) {
+    const current = await this.prisma.complianceFramework.findFirst({
+      where: { id, clientId: null },
+    });
+    if (!current) throw new NotFoundException('Référentiel plateforme introuvable');
+    if (!current.archivedAt) return current;
+
+    const updated = await this.prisma.complianceFramework.update({
+      where: { id },
+      data: { isActive: true, archivedAt: null },
+    });
+    await this.auditLogs.createPlatform({
+      userId: actorUserId,
+      action: COMPLIANCE_AUDIT_ACTION.FRAMEWORK_RESTORED,
+      resourceType: COMPLIANCE_AUDIT_RESOURCE_TYPE.COMPLIANCE_FRAMEWORK,
+      resourceId: id,
+      newValue: { name: updated.name, version: updated.version },
+      ipAddress: meta?.ipAddress,
+      userAgent: meta?.userAgent,
+      requestId: meta?.requestId,
+    });
+    return updated;
+  }
+
+  async createPlatformRequirement(
+    frameworkId: string,
+    dto: CreateComplianceRequirementDto,
+    actorUserId?: string,
+    meta?: PlatformAuditMeta,
+  ) {
+    const fw = await this.prisma.complianceFramework.findFirst({
+      where: { id: frameworkId, clientId: null },
+    });
+    if (!fw) throw new NotFoundException('Référentiel plateforme introuvable');
+    if (fw.archivedAt) {
+      throw new ConflictException(
+        'Impossible d’ajouter une exigence à un référentiel archivé',
+      );
+    }
+
+    const code = dto.code.trim();
+    const dup = await this.prisma.complianceRequirement.findFirst({
+      where: { frameworkId, code },
+    });
+    if (dup) {
+      throw new ConflictException('Code exigence déjà utilisé dans ce référentiel');
+    }
+
+    const row = await this.prisma.complianceRequirement.create({
+      data: {
+        frameworkId,
+        code,
+        title: dto.title.trim(),
+        description: dto.description?.trim() ?? null,
+        category: dto.category?.trim() ?? null,
+        sortOrder: dto.sortOrder ?? 0,
+      },
+    });
+    await this.auditLogs.createPlatform({
+      userId: actorUserId,
+      action: COMPLIANCE_AUDIT_ACTION.REQUIREMENT_CREATED,
+      resourceType: COMPLIANCE_AUDIT_RESOURCE_TYPE.COMPLIANCE_REQUIREMENT,
+      resourceId: row.id,
+      newValue: {
+        frameworkId,
+        code: row.code,
+        title: row.title,
+        scope: 'platform',
+      },
+      ipAddress: meta?.ipAddress,
+      userAgent: meta?.userAgent,
+      requestId: meta?.requestId,
+    });
+    return row;
+  }
+
+  /**
+   * Active un référentiel catalogue plateforme pour le client :
+   * copie framework + exigences (instance client isolée pour les évaluations).
+   */
+  async activatePlatformFrameworkForClient(
+    clientId: string,
+    platformFrameworkId: string,
+    context?: AuditContext,
+  ) {
+    const source = await this.prisma.complianceFramework.findFirst({
+      where: {
+        id: platformFrameworkId,
+        clientId: null,
+        archivedAt: null,
+        isActive: true,
+      },
+      include: { requirements: true },
+    });
+    if (!source) {
+      throw new NotFoundException('Référentiel catalogue introuvable ou archivé');
+    }
+
+    const existing = await this.prisma.complianceFramework.findFirst({
+      where: {
+        clientId,
+        name: source.name,
+        version: source.version,
+      },
+    });
+    if (existing) {
+      throw new ConflictException(
+        `« ${source.name} » (${source.version}) est déjà activé pour ce client`,
+      );
+    }
+
+    const created = await this.prisma.$transaction(async (tx) => {
+      const fw = await tx.complianceFramework.create({
+        data: {
+          clientId,
+          name: source.name,
+          version: source.version,
+          isActive: true,
+        },
+      });
+      if (source.requirements.length > 0) {
+        await tx.complianceRequirement.createMany({
+          data: source.requirements.map((r) => ({
+            frameworkId: fw.id,
+            code: r.code,
+            title: r.title,
+            description: r.description,
+            category: r.category,
+            sortOrder: r.sortOrder,
+          })),
+        });
+      }
+      return fw;
+    });
+
+    await this.auditLogs.create({
+      clientId,
+      userId: context?.actorUserId,
+      action: COMPLIANCE_AUDIT_ACTION.FRAMEWORK_ACTIVATED,
+      resourceType: COMPLIANCE_AUDIT_RESOURCE_TYPE.COMPLIANCE_FRAMEWORK,
+      resourceId: created.id,
+      newValue: {
+        name: created.name,
+        version: created.version,
+        fromPlatformFrameworkId: source.id,
+      },
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    });
+
+    return created;
+  }
+
+  /** Catalogue proposé (actifs non archivés) — lecture client. */
+  async listProposedPlatformFrameworks() {
+    const rows = await this.prisma.complianceFramework.findMany({
+      where: { clientId: null, archivedAt: null, isActive: true },
+      include: { _count: { select: { requirements: true } } },
+      orderBy: [{ name: 'asc' }, { version: 'asc' }],
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      version: r.version,
+      requirementCount: r._count.requirements,
+      scope: 'platform' as const,
+    }));
   }
 }

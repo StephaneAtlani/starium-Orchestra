@@ -20,6 +20,7 @@
 | --------------- | ----------------------- | ------------------------------------------------------------------- | ---------- |
 | RFC-PROJ-013    | Portfolio Dashboard API | KPI OK mais pas encore exploités pleinement (alertes, priorisation) | ⚠️ Partiel |
 | RFC-FE-PROJ-008 | Portfolio Cockpit UI    | Cockpit présent mais pas “DG-ready” (pas assez orienté décision)    | ⚠️ Partiel |
+| **RFC-PROJ-INT-010** | **Mise à disposition M365 (Provisioning Teams)** | MVP **Team + canaux** + fiabilisation queue (lot 2) livrés. **Reste (lot 5)** : cases modulaires Planner / dossier documents / sync tâches (création + options projet), Prisma `request*`, Graph plan+drive, job conditionnel, validation sync↔Planner. Sync code **2026-09-16**. | ⚠️ Partiel — lot 5 ❌ |
 
 ---
 

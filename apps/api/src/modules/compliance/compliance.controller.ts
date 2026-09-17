@@ -25,10 +25,19 @@ import { PatchComplianceStatusDto } from './dto/patch-compliance-status.dto';
 import { ListComplianceRequirementsQueryDto } from './dto/list-compliance-requirements.query.dto';
 import { ListComplianceStatusQueryDto } from './dto/list-compliance-status.query.dto';
 
+import { ActivateComplianceFrameworkDto } from './dto/activate-compliance-framework.dto';
+
 @Controller('compliance')
 @UseGuards(JwtAuthGuard, ActiveClientGuard, ModuleAccessGuard, PermissionsGuard)
 export class ComplianceController {
   constructor(private readonly compliance: ComplianceService) {}
+
+  /** Catalogue plateforme proposé (actifs) — avant activation client. */
+  @Get('frameworks/catalog')
+  @RequirePermissions('compliance.read')
+  listCatalog() {
+    return this.compliance.listProposedPlatformFrameworks();
+  }
 
   @Get('frameworks')
   @RequirePermissions('compliance.read')
@@ -53,6 +62,22 @@ export class ComplianceController {
   ) {
     const context: AuditContext = { actorUserId, meta };
     return this.compliance.createFramework(clientId!, dto, context);
+  }
+
+  @Post('frameworks/activate')
+  @RequirePermissions('compliance.update')
+  activateFramework(
+    @ActiveClientId() clientId: string | undefined,
+    @Body() dto: ActivateComplianceFrameworkDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.compliance.activatePlatformFrameworkForClient(
+      clientId!,
+      dto.platformFrameworkId,
+      context,
+    );
   }
 
   @Get('requirements')

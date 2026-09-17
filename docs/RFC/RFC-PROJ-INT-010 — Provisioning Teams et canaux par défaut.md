@@ -2,9 +2,11 @@
 
 ## Statut
 
-**Implémenté (MVP Teams)** — lots 1 à 4 livrés (2026-07-17) : Team + canaux template uniquement.
+**Implémenté (MVP Teams)** — lots 1 à 4 livrés (2026-07-17) : Team + canaux template uniquement. Lot 2 backend (queue / stale / resolve / retry) livré.
 
-**Planifié (lot 5)** — provisioning **modulaire** : l’utilisateur coche explicitement chaque brique M365 à créer (Planner, dossier documents, sync tâches) en plus de la Team ; voir §3.4, §6.3–6.4, §8.2–8.3, §12.
+**Planifié (lot 5)** — provisioning **modulaire** : l’utilisateur coche explicitement chaque brique M365 à créer (Planner, dossier documents, sync tâches) en plus de la Team ; voir §3.4, §6.3–6.4, §8.2–8.3, §12, §18.3.
+
+**Sync code (2026-09-16)** — confirmé absents du dépôt : champs Prisma `request*`, DTO options sur POST provision / création projet, Graph Planner + drive auto, cases UI Planner / fichiers / sync. Comportement réel : `provisionMicrosoftTeams: true` ou POST provision corps vide → **Team + canaux template uniquement** ; Planner / dossier / sync tâches restent manuels (INT-007 / INT-008 / INT-009).
 
 ## Priorité
 
@@ -827,17 +829,18 @@ Exemple de jeu initial proposé à la première activation (à valider métier) 
 | Audits canaux / provision | préfixe long | codes courts `channel_template.*` / `provision.*` |
 | `aria-live` sur statut provisioning | exigé | **à densifier** (carte projet) |
 
-## 18.3 Lot 5 — non livré (spec §3.4)
+## 18.3 Lot 5 — non livré (spec §3.4) — reste à faire (vérifié 2026-09-16)
 
 | Capacité | Statut code |
 |----------|-------------|
-| Cases UI Planner / fichiers / sync tâches | ❌ |
-| DTO `microsoftProvisioning` / `options` sur POST provision | ❌ |
-| Champs Prisma `requestCreatePlannerPlan`, etc. | ❌ |
-| Graph `createPlannerPlan`, résolution `filesDriveId` canal | ❌ |
-| Job : étapes conditionnelles + sync flags sur lien | ❌ |
+| Cases UI Planner / fichiers / sync tâches (création projet + dialogue options projet) | ❌ |
+| DTO `microsoftProvisioning` / `options` sur POST provision (corps encore vide) | ❌ |
+| Champs Prisma `requestCreatePlannerPlan`, `requestSetupDocumentsFolder`, `requestEnableTasksSync` | ❌ |
+| Graph `createPlannerPlan`, résolution `filesDriveId` canal + dossier `starium-project-{id}` | ❌ |
+| Job : étapes conditionnelles + flags sync sur `ProjectMicrosoftLink` + retry sur les mêmes `request*` | ❌ |
+| Validation API/UI : sync tâches refusée sans Planner | ❌ |
 
-Comportement actuel si `provisionMicrosoftTeams: true` : **Team + canaux uniquement** ; Planner et fichiers restent manuels (INT-007).
+Comportement actuel si `provisionMicrosoftTeams: true` (ou POST provision corps vide) : **Team + canaux uniquement** ; Planner et fichiers restent manuels (INT-007). Suite polish hors lot 5 : §18.5 (`aria-live`, suffixe nom dupliqué, E2E).
 
 ## 18.4 Lot 2 — fiabilisation backend (gap-close, livré)
 

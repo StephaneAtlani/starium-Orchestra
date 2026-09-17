@@ -151,6 +151,7 @@ Statuts : **live** = code + usage ; **partial** = FK/socle sans tout le parcours
 | `meet-risk` | Réunions | Risques | Overlay | `MeetingBlocker.riskId` | RFC-MEET-001 |
 | `meet-attendee` | Réunions | RH | FK | `MeetingAttendee.resourceId` | RFC-MEET-001 |
 | `compliance-risk` | Conformité | Risques | FK | `ProjectRisk.complianceRequirementId` | RFC-PROJ-RISK-001 |
+| `compliance-catalog` | Admin plateforme | Conformité (client) | Copie | Activation : `ComplianceFramework` `clientId=null` → instance client + exigences | RFC-ADM-002 |
 | `project-budget` | Projets | Budgets | N:N | `ProjectBudgetLink` | RFC-PROJ-010 |
 | `scenario-budget` | Projets | Budgets | FK | `ProjectScenarioFinancialLine` | RFC-PROJ-SC-002 |
 | `scenario-resource` | Projets | RH | FK | `ProjectScenarioResourcePlan` | RFC-PROJ-SC-003 |
@@ -226,7 +227,7 @@ Statuts : **live** = code + usage ; **partial** = FK/socle sans tout le parcours
 | `fut-proj-020` | Projets | Dashboard | future | Roll-up parent / enfants | RFC-PROJ-020 |
 | `fut-axes-po` | Achats | Organisation | future | Splits au-delà de la ligne | RFC-021 suite |
 | `fut-evidence-ged` | Conformité | GED | future | `ComplianceEvidence.fileId` | module compliance |
-| `fut-ms-lot5` | Microsoft 365 | GED | future | Provisioning Planner / dossier | RFC-PROJ-INT-010 lot 5 |
+| `fut-ms-lot5` | Microsoft 365 | GED / Planner | future | Lot 5 provisioning modulaire (Planner + dossier docs + sync tâches) — **non livré** (2026-09-16) | RFC-PROJ-INT-010 §18.3 |
 | `fut-finance` | Financial Core | Budgets | future | Orchestra Finance (DAF) | VISION |
 | `fut-hr` | RH | Capacité | future | `CapacitySource.SIRH` | VISION · RFC-CAPA-001 |
 | `atlas-*` | Cartographie | Tous les modules métier / noyaux | future (**Fin 2026**) | Overlay `AtlasRelation` kind=ORG\|FUNCTIONAL\|TECHNICAL — lit les ponts, ne duplique pas | Prototype Cartographie |

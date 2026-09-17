@@ -370,6 +370,13 @@ export const navigation: NavigationSection[] = [
         scope: 'platform',
         platformOnly: true,
       },
+      {
+        label: 'Référentiels conformité',
+        href: '/admin/compliance-frameworks',
+        icon: Scale,
+        scope: 'platform',
+        platformOnly: true,
+      },
     ],
   },
   {

@@ -99,3 +99,63 @@ export async function listComplianceStatuses(
   if (!res.ok) throw await parseApiFormError(res);
   return res.json() as Promise<ComplianceStatusRowApi[]>;
 }
+
+/** Ligne de `GET /compliance/requirements` — exigence + statut courant (+ preuves). */
+export type ComplianceRequirementRowApi = {
+  id: string;
+  code: string;
+  title: string;
+  category: string | null;
+  framework: {
+    id: string;
+    name: string;
+    version: string;
+    isActive: boolean;
+  };
+  statuses: Array<{ status: ComplianceAssessmentStatusApi }>;
+  evidences: Array<{ id: string }>;
+};
+
+export async function listComplianceRequirements(
+  authFetch: AuthFetch,
+  params?: { frameworkId?: string },
+): Promise<ComplianceRequirementRowApi[]> {
+  const search = new URLSearchParams();
+  if (params?.frameworkId) search.set('frameworkId', params.frameworkId);
+  const qs = search.toString();
+  const res = await authFetch(`${BASE}/requirements${qs ? `?${qs}` : ''}`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ComplianceRequirementRowApi[]>;
+}
+
+export type ComplianceRequirementDetailApi = {
+  requirement: {
+    id: string;
+    code: string;
+    title: string;
+    description: string | null;
+    category: string | null;
+    framework?: { name: string; version: string };
+  };
+  status: {
+    status: ComplianceAssessmentStatusApi;
+    comment: string | null;
+    lastAssessmentDate?: string | null;
+  } | null;
+  evidences: Array<{ id: string; name: string; url: string | null }>;
+  linkedRisks: Array<{
+    code: string;
+    title: string;
+    criticalityLevel: string;
+  }>;
+  linkedRiskCount: number;
+};
+
+export async function getComplianceRequirementDetail(
+  authFetch: AuthFetch,
+  requirementId: string,
+): Promise<ComplianceRequirementDetailApi> {
+  const res = await authFetch(`${BASE}/requirements/${requirementId}`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ComplianceRequirementDetailApi>;
+}

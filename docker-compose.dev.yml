@@ -69,6 +69,8 @@ x-api-dev-mounts: &api-dev-mounts
   - ./apps/api/src:/app/apps/api/src
   - ./apps/api/scripts:/app/apps/api/scripts:ro
   - ./apps/api/prisma:/app/apps/api/prisma
+  # Clone CISO Assistant (libraries) — géré sur le host si git absent du container
+  - ./apps/api/.cache:/app/apps/api/.cache
   - procurement_blobs:/data/procurement-blobs
 
 # Montages web-dev : manifests pnpm racine + packages workspace consommés par Next.

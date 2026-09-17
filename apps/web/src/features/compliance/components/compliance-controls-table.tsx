@@ -1,60 +1,20 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { AlertCircle, CheckCircle2, Clock3, MinusCircle, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { DataTable } from '@/components/data-table/data-table';
 import type { DataTableColumn } from '@/components/data-table/data-table';
 import { RegistryBadge } from '@/lib/ui/registry-badge';
-import { cn } from '@/lib/utils';
-import type {
-  ComplianceAssessmentStatusApi,
-  ComplianceStatusRowApi,
-} from '../api/compliance.api';
+import type { ComplianceStatusRowApi } from '../api/compliance.api';
+import {
+  ComplianceStatusDisplay,
+  complianceStatusLabel,
+} from './compliance-status-display';
 
-const STATUS_META: Record<
-  ComplianceAssessmentStatusApi,
-  { label: string; className: string; icon: typeof CheckCircle2 }
-> = {
-  COMPLIANT: {
-    label: 'Conforme',
-    className: 'text-[color:var(--state-success)]',
-    icon: CheckCircle2,
-  },
-  PARTIALLY_COMPLIANT: {
-    label: 'Partiellement conforme',
-    className: 'text-[color:var(--brand-gold-700)]',
-    icon: Clock3,
-  },
-  NON_COMPLIANT: {
-    label: 'Écart',
-    className: 'text-destructive',
-    icon: AlertCircle,
-  },
-  NOT_APPLICABLE: {
-    label: 'Non applicable',
-    className: 'text-muted-foreground',
-    icon: MinusCircle,
-  },
-};
-
-export function complianceStatusLabel(status: ComplianceAssessmentStatusApi): string {
-  return STATUS_META[status]?.label ?? status;
-}
-
-function ControlStatus({ status }: { status: ComplianceAssessmentStatusApi }) {
-  const meta = STATUS_META[status];
-  if (!meta) return <span className="text-sm">{status}</span>;
-  const Icon = meta.icon;
-  return (
-    <span className={cn('inline-flex items-center gap-1.5 text-sm font-semibold', meta.className)}>
-      <Icon className="size-3.5 shrink-0" aria-hidden />
-      {meta.label}
-    </span>
-  );
-}
+export { complianceStatusLabel };
 
 function formatDate(iso: string | null): string {
   if (!iso) return '—';
@@ -137,7 +97,7 @@ export function ComplianceControlsTable({
         key: 'status',
         header: 'État',
         mobilePriority: 'secondary',
-        cell: (row) => <ControlStatus status={row.status} />,
+        cell: (row) => <ComplianceStatusDisplay status={row.status} />,
       },
     ],
     [],

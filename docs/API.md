@@ -2957,6 +2957,43 @@ Référence : **RFC-019** (Budget Versioning). Gestion des versions de budgets :
 
 ---
 
+## 20 ter. Catalogue conformité plateforme — `/api/platform/compliance/frameworks`, `/api/platform/compliance/ciso-libraries`
+
+Référence : [RFC-ADM-002](RFC/RFC-ADM-002%20%E2%80%94%20Catalogue%20r%C3%A9f%C3%A9rentiels%20conformit%C3%A9%20(plateforme).md). Cadres `ComplianceFramework` à `clientId = null` proposés aux clients (activation = **copie**). **Guards** : `JwtAuthGuard` + `PlatformAdminGuard` (pas de `X-Client-Id`).
+
+> *(Ancienne § RFC-ADM-001 listes génériques retirée — API `/api/platform/reference-lists` et `/api/reference-lists/:code` n’existent plus.)*
+
+### Catalogue — `/api/platform/compliance/frameworks`
+
+- **GET /** — Liste catalogue ; query `includeArchived=true|1`. Chaque item inclut `_count.requirements`.
+- **GET /:id** — Détail + exigences ordonnées. **UI** : `/admin/compliance-frameworks/[id]` (clic nom / bouton Voir).
+- **POST /** — Création manuelle (`name`, `version`, `isActive?`, `nextAuditAt?`).
+- **PATCH /:id** — Mise à jour.
+- **POST /:id/archive** | **POST /:id/restore** — Archivage / restauration.
+- **POST /:id/requirements** — Ajout d’exigence catalogue (`code`, `title`, …).
+
+### Import CISO Assistant — `/api/platform/compliance/ciso-libraries`
+
+Source : repo community [intuitem/ciso-assistant-community](https://github.com/intuitem/ciso-assistant-community/tree/main/backend/library/libraries) (`backend/library/libraries/*.yaml`).
+
+- **GET /** — Liste depuis un **clone sparse local** du repo CISO Assistant (`backend/library/libraries`, cache `apps/api/.cache/ciso-assistant-community` ou `CISO_ASSISTANT_CACHE_DIR`). Filtre hors `mapping*` / `workflow*` et hors libs sans `objects.framework`. Champs : `name`, `description`, `version`, `locale`, `refId`, `publicationDate`, `provider`, `languages[]`, `translations[]`, `updatedAt` (git), `isNew` (< 1 mois), `alreadyImported` (approx.). Sync git TTL ~1 h ; liste en mémoire ~30 min.
+- **POST /import** — Body `{ paths: string[] }` (1–30 chemins `backend/library/libraries/*.yaml`). Télécharge le YAML, extrait `objects.framework` + nœuds `assessable`, crée le cadre plateforme + exigences. Skip si déjà présent (même `name`+`version`) ou sans framework. Réponse : `{ imported, skipped, errors, results[] }`.
+
+**Audit** : `createPlatform` sur chaque import réussi (`source: ciso-assistant-community`).
+
+**UI** : `/admin/compliance-frameworks` — bouton **Importer** (recherche + cases à cocher).
+
+### Activation côté client — `/api/compliance/frameworks/catalog`, `/activate`
+
+Guards métier client (`X-Client-Id`, module `compliance`).
+
+- **GET /api/compliance/frameworks/catalog** — Cadres plateforme actifs non archivés (`id`, `name`, `version`, `requirementCount`). Permission **`compliance.read`**.
+- **POST /api/compliance/frameworks/activate** — Body `{ platformFrameworkId }` : copie framework + exigences vers le client actif. **409** si déjà activé (même `name`+`version`). Permission **`compliance.create`**. Audit client `compliance.framework.activated`.
+
+**UI client** : `/compliance/frameworks`.
+
+---
+
 ## 21. Module Projets (RFC-PROJ-001 MVP) — `/api/projects`, `/api/projects/:projectId/tasks|task-buckets|gantt|activities|risks|milestones|budget-links|scenarios|.../financial-lines|.../financial-summary|project-sheet|reviews|documents`, `/api/projects/:projectId/microsoft-link`
 
 Référence : **RFC-PROJ-001**, **RFC-PROJ-010** (liens budget), **RFC-PROJ-011** (tâches enrichies, jalons, activités, payload **`GET /gantt`**), **RFC-PROJ-012** — *deux livrables distincts dans le dépôt* : [fiche décisionnelle Project Sheet](RFC/RFC-PROJ-012%20%E2%80%94%20Project%20Sheet.md) et [UI Gantt Tâches et Jalons](RFC/RFC-PROJ-012%20%E2%80%94%20Gantt%20T%C3%A2ches%20et%20Jalons.md), **RFC-PROJ-013** (points projet COPIL/COPRO), **RFC-PROJ-013-1** (cycle de vie réunion — Phase 1), **RFC-PROJ-DOC-001** (registre `ProjectDocument`), **RFC-PROJ-SC-001** / **RFC-PROJ-SC-002** (scénarios + projections financières scénario), détail : [docs/modules/projects-mvp.md](modules/projects-mvp.md).
@@ -2976,7 +3013,7 @@ Référence : **RFC-PROJ-001**, **RFC-PROJ-010** (liens budget), **RFC-PROJ-011*
 - **GET /api/projects/portfolio-summary** — KPI agrégés sur **tous** les projets du client actif (sans pagination liste, **non filtré** par `tagIds`). Permission **`projects.read`**.
 - **GET /api/projects/assignable-users** — Membres **actifs** du client (id, email, nom) pour désigner un responsable projet sans exiger le rôle client admin. Permission **`projects.read`**.
 - **GET /api/projects/assignable-parents** — Projets **éligibles comme parent** (même client ; exclut `excludeProjectId`, ses descendants, candidats qui feraient dépasser la profondeur max). Query : `excludeProjectId?`, `search?`, `limit?` (défaut 20, max 50). Réponse : `{ items: [{ id, name, code, status, kind }] }`. Permission **`projects.read`**. *(RFC-PROJ-019)*
-- **POST /api/projects** — Création (DTO validé : `name`, `code`, `type`, `priority`, `criticality`, champs optionnels dates, `progressPercent`, `ownerUserId`, **`parentProjectId`**, **`provisionMicrosoftTeams`** (opt-in provisioning Teams — RFC-PROJ-INT-010 : ignoré si settings client désactivés ou connexion M365 inactive), etc.). Validation serveur : même client, anti-cycle, profondeur max 5. Permission **`projects.create`**.
+- **POST /api/projects** — Création (DTO validé : `name`, `code`, `type`, `priority`, `criticality`, champs optionnels dates, `progressPercent`, `ownerUserId`, **`parentProjectId`**, **`provisionMicrosoftTeams`** (opt-in — RFC-PROJ-INT-010 : ignoré si settings client désactivés ou connexion M365 inactive ; si `true` → **Team + canaux uniquement**, pas Planner/docs/sync — lot 5 non livré), etc.). Validation serveur : même client, anti-cycle, profondeur max 5. Permission **`projects.create`**.
 - **GET /api/projects/:id** — Détail enrichi (même enrichissement pilotage que la liste + champs étendus description, notes, etc.) ; inclut **`ancestorChain`** (ancêtres racine → parent direct) et **météo du comité** : `committeeMood` (`GREEN` \| `ORANGE` \| `RED` \| `null`), `committeeMoodReviewId`, `committeeMoodReviewTitle`, `committeeMoodReviewDate` (dernière valeur connue, scope client). Permission **`projects.read`**.
 - **GET /api/projects/:id/children** — Liste paginée des **enfants directs** (format item liste enrichie ; mêmes filtres query optionnels que la liste, restreints aux enfants). Permission **`projects.read`**. *(RFC-PROJ-019)*
 - **PATCH /api/projects/:id** — Mise à jour partielle (`parentProjectId` nullable pour détacher). Audits dédiés `project.parent.assigned` / `detached` / `changed` si le parent change. Permission **`projects.update`** (+ décision d’accès intent `write` sur le projet).
@@ -3278,7 +3315,7 @@ Provisioning asynchrone d’une nouvelle Team Microsoft pour un projet Starium, 
 **Guards** : `JwtAuthGuard`, `ActiveClientGuard`, `ModuleAccessGuard`, `PermissionsGuard`, `MicrosoftIntegrationAccessGuard`, `ResourceAccessDecisionGuard` + `@RequireAccessIntent({ module: 'projects', intent: 'read|write' })`.
 
 - **GET** — Dernier run de provisioning du projet (**404** si aucun run). Statuts : `PENDING`, `IN_PROGRESS`, `COMPLETED`, `PARTIAL`, `FAILED`. Champs utiles : `teamDisplayName`, `microsoftTeamId`, `teamWebUrl`, `graphOperationUrl`, `graphContentLocation`, `retryCount`, `errorCode`, `errorMessage`, `resolvedAt`, `resolutionType`, `lastHeartbeatAt`. **`projects.read`**
-- **POST** — Lance un provisioning si settings actifs, connexion `ACTIVE`, pas de `teamId` sur le lien, pas de run `PENDING|IN_PROGRESS`. Corps vide (MVP). Réponse **200** (`status: PENDING`). Team Graph : `template@odata.bind` (modèle `standard`), `displayName`, `description?`, `visibility: "private"` ; timeout HTTP création **60 s**. Exécution async via BullMQ (`jobId` `project_ms_teams_provisioning_{id}_r0`). Audit **`provision.started`**. **`projects.update`**
+- **POST** — Lance un provisioning si settings actifs, connexion `ACTIVE`, pas de `teamId` sur le lien, pas de run `PENDING|IN_PROGRESS`. **Corps vide (MVP)** — crée **Team + canaux template uniquement** ; pas d’options Planner / dossier documents / sync tâches (lot 5 RFC-PROJ-INT-010 **non livré**). Réponse **200** (`status: PENDING`). Team Graph : `template@odata.bind` (modèle `standard`), `displayName`, `description?`, `visibility: "private"` ; timeout HTTP création **60 s**. Exécution async via BullMQ (`jobId` `project_ms_teams_provisioning_{id}_r0`). Audit **`provision.started`**. **`projects.update`**
 - **POST …/retry** — Relance un run `FAILED` ou `PARTIAL` dont `errorCode` est dans l’allowlist retry (ex. `RECOVERY_REQUIRED`, `GRAPH_TRANSIENT_RETRIES_EXHAUSTED`, codes `QUEUE_*`, `PROVISIONED_TEAM_PENDING_RECOVERY`, …). **409** si `TEAM_CREATION_OUTCOME_UNKNOWN` non résolu, si `TEAM_CREATION_CONFIRMED_NOT_CREATED`, ou si code hors allowlist. Nouvelle tentative BullMQ avec `jobId` suffixe `_r{retryCount}`. Audit **`provision.started`**. **`projects.update`**
 - **POST …/resolve-unknown** — Corps `ResolveProjectMicrosoftTeamsProvisioningDto` : `resolutionType` (`TEAM_FOUND` | `CONFIRMED_NOT_CREATED`) ; pour `CONFIRMED_NOT_CREATED`, **`confirmation: true` obligatoire** ; pour `TEAM_FOUND`, `teamId` optionnel si déjà connu (`Content-Location` / run). Met à jour le lien projet si Team confirmée. Audit **`project.microsoft_teams.provision.unknown_resolved`**. **`projects.update`**
 
