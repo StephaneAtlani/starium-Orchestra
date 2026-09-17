@@ -7,6 +7,7 @@ import {
 import {
   ComplianceAssessmentStatus,
   ComplianceCampaignStatus,
+  ComplianceNaRequestStatus,
   Prisma,
   ProjectRiskCriticality,
 } from '@prisma/client';
@@ -31,6 +32,10 @@ import {
   ConfirmCampaignEvaluationsImportDto,
   PreviewCampaignEvaluationsImportDto,
 } from './dto/campaign-evaluations-import.dto';
+import {
+  RequestComplianceNaDto,
+  ReviewComplianceNaDto,
+} from './dto/compliance-na-request.dto';
 import { deriveComplianceFamilyLabel } from './compliance-family-label';
 import {
   CAMPAIGN_EVAL_IMPORT_TEMPLATE,
@@ -549,7 +554,7 @@ export class ComplianceService {
     });
     if (!req) throw new NotFoundException('Exigence introuvable');
 
-    const [status, evidences, linkedRisks] = await Promise.all([
+    const [status, evidences, linkedRisks, naRequest] = await Promise.all([
       this.prisma.complianceStatus.findUnique({
         where: {
           clientId_requirementId: { clientId, requirementId },
@@ -572,11 +577,17 @@ export class ComplianceService {
         orderBy: { updatedAt: 'desc' },
         take: 100,
       }),
+      this.prisma.complianceNaRequest.findUnique({
+        where: {
+          clientId_requirementId: { clientId, requirementId },
+        },
+      }),
     ]);
 
     return {
       requirement: req,
       status: status ?? null,
+      naRequest: naRequest ?? null,
       evidences: evidences.map((e) => ({
         ...e,
         kind: deriveComplianceEvidenceKind(e),
@@ -765,6 +776,12 @@ export class ComplianceService {
     requirementId: string,
     dto: PatchComplianceStatusDto,
   ): Promise<void> {
+    if (dto.status === ComplianceAssessmentStatus.NOT_APPLICABLE) {
+      throw new BadRequestException(
+        'La non-applicabilité passe par le circuit de demande / approbation (pas d’évaluation directe)',
+      );
+    }
+
     const comment = dto.comment?.trim() ?? '';
     if (!comment) {
       throw new BadRequestException(
@@ -784,6 +801,228 @@ export class ComplianceService {
         );
       }
     }
+  }
+
+  async requestNotApplicable(
+    clientId: string,
+    requirementId: string,
+    dto: RequestComplianceNaDto,
+    context?: AuditContext,
+  ) {
+    const req = await this.prisma.complianceRequirement.findFirst({
+      where: { id: requirementId, framework: { clientId } },
+      select: { id: true },
+    });
+    if (!req) throw new NotFoundException('Exigence introuvable');
+
+    const existingStatus = await this.prisma.complianceStatus.findUnique({
+      where: { clientId_requirementId: { clientId, requirementId } },
+    });
+    if (existingStatus?.status === ComplianceAssessmentStatus.NOT_APPLICABLE) {
+      throw new BadRequestException('Exigence déjà non applicable');
+    }
+
+    const existing = await this.prisma.complianceNaRequest.findUnique({
+      where: { clientId_requirementId: { clientId, requirementId } },
+    });
+    if (existing?.status === ComplianceNaRequestStatus.PENDING) {
+      throw new BadRequestException(
+        'Une demande de non-applicabilité est déjà en attente',
+      );
+    }
+
+    const justification = dto.justification.trim();
+    const row = existing
+      ? await this.prisma.complianceNaRequest.update({
+          where: { id: existing.id },
+          data: {
+            status: ComplianceNaRequestStatus.PENDING,
+            justification,
+            requestedByUserId: context?.actorUserId ?? null,
+            requestedAt: new Date(),
+            reviewedByUserId: null,
+            reviewedAt: null,
+            reviewNote: null,
+          },
+        })
+      : await this.prisma.complianceNaRequest.create({
+          data: {
+            clientId,
+            requirementId,
+            status: ComplianceNaRequestStatus.PENDING,
+            justification,
+            requestedByUserId: context?.actorUserId ?? null,
+          },
+        });
+
+    await this.auditLogs.create({
+      clientId,
+      userId: context?.actorUserId,
+      action: COMPLIANCE_AUDIT_ACTION.NA_REQUESTED,
+      resourceType: COMPLIANCE_AUDIT_RESOURCE_TYPE.COMPLIANCE_NA_REQUEST,
+      resourceId: row.id,
+      newValue: { requirementId, justification },
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    });
+
+    return row;
+  }
+
+  async approveNotApplicable(
+    clientId: string,
+    requirementId: string,
+    dto: ReviewComplianceNaDto,
+    context?: AuditContext,
+  ) {
+    const na = await this.requirePendingNa(clientId, requirementId);
+    const reviewNote = dto.reviewNote?.trim() || null;
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const updatedNa = await tx.complianceNaRequest.update({
+        where: { id: na.id },
+        data: {
+          status: ComplianceNaRequestStatus.APPROVED,
+          reviewedByUserId: context?.actorUserId ?? null,
+          reviewedAt: new Date(),
+          reviewNote,
+        },
+      });
+
+      const existing = await tx.complianceStatus.findUnique({
+        where: { clientId_requirementId: { clientId, requirementId } },
+      });
+      const statusRow = existing
+        ? await tx.complianceStatus.update({
+            where: { id: existing.id },
+            data: {
+              status: ComplianceAssessmentStatus.NOT_APPLICABLE,
+              comment: na.justification,
+              lastAssessmentDate: new Date(),
+            },
+          })
+        : await tx.complianceStatus.create({
+            data: {
+              clientId,
+              requirementId,
+              status: ComplianceAssessmentStatus.NOT_APPLICABLE,
+              comment: na.justification,
+              lastAssessmentDate: new Date(),
+            },
+          });
+
+      return { updatedNa, statusRow };
+    });
+
+    await this.auditLogs.create({
+      clientId,
+      userId: context?.actorUserId,
+      action: COMPLIANCE_AUDIT_ACTION.NA_APPROVED,
+      resourceType: COMPLIANCE_AUDIT_RESOURCE_TYPE.COMPLIANCE_NA_REQUEST,
+      resourceId: result.updatedNa.id,
+      oldValue: { status: na.status },
+      newValue: {
+        status: result.updatedNa.status,
+        reviewNote,
+        assessmentStatus: result.statusRow.status,
+      },
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    });
+
+    return result.updatedNa;
+  }
+
+  async rejectNotApplicable(
+    clientId: string,
+    requirementId: string,
+    dto: ReviewComplianceNaDto,
+    context?: AuditContext,
+  ) {
+    const na = await this.requirePendingNa(clientId, requirementId);
+    const reviewNote = dto.reviewNote?.trim();
+    if (!reviewNote) {
+      throw new BadRequestException(
+        'Un motif de refus est obligatoire',
+      );
+    }
+
+    const updated = await this.prisma.complianceNaRequest.update({
+      where: { id: na.id },
+      data: {
+        status: ComplianceNaRequestStatus.REJECTED,
+        reviewedByUserId: context?.actorUserId ?? null,
+        reviewedAt: new Date(),
+        reviewNote,
+      },
+    });
+
+    await this.auditLogs.create({
+      clientId,
+      userId: context?.actorUserId,
+      action: COMPLIANCE_AUDIT_ACTION.NA_REJECTED,
+      resourceType: COMPLIANCE_AUDIT_RESOURCE_TYPE.COMPLIANCE_NA_REQUEST,
+      resourceId: updated.id,
+      oldValue: { status: na.status },
+      newValue: { status: updated.status, reviewNote },
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    });
+
+    return updated;
+  }
+
+  async cancelNotApplicableRequest(
+    clientId: string,
+    requirementId: string,
+    context?: AuditContext,
+  ) {
+    const na = await this.requirePendingNa(clientId, requirementId);
+    const updated = await this.prisma.complianceNaRequest.update({
+      where: { id: na.id },
+      data: {
+        status: ComplianceNaRequestStatus.CANCELLED,
+        reviewedByUserId: context?.actorUserId ?? null,
+        reviewedAt: new Date(),
+        reviewNote: 'Annulée par le demandeur',
+      },
+    });
+
+    await this.auditLogs.create({
+      clientId,
+      userId: context?.actorUserId,
+      action: COMPLIANCE_AUDIT_ACTION.NA_CANCELLED,
+      resourceType: COMPLIANCE_AUDIT_RESOURCE_TYPE.COMPLIANCE_NA_REQUEST,
+      resourceId: updated.id,
+      oldValue: { status: na.status },
+      newValue: { status: updated.status },
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    });
+
+    return updated;
+  }
+
+  private async requirePendingNa(clientId: string, requirementId: string) {
+    const req = await this.prisma.complianceRequirement.findFirst({
+      where: { id: requirementId, framework: { clientId } },
+      select: { id: true },
+    });
+    if (!req) throw new NotFoundException('Exigence introuvable');
+
+    const na = await this.prisma.complianceNaRequest.findUnique({
+      where: { clientId_requirementId: { clientId, requirementId } },
+    });
+    if (!na || na.status !== ComplianceNaRequestStatus.PENDING) {
+      throw new BadRequestException(
+        'Aucune demande de non-applicabilité en attente',
+      );
+    }
+    return na;
   }
 
   async createEvidence(
@@ -1880,6 +2119,14 @@ export class ComplianceService {
       }
       if (
         !error &&
+        row.status === ComplianceAssessmentStatus.NOT_APPLICABLE &&
+        !row.comment.trim()
+      ) {
+        error =
+          'Justification obligatoire pour une demande de non-applicabilité (colonne comment)';
+      }
+      if (
+        !error &&
         row.status === ComplianceAssessmentStatus.COMPLIANT &&
         !row.evidenceNote?.trim()
       ) {
@@ -1945,6 +2192,38 @@ export class ComplianceService {
       for (const row of valid) {
         const requirementId = row.requirementId!;
         const status = row.status!;
+
+        if (status === ComplianceAssessmentStatus.NOT_APPLICABLE) {
+          const justification = row.comment.trim();
+          const existingNa = await tx.complianceNaRequest.findUnique({
+            where: { clientId_requirementId: { clientId, requirementId } },
+          });
+          if (existingNa) {
+            await tx.complianceNaRequest.update({
+              where: { id: existingNa.id },
+              data: {
+                status: ComplianceNaRequestStatus.PENDING,
+                justification,
+                requestedByUserId: context?.actorUserId ?? null,
+                requestedAt: new Date(),
+                reviewedByUserId: null,
+                reviewedAt: null,
+                reviewNote: null,
+              },
+            });
+          } else {
+            await tx.complianceNaRequest.create({
+              data: {
+                clientId,
+                requirementId,
+                status: ComplianceNaRequestStatus.PENDING,
+                justification,
+                requestedByUserId: context?.actorUserId ?? null,
+              },
+            });
+          }
+          continue;
+        }
 
         if (status === ComplianceAssessmentStatus.COMPLIANT) {
           const evidences = await tx.complianceEvidence.findMany({

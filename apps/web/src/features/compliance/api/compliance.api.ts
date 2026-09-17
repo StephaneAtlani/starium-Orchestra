@@ -213,6 +213,12 @@ export async function listComplianceRequirements(
 
 export type ComplianceEvidenceKindApi = 'URL' | 'OBSERVATION' | 'FILE';
 
+export type ComplianceNaRequestStatusApi =
+  | 'PENDING'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'CANCELLED';
+
 export type ComplianceRequirementDetailApi = {
   requirement: {
     id: string;
@@ -227,6 +233,14 @@ export type ComplianceRequirementDetailApi = {
     status: ComplianceAssessmentStatusApi;
     comment: string | null;
     lastAssessmentDate?: string | null;
+  } | null;
+  naRequest: {
+    id: string;
+    status: ComplianceNaRequestStatusApi;
+    justification: string;
+    reviewNote: string | null;
+    requestedAt: string;
+    reviewedAt: string | null;
   } | null;
   evidences: Array<{
     id: string;
@@ -275,6 +289,69 @@ export async function upsertComplianceRequirementStatus(
     comment: string | null;
     lastAssessmentDate: string | null;
   }>;
+}
+
+export async function requestComplianceNa(
+  authFetch: AuthFetch,
+  requirementId: string,
+  justification: string,
+) {
+  const res = await authFetch(
+    `${BASE}/requirements/${requirementId}/na-request`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ justification }),
+    },
+  );
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json();
+}
+
+export async function approveComplianceNa(
+  authFetch: AuthFetch,
+  requirementId: string,
+  reviewNote?: string,
+) {
+  const res = await authFetch(
+    `${BASE}/requirements/${requirementId}/na-approve`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ reviewNote }),
+    },
+  );
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json();
+}
+
+export async function rejectComplianceNa(
+  authFetch: AuthFetch,
+  requirementId: string,
+  reviewNote: string,
+) {
+  const res = await authFetch(
+    `${BASE}/requirements/${requirementId}/na-reject`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ reviewNote }),
+    },
+  );
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json();
+}
+
+export async function cancelComplianceNa(
+  authFetch: AuthFetch,
+  requirementId: string,
+) {
+  const res = await authFetch(
+    `${BASE}/requirements/${requirementId}/na-cancel`,
+    { method: 'POST' },
+  );
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json();
 }
 
 export type CreateComplianceEvidencePayload = {

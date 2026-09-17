@@ -31,8 +31,12 @@ import {
 } from '@/features/projects/api/projects.api';
 import { ProjectRiskEbiosDialog } from '@/features/projects/components/project-risk-ebios-dialog';
 import {
+  approveComplianceNa,
+  cancelComplianceNa,
   createComplianceEvidence,
   getComplianceRequirementDetail,
+  rejectComplianceNa,
+  requestComplianceNa,
   upsertComplianceRequirementStatus,
   type ComplianceAssessmentStatusApi,
   type ComplianceEvidenceKindApi,
@@ -51,7 +55,6 @@ const EVAL_STATUS_OPTIONS: Array<{
   { value: 'COMPLIANT', label: complianceStatusLabel('COMPLIANT') },
   { value: 'PARTIALLY_COMPLIANT', label: complianceStatusLabel('PARTIALLY_COMPLIANT') },
   { value: 'NON_COMPLIANT', label: complianceStatusLabel('NON_COMPLIANT') },
-  { value: 'NOT_APPLICABLE', label: complianceStatusLabel('NOT_APPLICABLE') },
 ];
 
 const REVIEW_MONTHS = 12;
@@ -127,6 +130,8 @@ export function ComplianceRequirementDetailModal({
   const [evidenceDescription, setEvidenceDescription] = useState('');
   const [riskDialogOpen, setRiskDialogOpen] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [naJustification, setNaJustification] = useState('');
+  const [naReviewNote, setNaReviewNote] = useState('');
 
   const q = useQuery({
     queryKey: ['compliance', 'requirement', clientId, requirementId],
@@ -142,8 +147,10 @@ export function ComplianceRequirementDetailModal({
 
   useEffect(() => {
     if (!open || !q.data) return;
-    const st = q.data.status?.status ?? 'COMPLIANT';
-    setStatus(st);
+    const st = q.data.status?.status;
+    setStatus(
+      st && st !== 'NOT_APPLICABLE' ? st : 'COMPLIANT',
+    );
     setComment(q.data.status?.comment ?? '');
     setReviewDate(toDateInput(q.data.status?.lastAssessmentDate));
     setFormError(null);
@@ -151,6 +158,8 @@ export function ComplianceRequirementDetailModal({
     setEvidenceUrl('');
     setEvidenceDescription('');
     setEvidenceKind('OBSERVATION');
+    setNaJustification(q.data.naRequest?.justification ?? '');
+    setNaReviewNote(q.data.naRequest?.reviewNote ?? '');
   }, [open, q.data]);
 
   const titleCode = displayLabel(q.data?.requirement.code ?? preview?.code, 'Exigence');
@@ -213,6 +222,53 @@ export function ComplianceRequirementDetailModal({
       setEvidenceName('');
       setEvidenceUrl('');
       setEvidenceDescription('');
+      invalidateComplianceQueries(queryClient, clientId);
+      await q.refetch();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const naRequestMut = useMutation({
+    mutationFn: () =>
+      requestComplianceNa(authFetch, requirementId!, naJustification.trim()),
+    onSuccess: async () => {
+      toast.success('Demande de non-applicabilité envoyée');
+      invalidateComplianceQueries(queryClient, clientId);
+      await q.refetch();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const naApproveMut = useMutation({
+    mutationFn: () =>
+      approveComplianceNa(
+        authFetch,
+        requirementId!,
+        naReviewNote.trim() || undefined,
+      ),
+    onSuccess: async () => {
+      toast.success('Non-applicabilité approuvée');
+      invalidateComplianceQueries(queryClient, clientId);
+      await q.refetch();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const naRejectMut = useMutation({
+    mutationFn: () =>
+      rejectComplianceNa(authFetch, requirementId!, naReviewNote.trim()),
+    onSuccess: async () => {
+      toast.success('Demande refusée');
+      invalidateComplianceQueries(queryClient, clientId);
+      await q.refetch();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const naCancelMut = useMutation({
+    mutationFn: () => cancelComplianceNa(authFetch, requirementId!),
+    onSuccess: async () => {
+      toast.success('Demande annulée');
       invalidateComplianceQueries(queryClient, clientId);
       await q.refetch();
     },
@@ -409,6 +465,110 @@ export function ComplianceRequirementDetailModal({
                     {saveMut.isPending ? 'Enregistrement…' : 'Enregistrer l’évaluation'}
                   </Button>
                 </div>
+              )}
+            </section>
+
+            <section aria-labelledby="comp-na-heading">
+              <h3 id="comp-na-heading" className="starium-modal-seg-title">
+                Non-applicabilité
+              </h3>
+              {q.data.status?.status === 'NOT_APPLICABLE' ? (
+                <p className="text-sm text-muted-foreground" aria-live="polite">
+                  Exigence non applicable
+                  {q.data.naRequest?.justification
+                    ? ` — ${q.data.naRequest.justification}`
+                    : q.data.status.comment
+                      ? ` — ${q.data.status.comment}`
+                      : ''}
+                  .
+                </p>
+              ) : q.data.naRequest?.status === 'PENDING' ? (
+                <div className="space-y-3 rounded-lg border border-border/70 bg-muted/30 p-3">
+                  <p className="text-sm" aria-live="polite">
+                    Demande en attente : {q.data.naRequest.justification}
+                  </p>
+                  {canUpdate ? (
+                    <>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="comp-na-review">Note de revue (refus obligatoire)</Label>
+                        <Textarea
+                          id="comp-na-review"
+                          value={naReviewNote}
+                          onChange={(e) => setNaReviewNote(e.target.value)}
+                          rows={2}
+                          className="text-foreground"
+                        />
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          className="min-h-11 sm:min-h-9"
+                          disabled={naApproveMut.isPending}
+                          onClick={() => naApproveMut.mutate()}
+                        >
+                          Approuver
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="min-h-11 sm:min-h-9"
+                          disabled={
+                            naRejectMut.isPending || !naReviewNote.trim()
+                          }
+                          onClick={() => naRejectMut.mutate()}
+                        >
+                          Refuser
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="min-h-11 sm:min-h-9"
+                          disabled={naCancelMut.isPending}
+                          onClick={() => naCancelMut.mutate()}
+                        >
+                          Annuler la demande
+                        </Button>
+                      </div>
+                    </>
+                  ) : null}
+                </div>
+              ) : canUpdate ? (
+                <div className="space-y-3">
+                  {q.data.naRequest?.status === 'REJECTED' ? (
+                    <p className="text-sm text-muted-foreground" aria-live="polite">
+                      Dernière demande refusée
+                      {q.data.naRequest.reviewNote
+                        ? ` : ${q.data.naRequest.reviewNote}`
+                        : '.'}
+                    </p>
+                  ) : null}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="comp-na-just">Justification</Label>
+                    <Textarea
+                      id="comp-na-just"
+                      value={naJustification}
+                      onChange={(e) => setNaJustification(e.target.value)}
+                      rows={2}
+                      className="text-foreground"
+                      aria-required
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="min-h-11 sm:min-h-9"
+                    disabled={
+                      naRequestMut.isPending || naJustification.trim().length < 3
+                    }
+                    onClick={() => naRequestMut.mutate()}
+                  >
+                    Demander la non-applicabilité
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Aucune demande de non-applicabilité.
+                </p>
               )}
             </section>
 

@@ -383,6 +383,7 @@ model Client {
   complianceStatuses               ComplianceStatus[]
   complianceEvidences              ComplianceEvidence[]
   complianceCampaigns              ComplianceCampaign[]
+  complianceNaRequests             ComplianceNaRequest[]
   riskDomains                      RiskDomain[]
   riskTypes                        RiskType[]
   budgetDashboardConfigs           BudgetDashboardConfig[]
@@ -3728,6 +3729,13 @@ enum ComplianceCampaignStatus {
   ARCHIVED
 }
 
+enum ComplianceNaRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
 /// Campagne / revue de conformité (COMP.V2) — photographie sur un référentiel client figé.
 model ComplianceCampaign {
   id                     String                   @id @default(cuid())
@@ -3788,9 +3796,33 @@ model ComplianceRequirement {
   statuses     ComplianceStatus[]
   evidences    ComplianceEvidence[]
   projectRisks ProjectRisk[]
+  naRequests   ComplianceNaRequest[]
 
   @@unique([frameworkId, code])
   @@index([frameworkId])
+}
+
+/// Demande de non-applicabilité (COMP.V2) — n’altère pas les indicateurs tant que PENDING.
+model ComplianceNaRequest {
+  id                 String                     @id @default(cuid())
+  clientId           String
+  requirementId      String
+  status             ComplianceNaRequestStatus  @default(PENDING)
+  justification      String
+  requestedByUserId  String?
+  requestedAt        DateTime                   @default(now())
+  reviewedByUserId   String?
+  reviewedAt         DateTime?
+  reviewNote         String?
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
+
+  client      Client                @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  requirement ComplianceRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, requirementId])
+  @@index([clientId, status])
+  @@index([requirementId])
 }
 
 model ComplianceStatus {

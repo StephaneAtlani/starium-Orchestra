@@ -13,6 +13,10 @@ export const COMPLIANCE_AUDIT_ACTION = {
   CAMPAIGN_SNAPSHOT: 'compliance.campaign.snapshot',
   CAMPAIGN_IMPORT: 'compliance.campaign.evaluations_imported',
   CAMPAIGN_EXPORT: 'compliance.campaign.snapshot_exported',
+  NA_REQUESTED: 'compliance.na.requested',
+  NA_APPROVED: 'compliance.na.approved',
+  NA_REJECTED: 'compliance.na.rejected',
+  NA_CANCELLED: 'compliance.na.cancelled',
 } as const;
 
 export const COMPLIANCE_AUDIT_RESOURCE_TYPE = {
@@ -22,4 +26,5 @@ export const COMPLIANCE_AUDIT_RESOURCE_TYPE = {
   COMPLIANCE_EVIDENCE: 'compliance_evidence',
   COMPLIANCE_CAMPAIGN: 'compliance_campaign',
   COMPLIANCE_CAMPAIGN_SNAPSHOT: 'compliance_campaign_snapshot',
+  COMPLIANCE_NA_REQUEST: 'compliance_na_request',
 } as const;

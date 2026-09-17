@@ -37,6 +37,10 @@ import {
   ConfirmCampaignEvaluationsImportDto,
   PreviewCampaignEvaluationsImportDto,
 } from './dto/campaign-evaluations-import.dto';
+import {
+  RequestComplianceNaDto,
+  ReviewComplianceNaDto,
+} from './dto/compliance-na-request.dto';
 
 @Controller('compliance')
 @UseGuards(JwtAuthGuard, ActiveClientGuard, ModuleAccessGuard, PermissionsGuard)
@@ -287,6 +291,57 @@ export class ComplianceController {
     @Param('id') id: string,
   ) {
     return this.compliance.getRequirementDetail(clientId!, id);
+  }
+
+  @Post('requirements/:id/na-request')
+  @RequirePermissions('compliance.update')
+  requestNa(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+    @Body() dto: RequestComplianceNaDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.compliance.requestNotApplicable(clientId!, id, dto, context);
+  }
+
+  @Post('requirements/:id/na-approve')
+  @RequirePermissions('compliance.update')
+  approveNa(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+    @Body() dto: ReviewComplianceNaDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.compliance.approveNotApplicable(clientId!, id, dto, context);
+  }
+
+  @Post('requirements/:id/na-reject')
+  @RequirePermissions('compliance.update')
+  rejectNa(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+    @Body() dto: ReviewComplianceNaDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.compliance.rejectNotApplicable(clientId!, id, dto, context);
+  }
+
+  @Post('requirements/:id/na-cancel')
+  @RequirePermissions('compliance.update')
+  cancelNa(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.compliance.cancelNotApplicableRequest(clientId!, id, context);
   }
 
   /** Upsert du statut d’évaluation pour une exigence (création si absent). */
