@@ -2,28 +2,22 @@
 
 | | |
 | --- | --- |
-| **Statut** | 📝 Draft — stub contrat (détail d’implémentation à ouvrir en P8) |
-| **Date** | 2026-09-14 |
+| **Statut** | 📝 **Redirigé** — ne plus implémenter le stub axes libres |
+| **Date** | 2026-09-14 · amendé 2026-09-17 |
 | **Parent** | [RFC-PROJ-INTAKE-002](./RFC-PROJ-INTAKE-002%20—%20CDC%20Demandes%20de%20projet%20(circuit%20configurable%20et%20fidélité%20visuelle).md) §12.3 |
 | **Phase** | P8 |
-| **Réf. pattern** | Scores items cycles — [RFC-PROJ-CYCLE-001](./RFC-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Core%20Backend.md) |
+| **Remplacé par** | [**RFC-PROJ-ARB-001** — Grille d’arbitrage décideur](./RFC-PROJ-ARB-001%20—%20Grille%20d'arbitrage%20d%C3%A9cideur%20(date%20risque%20valeur%20d%C3%A9pendance%20capacit%C3%A9).md) |
 
-## Objectif
+## Amendement 2026-09-17
 
-Aider l’arbitrage (instruction / comité) par des **axes configurables**, sans remplacer la priorité déclarative ni automatiser la décision.
+Le besoin produit n’est **pas** un scoring multicritère configurable générique. C’est une **grille fixe** (date imposée, risque de ne rien faire, valeur à 18 mois, dépendance, capacité JH) branchée demandes + fiches + cycles.
 
-## Contrat
+→ Toute implémentation P8 se fait sous **RFC-PROJ-ARB-001**. Ce stub reste pour traçabilité roadmap intake.
 
-1. Tables : `ProjectRequestScoreAxis` (client, label, poids, actif) ; `ProjectRequestScoreValue` (demande, axisId, score 0–5 ou 0–100 — à figer en P8).
-2. Saisie : PMO en A5 (`project_requests.instruct`) ; lecture A3 / A7.
-3. Agrégat pondéré exposé en DTO `scoreSummary` — **jamais** utilisé pour auto-approve / auto-reject / auto-route.
-4. À l’inscription ODJ : copie optionnelle des scores vers `GovernanceCycleItem` si présent.
-5. Priorité demandée (`priorityRequested`) reste indépendante.
+## Objectif historique (obsolète)
 
-## Hors scope stub
+Aider l’arbitrage par des axes configurables — **abandonné en V1** au profit de la grille décideur.
 
-ML / scoring automatique, ranking portefeuille global.
+## Conformité by design
 
-## Conformité by design (rappel)
-
-Axes = libellés métier ; contraste jauges ; audit modification scores ; isolation client.
+Voir ARB-001 §11.
