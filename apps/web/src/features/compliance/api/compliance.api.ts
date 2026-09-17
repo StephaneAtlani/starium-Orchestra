@@ -27,18 +27,41 @@ export async function getComplianceDashboard(
   return res.json() as Promise<ComplianceDashboardApi>;
 }
 
+export type ComplianceFrameworkListItemApi = {
+  id: string;
+  name: string;
+  version: string;
+  description: string | null;
+  provider: string | null;
+  isActive: boolean;
+  nextAuditAt: string | null;
+  requirementCount: number;
+  domainCount: number;
+  familyLabel: string;
+};
+
+export type ComplianceCatalogItemApi = {
+  id: string;
+  name: string;
+  version: string;
+  description: string | null;
+  provider: string | null;
+  requirementCount: number;
+  domainCount: number;
+  familyLabel: string;
+  scope: 'platform';
+};
+
 export async function listComplianceFrameworks(authFetch: AuthFetch) {
   const res = await authFetch(`${BASE}/frameworks`);
   if (!res.ok) throw await parseApiFormError(res);
-  return res.json() as Promise<
-    Array<{
-      id: string;
-      name: string;
-      version: string;
-      isActive: boolean;
-      nextAuditAt: string | null;
-    }>
-  >;
+  return res.json() as Promise<ComplianceFrameworkListItemApi[]>;
+}
+
+export async function listComplianceFrameworkCatalog(authFetch: AuthFetch) {
+  const res = await authFetch(`${BASE}/frameworks/catalog`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ComplianceCatalogItemApi[]>;
 }
 
 /** Avancement par référentiel — cartes « Référentiels réglementaires ». */

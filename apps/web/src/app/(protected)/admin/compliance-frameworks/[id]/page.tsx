@@ -39,6 +39,8 @@ type PlatformFrameworkDetail = {
   id: string;
   name: string;
   version: string;
+  description: string | null;
+  provider: string | null;
   isActive: boolean;
   archivedAt: string | null;
   nextAuditAt: string | null;
@@ -158,6 +160,26 @@ export default function AdminComplianceFrameworkDetailPage() {
       return hay.includes(q);
     });
   }, [detailQuery.data?.requirements, search]);
+
+  const requirementGroups = useMemo(() => {
+    const map = new Map<string, PlatformRequirement[]>();
+    for (const req of filteredRequirements) {
+      const key = req.category?.trim() || '';
+      const list = map.get(key);
+      if (list) list.push(req);
+      else map.set(key, [req]);
+    }
+    const labels = [...map.keys()].sort((a, b) => {
+      if (!a) return 1;
+      if (!b) return -1;
+      return a.localeCompare(b, 'fr');
+    });
+    return labels.map((key) => ({
+      key: key || '__uncategorized__',
+      label: key || 'Sans catégorie',
+      rows: map.get(key) ?? [],
+    }));
+  }, [filteredRequirements]);
 
   if (authLoading || user?.platformRole !== 'PLATFORM_ADMIN') {
     return authLoading ? (
@@ -288,6 +310,20 @@ export default function AdminComplianceFrameworkDetailPage() {
             <dt className="text-xs text-muted-foreground">Exigences</dt>
             <dd className="text-sm tabular-nums">{fw.requirements.length}</dd>
           </div>
+          <div>
+            <dt className="text-xs text-muted-foreground">Organisme</dt>
+            <dd className="text-sm">
+              {displayLabel(fw.provider, 'Non renseigné')}
+            </dd>
+          </div>
+          <div className="sm:col-span-2 lg:col-span-3">
+            <dt className="text-xs text-muted-foreground">Périmètre</dt>
+            <dd className="text-sm text-muted-foreground">
+              {fw.description?.trim()
+                ? fw.description
+                : 'Aucun résumé de périmètre.'}
+            </dd>
+          </div>
         </dl>
         <p className="text-xs text-muted-foreground">
           Proposé = visible pour activation client. Inactif = masqué du catalogue
@@ -323,40 +359,58 @@ export default function AdminComplianceFrameworkDetailPage() {
             }
           />
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-border/70 bg-card">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[8rem]">Code</TableHead>
-                  <TableHead>Titre</TableHead>
-                  <TableHead className="hidden md:table-cell">Catégorie</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredRequirements.map((req) => (
-                  <TableRow key={req.id}>
-                    <TableCell className="font-medium tabular-nums">
-                      {displayLabel(req.code, 'Sans code')}
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <p className="font-medium">
-                          {displayLabel(req.title, 'Sans titre')}
-                        </p>
-                        {req.description ? (
-                          <p className="line-clamp-2 text-xs text-muted-foreground">
-                            {req.description}
-                          </p>
-                        ) : null}
-                      </div>
-                    </TableCell>
-                    <TableCell className="hidden text-muted-foreground md:table-cell">
-                      {displayLabel(req.category, '—')}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+          <div className="space-y-3">
+            {requirementGroups.map((group, index) => (
+              <details
+                key={group.key}
+                className="group overflow-hidden rounded-lg border border-border/70 bg-card open:shadow-sm"
+                open={index === 0 || Boolean(search.trim())}
+              >
+                <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 marker:content-none [&::-webkit-details-marker]:hidden">
+                  <span className="text-sm font-semibold text-foreground">
+                    {group.label}
+                  </span>
+                  <span className="text-xs tabular-nums text-muted-foreground">
+                    {group.rows.length} exigence
+                    {group.rows.length > 1 ? 's' : ''}
+                  </span>
+                </summary>
+                <div className="overflow-x-auto border-t border-border/60">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[8rem]">Code</TableHead>
+                        <TableHead>Titre</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {group.rows.map((req) => (
+                        <TableRow key={req.id}>
+                          <TableCell className="font-medium tabular-nums">
+                            {displayLabel(req.code, 'Sans code')}
+                          </TableCell>
+                          <TableCell>
+                            <div className="space-y-1">
+                              <p className="font-medium whitespace-normal">
+                                {displayLabel(req.title, 'Sans titre')}
+                              </p>
+                              {req.description ? (
+                                <p
+                                  className="line-clamp-2 text-xs text-muted-foreground"
+                                  title={req.description}
+                                >
+                                  {req.description}
+                                </p>
+                              ) : null}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </details>
+            ))}
           </div>
         )}
 

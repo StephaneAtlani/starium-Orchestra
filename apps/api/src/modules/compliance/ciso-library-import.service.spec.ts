@@ -89,6 +89,8 @@ objects:
         name: 'ISO Test FW',
         version: '2022',
         sourceLibraryPath: 'backend/library/libraries/iso-test.yaml',
+        description: null,
+        provider: null,
       }),
     });
     expect(prisma.complianceRequirement.createMany).toHaveBeenCalledWith({
@@ -108,16 +110,21 @@ objects:
 name: NIS EN
 version: "3"
 locale: en
+provider: EU
+description: EN scope
 translations:
   fr:
     name: Directive NIS 2
+    description: Périmètre art. 21
 objects:
   framework:
     name: NIS EN
     version: "3"
+    description: EN fw
     translations:
       fr:
         name: Directive NIS 2
+        description: Périmètre art. 21 FR
     requirement_nodes:
       - urn: urn:a:1
         ref_id: A.1
@@ -153,6 +160,8 @@ objects:
     expect(prisma.complianceFramework.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         name: 'Directive NIS 2',
+        description: 'Périmètre art. 21 FR',
+        provider: 'EU',
         sourceLibraryPath: 'backend/library/libraries/nis.yaml',
       }),
     });

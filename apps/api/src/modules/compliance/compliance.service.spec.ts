@@ -20,7 +20,11 @@ describe('ComplianceService', () => {
         create: jest.fn(),
         update: jest.fn(),
       },
-      complianceRequirement: { findMany: jest.fn(), findFirst: jest.fn() },
+      complianceRequirement: {
+        findMany: jest.fn(),
+        findFirst: jest.fn(),
+        groupBy: jest.fn().mockResolvedValue([]),
+      },
       complianceStatus: {
         findMany: jest.fn(),
         findFirst: jest.fn(),
@@ -526,6 +530,39 @@ describe('ComplianceService', () => {
         where: { id: 'fw-client' },
         data: { isActive: true },
       });
+    });
+  });
+
+  describe('listProposedPlatformFrameworks', () => {
+    it('enrichit description, domainCount et familyLabel', async () => {
+      prisma.complianceFramework.findMany.mockResolvedValue([
+        {
+          id: 'fw-1',
+          name: 'Directive NIS 2',
+          version: '3',
+          description: 'Art. 21',
+          provider: 'EU',
+          sourceLibraryPath: 'backend/library/libraries/nis2-directive.yaml',
+          _count: { requirements: 13 },
+        },
+      ]);
+      prisma.complianceRequirement.groupBy.mockResolvedValue([
+        { frameworkId: 'fw-1', category: 'Article 21' },
+        { frameworkId: 'fw-1', category: 'Mesures' },
+      ]);
+
+      const [row] = await service.listProposedPlatformFrameworks();
+      expect(row).toEqual(
+        expect.objectContaining({
+          id: 'fw-1',
+          description: 'Art. 21',
+          provider: 'EU',
+          requirementCount: 13,
+          domainCount: 2,
+          familyLabel: 'NIS2',
+          scope: 'platform',
+        }),
+      );
     });
   });
 });

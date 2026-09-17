@@ -23,6 +23,7 @@ import { CreateComplianceEvidenceDto, ComplianceEvidenceKindDto } from './dto/cr
 import { PatchComplianceStatusDto } from './dto/patch-compliance-status.dto';
 import { ListComplianceRequirementsQueryDto } from './dto/list-compliance-requirements.query.dto';
 import { ListComplianceStatusQueryDto } from './dto/list-compliance-status.query.dto';
+import { deriveComplianceFamilyLabel } from './compliance-family-label';
 
 type PlatformAuditMeta = {
   ipAddress?: string;
@@ -184,10 +185,46 @@ export class ComplianceService {
   ) {}
 
   async listFrameworks(clientId: string) {
-    return this.prisma.complianceFramework.findMany({
+    const rows = await this.prisma.complianceFramework.findMany({
       where: { clientId },
+      include: { _count: { select: { requirements: true } } },
       orderBy: [{ name: 'asc' }, { version: 'asc' }],
     });
+    if (rows.length === 0) return [];
+
+    const ids = rows.map((r) => r.id);
+    const categoryPairs = await this.prisma.complianceRequirement.groupBy({
+      by: ['frameworkId', 'category'],
+      where: {
+        frameworkId: { in: ids },
+        AND: [{ category: { not: null } }, { category: { not: '' } }],
+      },
+    });
+    const domainCountByFw = new Map<string, number>();
+    for (const pair of categoryPairs) {
+      if (!pair.category?.trim()) continue;
+      domainCountByFw.set(
+        pair.frameworkId,
+        (domainCountByFw.get(pair.frameworkId) ?? 0) + 1,
+      );
+    }
+
+    return rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      version: r.version,
+      description: r.description,
+      provider: r.provider,
+      isActive: r.isActive,
+      nextAuditAt: r.nextAuditAt,
+      requirementCount: r._count.requirements,
+      domainCount: domainCountByFw.get(r.id) ?? 0,
+      familyLabel: deriveComplianceFamilyLabel({
+        name: r.name,
+        provider: r.provider,
+        sourceLibraryPath: r.sourceLibraryPath,
+      }),
+    }));
   }
 
   /**
@@ -1222,6 +1259,8 @@ export class ComplianceService {
           clientId,
           name: source.name,
           version: source.version,
+          description: source.description,
+          provider: source.provider,
           isActive: true,
         },
       });
@@ -1266,11 +1305,38 @@ export class ComplianceService {
       include: { _count: { select: { requirements: true } } },
       orderBy: [{ name: 'asc' }, { version: 'asc' }],
     });
+    if (rows.length === 0) return [];
+
+    const ids = rows.map((r) => r.id);
+    const categoryPairs = await this.prisma.complianceRequirement.groupBy({
+      by: ['frameworkId', 'category'],
+      where: {
+        frameworkId: { in: ids },
+        AND: [{ category: { not: null } }, { category: { not: '' } }],
+      },
+    });
+    const domainCountByFw = new Map<string, number>();
+    for (const pair of categoryPairs) {
+      if (!pair.category?.trim()) continue;
+      domainCountByFw.set(
+        pair.frameworkId,
+        (domainCountByFw.get(pair.frameworkId) ?? 0) + 1,
+      );
+    }
+
     return rows.map((r) => ({
       id: r.id,
       name: r.name,
       version: r.version,
+      description: r.description,
+      provider: r.provider,
       requirementCount: r._count.requirements,
+      domainCount: domainCountByFw.get(r.id) ?? 0,
+      familyLabel: deriveComplianceFamilyLabel({
+        name: r.name,
+        provider: r.provider,
+        sourceLibraryPath: r.sourceLibraryPath,
+      }),
       scope: 'platform' as const,
     }));
   }

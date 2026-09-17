@@ -3697,6 +3697,10 @@ model ComplianceFramework {
   clientId    String?
   name        String
   version     String
+  /// Résumé / périmètre (texte CISO localisé ou saisie manuelle).
+  description String?
+  /// Éditeur / organisme source (ex. EU, ENISA) — affichage catalogue.
+  provider    String?
   isActive    Boolean   @default(true)
   /// Archivage logique catalogue plateforme (ou désactivation longue).
   archivedAt  DateTime?

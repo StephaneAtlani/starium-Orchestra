@@ -177,6 +177,8 @@ export class CisoLibraryImportService {
 
         const name = parsed.framework.name;
         const version = parsed.framework.version;
+        const description = parsed.framework.description;
+        const provider = parsed.provider;
         const existingByPath = await this.prisma.complianceFramework.findFirst({
           where: { clientId: null, sourceLibraryPath: repoPath },
         });
@@ -196,10 +198,14 @@ export class CisoLibraryImportService {
         });
         if (existing) {
           // Rattache le chemin source si import historique sans sourceLibraryPath.
-          if (!existing.sourceLibraryPath) {
+          if (!existing.sourceLibraryPath || !existing.description || !existing.provider) {
             await this.prisma.complianceFramework.update({
               where: { id: existing.id },
-              data: { sourceLibraryPath: repoPath },
+              data: {
+                ...(existing.sourceLibraryPath ? {} : { sourceLibraryPath: repoPath }),
+                ...(existing.description ? {} : { description }),
+                ...(existing.provider ? {} : { provider }),
+              },
             });
           }
           results.push({
@@ -219,6 +225,8 @@ export class CisoLibraryImportService {
               clientId: null,
               name,
               version,
+              description,
+              provider,
               isActive: true,
               sourceLibraryPath: repoPath,
             },
@@ -623,9 +631,11 @@ export class CisoLibraryImportService {
   ): {
     libraryName: string;
     libraryVersion: string;
+    provider: string | null;
     framework: {
       name: string;
       version: string;
+      description: string | null;
       requirements: Array<{
         code: string;
         title: string;
@@ -643,6 +653,7 @@ export class CisoLibraryImportService {
       preferredLocale ||
       (docLocale && docLocale !== 'fr' ? 'fr' : docLocale) ||
       null;
+    const provider = asString(doc.provider);
 
     const libraryLocalized = this.pickLocalizedText(
       asString(doc.name),
@@ -659,7 +670,7 @@ export class CisoLibraryImportService {
     const objects = doc.objects as Record<string, unknown> | undefined;
     const fw = objects?.framework as Record<string, unknown> | undefined;
     if (!fw) {
-      return { libraryName, libraryVersion, framework: null };
+      return { libraryName, libraryVersion, provider, framework: null };
     }
 
     const fwTranslations = fw.translations as
@@ -672,6 +683,8 @@ export class CisoLibraryImportService {
       effectiveLocale,
     );
     const frameworkName = fwLocalized.name || libraryName;
+    const frameworkDescription =
+      fwLocalized.description ?? libraryLocalized.description;
     const frameworkVersion =
       fw.version !== undefined && fw.version !== null
         ? String(fw.version)
@@ -748,9 +761,11 @@ export class CisoLibraryImportService {
     return {
       libraryName,
       libraryVersion,
+      provider,
       framework: {
         name: frameworkName.slice(0, 200),
         version: frameworkVersion.slice(0, 80),
+        description: frameworkDescription?.slice(0, 4000) ?? null,
         requirements,
       },
     };
