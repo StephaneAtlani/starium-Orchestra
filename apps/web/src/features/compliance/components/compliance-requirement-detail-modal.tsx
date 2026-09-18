@@ -21,7 +21,7 @@ import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useAuth } from '@/context/auth-context';
-import { displayLabel } from '@/lib/display-label';
+import { displayLabel, firstDisplayLabel } from '@/lib/display-label';
 import { toast } from '@/lib/toast';
 import { updateMyProfile } from '@/services/me';
 import {
@@ -50,6 +50,7 @@ import {
   isSavableAssessmentStatus,
 } from './compliance-assess-ui';
 import { ComplianceAssessDrawerBody } from './compliance-assess-drawer-body';
+import { ComplianceRemediationPlanModal } from './compliance-remediation-plan-modal';
 
 function memberLabel(m: ClientMember): string {
   const name = [m.firstName, m.lastName].filter(Boolean).join(' ').trim();
@@ -141,6 +142,7 @@ export function ComplianceRequirementDetailModal({
   const [contribInstruction, setContribInstruction] = useState('');
   const [gapTitle, setGapTitle] = useState('');
   const [gapFinding, setGapFinding] = useState('');
+  const [remediationPlanOpen, setRemediationPlanOpen] = useState(false);
 
   const { data: members = [] } = useClientMembers();
 
@@ -540,6 +542,9 @@ export function ComplianceRequirementDetailModal({
               onGapFindingChange={setGapFinding}
               onCreateGap={() => gapCreateMut.mutate()}
               gapPending={gapCreateMut.isPending}
+              onOpenRemediationPlan={
+                canUpdate ? () => setRemediationPlanOpen(true) : undefined
+              }
               advancedSlot={
                 <details className="group">
                   <summary className="flex min-h-11 cursor-pointer list-none items-center text-sm font-semibold text-muted-foreground marker:content-none [&::-webkit-details-marker]:hidden">
@@ -704,6 +709,36 @@ export function ComplianceRequirementDetailModal({
           }}
         />
       ) : null}
+
+      <ComplianceRemediationPlanModal
+        open={remediationPlanOpen}
+        onOpenChange={setRemediationPlanOpen}
+        requirementId={requirementId}
+        requirementLabel={
+          q.data
+            ? firstDisplayLabel(
+                [
+                  `${q.data.requirement.code} — ${q.data.requirement.title}`,
+                ],
+                'Exigence',
+              )
+            : preview
+              ? firstDisplayLabel(
+                  [`${preview.code} — ${preview.title}`],
+                  'Exigence',
+                )
+              : 'Exigence'
+        }
+        defaultTitle={
+          gapTitle.trim() ||
+          (q.data
+            ? `Remédier — ${q.data.requirement.code} ${q.data.requirement.title}`.slice(
+                0,
+                200,
+              )
+            : undefined)
+        }
+      />
     </>
   );
 }

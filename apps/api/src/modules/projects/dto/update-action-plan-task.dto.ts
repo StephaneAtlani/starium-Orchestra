@@ -80,6 +80,10 @@ export class UpdateActionPlanTaskDto {
 
   @IsOptional()
   @IsString()
+  complianceGapId?: string | null;
+
+  @IsOptional()
+  @IsString()
   phaseId?: string | null;
 
   @IsOptional()

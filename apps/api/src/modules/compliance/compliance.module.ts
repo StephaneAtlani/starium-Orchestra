@@ -1,7 +1,8 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { ProjectsModule } from '../projects/projects.module';
 import { PlatformAdminGuard } from '../../common/guards/platform-admin.guard';
 import { ComplianceController } from './compliance.controller';
 import { PlatformComplianceFrameworksController } from './platform-compliance-frameworks.controller';
@@ -12,7 +13,12 @@ import { ComplianceRemindersService } from './compliance-reminders.service';
 import { ComplianceRemindersSchedulerService } from './compliance-reminders-scheduler.service';
 
 @Module({
-  imports: [PrismaModule, AuditLogsModule, NotificationsModule],
+  imports: [
+    PrismaModule,
+    AuditLogsModule,
+    NotificationsModule,
+    forwardRef(() => ProjectsModule),
+  ],
   controllers: [
     ComplianceController,
     PlatformComplianceFrameworksController,

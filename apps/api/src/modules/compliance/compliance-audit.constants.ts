@@ -23,6 +23,7 @@ export const COMPLIANCE_AUDIT_ACTION = {
   CONTRIBUTION_UPDATED: 'compliance.contribution.updated',
   GAP_CREATED: 'compliance.gap.created',
   GAP_UPDATED: 'compliance.gap.updated',
+  GAP_REMEDIATION_LINKED: 'compliance.gap.remediation_linked',
 } as const;
 
 export const COMPLIANCE_AUDIT_RESOURCE_TYPE = {

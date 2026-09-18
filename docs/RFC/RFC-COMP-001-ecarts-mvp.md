@@ -13,9 +13,9 @@
 | --- | --- |
 | Rewrite schéma (Chapitre / Critère / Attendu / Campagne) dès V1 | ❌ Non |
 | **Étendre le MVP** (`ComplianceFramework` / `Requirement` / `Status` / `Evidence`) | ✅ **Oui — COMP-001-A** |
-| Campagnes, révisions, instantanés, contributions, import évaluations | ⏭ **COMP-002** (après V1 utilisable) |
+| Campagnes, révisions, instantanés, contributions, import évaluations | ✅ **COMP-002** V2.8 (2026-09-18) — launch + remédiation ActionPlan |
 
-**Raison** : le MVP client + catalogue plateforme (ADM-002) + UI liste/dashboard existent. Le trou critique était l’**évaluation** — **comblé par COMP-001-A** (2026-09-17). Un rewrite campagnes bloquerait encore la valeur ; reporté à COMP-002.
+**Raison (historique)** : le MVP client + catalogue plateforme (ADM-002) + UI liste/dashboard existaient ; l’évaluation a été comblée par COMP-001-A (2026-09-17). Les campagnes / dossier d’audit sont livrés dans **COMP-002 V2.8** (2026-09-18).
 
 ---
 
@@ -83,7 +83,11 @@
 
 ---
 
-## 7. Hors V1 (report COMP-002)
+## 7. Hors V1 (report COMP-002) — statut 2026-09-18
+
+La plupart des items ci-dessous sont **livrés** dans COMP-002 V2.8. Restent hors scope immédiat : score pondéré mock, GED binaires preuves, owner obligatoire au launch.
+
+### Historique (avant COMP-002)
 
 - Campagnes (`BROUILLON`…`ARCHIVEE`), duplication, figement périmètre  
 - Chapitres / critères / attendus / recommandations séparés  
@@ -108,6 +112,6 @@
 
 - `COMP.0`–`COMP.5` : **clos** (COMP-001-A)
 - Fidélité mock : `COMP.UX.*` — [RFC-COMP-003](./RFC-COMP-003%20—%20CDC%20Conformité%20(fidélité%20mock).md)
-- Campagnes : `COMP.V2` — [RFC-COMP-002](./RFC-COMP-002%20—%20Campagnes%20et%20dossier%20d'audit.md)
+- Campagnes : `COMP.V2` livré (V2.8) — [RFC-COMP-002](./RFC-COMP-002%20—%20Campagnes%20et%20dossier%20d'audit.md) ; reste mock : [BACKLOG](../BACKLOG.md) `COMP.V2.reste`
 
 Voir [`docs/BACKLOG.md`](../BACKLOG.md).

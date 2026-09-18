@@ -7,10 +7,11 @@ Piloter l'état de conformité du client actif :
 - activer des référentiels (catalogue plateforme) ;
 - lister et **évaluer** les exigences ;
 - joindre des preuves (URL ou observation) ;
-- traiter un écart via un **risque projet** lié ;
+- lancer une **revue** (campagne) sur un périmètre de domaines ;
+- traiter un écart via un **risque projet** et/ou un **plan d’actions** ;
 - lire des KPI honnêtes (taux = conformes / applicables).
 
-Starium **ne certifie pas**. Les campagnes d’audit et le dossier d’audit ZIP sont hors périmètre V1 (voir RFC-COMP-002).
+Starium **ne certifie pas**. Les campagnes, instantanés et export ZIP d’audit sont disponibles (RFC-COMP-002) ; ce ne sont pas des attestations légales.
 
 ---
 
@@ -99,8 +100,9 @@ Sans `compliance.update`, la modale reste en **lecture seule**.
 1. Depuis le dashboard (carte) ou `/compliance/frameworks`, ouvrir un référentiel.
 2. Lire le hero (taux `C/A`, répartition).
 3. Déplier un domaine → cliquer une exigence → modale d’évaluation.
-4. **Plan de remédiation** : liste des partiels / écarts → **Évaluer**.
-5. Onglets en haut pour basculer entre référentiels actifs.
+4. **Plan de remédiation** : liste des partiels / écarts → **Évaluer** ou **Plan d’actions** (crée / rattache un plan Orchestra avec échéance).
+5. **Lancer une revue** : choisir les domaines, responsable, échéance, modalité → ouverture de `/compliance/campaigns/[id]`.
+6. Onglets en haut pour basculer entre référentiels actifs.
 
 ### Procédure — N/A
 
@@ -118,6 +120,14 @@ Visible seulement si statut **partiellement conforme** ou **non conforme** **et*
 4. Fermer un risque **ne** remet **pas** l’exigence en conforme automatiquement.
 
 Sans `projects.update` : hint discret — pas de bouton.
+
+### Procédure — plan d’actions de remédiation
+
+Visible sur partiel / écart (modale remédiation ou fiche exigence) **et** permissions `compliance.update` + `projects.update`.
+
+1. **Plan d’actions** → créer un plan (objectif + échéance + responsable) **ou** rattacher un plan actif existant.
+2. L’outil assure un **écart OPEN** si besoin, crée une tâche liée, aligne l’échéance de l’écart.
+3. **Ouvrir le plan** → `/action-plans/[id]` pour piloter les tâches.
 
 ### Ancienne page détail
 

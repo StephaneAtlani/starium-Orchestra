@@ -3468,6 +3468,8 @@ model ProjectTask {
 
   actionPlanId String?
   riskId       String?
+  /// Pont remédiation conformité → plan d'actions (tâche liée à un ComplianceGap).
+  complianceGapId String?
 
   phaseId         String?
   dependsOnTaskId String?
@@ -3511,6 +3513,7 @@ model ProjectTask {
   project             Project?           @relation(fields: [projectId], references: [id], onDelete: SetNull)
   actionPlan          ActionPlan?        @relation(fields: [actionPlanId], references: [id], onDelete: SetNull)
   risk                ProjectRisk?       @relation(fields: [riskId], references: [id], onDelete: SetNull)
+  complianceGap       ComplianceGap?     @relation(fields: [complianceGapId], references: [id], onDelete: SetNull)
   budgetLine          BudgetLine?        @relation(fields: [budgetLineId], references: [id], onDelete: SetNull)
   bucket              ProjectTaskBucket? @relation(fields: [bucketId], references: [id], onDelete: SetNull)
   phase               ProjectTaskPhase?  @relation(fields: [phaseId], references: [id], onDelete: SetNull)
@@ -3537,8 +3540,10 @@ model ProjectTask {
   @@index([clientId, projectId])
   @@index([clientId, actionPlanId])
   @@index([clientId, riskId])
+  @@index([clientId, complianceGapId])
   @@index([actionPlanId])
   @@index([riskId])
+  @@index([complianceGapId])
   @@index([phaseId])
   @@index([projectId, phaseId, sortOrder])
   @@index([dependsOnTaskId])
@@ -3984,6 +3989,7 @@ model ComplianceGap {
   requirement ComplianceRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
   owner       User?                 @relation("ComplianceGapOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
   projectRisk ProjectRisk?          @relation(fields: [projectRiskId], references: [id], onDelete: SetNull)
+  tasks       ProjectTask[]
 
   @@index([clientId, status])
   @@index([clientId, requirementId])

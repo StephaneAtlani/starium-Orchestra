@@ -486,6 +486,70 @@ export async function patchComplianceGap(
   return res.json();
 }
 
+export type ComplianceRemediationPlanModeApi = 'CREATE' | 'LINK';
+
+export type ComplianceRemediationPlanPayload = {
+  mode: ComplianceRemediationPlanModeApi;
+  actionPlanId?: string;
+  title?: string;
+  description?: string;
+  code?: string;
+  startDate?: string;
+  targetDate?: string;
+  ownerUserId?: string;
+  taskTitle?: string;
+};
+
+export type ComplianceRemediationPlanResultApi = {
+  gap: { id: string; title: string; dueAt: string | null };
+  actionPlan: {
+    id: string;
+    code: string;
+    title: string;
+    targetDate: string | null;
+    startDate: string | null;
+  };
+  task: { id: string; name: string };
+};
+
+export async function attachComplianceRemediationPlanForRequirement(
+  authFetch: AuthFetch,
+  requirementId: string,
+  payload: ComplianceRemediationPlanPayload,
+) {
+  const res = await authFetch(
+    `${BASE}/requirements/${requirementId}/remediation-plan`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+    },
+  );
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ComplianceRemediationPlanResultApi>;
+}
+
+export async function listComplianceGapActionPlanTasks(
+  authFetch: AuthFetch,
+  gapId: string,
+) {
+  const res = await authFetch(`${BASE}/gaps/${gapId}/action-plan-tasks`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<{
+    items: Array<{
+      id: string;
+      name: string;
+      actionPlan: {
+        id: string;
+        code: string;
+        title: string;
+        targetDate: string | null;
+        startDate: string | null;
+      } | null;
+    }>;
+  }>;
+}
+
 export type CreateComplianceEvidencePayload = {
   requirementId: string;
   name: string;

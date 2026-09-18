@@ -1,12 +1,12 @@
 # Backlog — reste à faire
 
-**Date** : 2026-09-17 · Aligné [`ROADMAP.md`](./ROADMAP.md) + [`LIAISONS-MODULES.md`](./LIAISONS-MODULES.md) + [`API.md`](./API.md) §5.7a.
+**Date** : 2026-09-18 · Aligné [`ROADMAP.md`](./ROADMAP.md) + [`LIAISONS-MODULES.md`](./LIAISONS-MODULES.md) + [`API.md`](./API.md) §5.7a.
 
 Liste **uniquement** du travail restant (pas de historique « fait »). Trajectoire / horizons : [`ROADMAP.md`](./ROADMAP.md).
 
 | Tag | Horizon |
 | --- | --- |
-| **COMP** | Conformité — V1 évaluation **livrée** ; suite = COMP.V2 (campagnes) |
+| **COMP** | Conformité — V1 + COMP.V2 launch/remédiation **livrés** ; reste score pondéré / GED preuves |
 | **B0–B3** | V1 Beta (vagues) |
 | **NTH** | Nice-to-have beta |
 | **BUF** | Buffer pendant beta |
@@ -28,7 +28,8 @@ Liste **uniquement** du travail restant (pas de historique « fait »). Trajecto
 | ~~COMP.UX.1~~ | Fiche détail référentiel (hero + répartition + liste groupée) | COMP-003 — **✅** |
 | ~~COMP.UX.2~~ | Rail donut / maturité domaine (API) | COMP-003 — **✅** |
 | ~~COMP.UX.3~~ | Plan remédiation (filtre écarts + actions) | COMP-003 — **✅** |
-| COMP.V2 | Campagnes / instantanés / import évaluations | COMP-002 |
+| ~~COMP.V2~~ | Campagnes / Lancer une revue / snapshot scopé / remédiation ↔ ActionPlan | COMP-002 / COMP-003 — **✅ 2026-09-18** |
+| COMP.V2.reste | Score pondéré mock optionnel ; owner obligatoire launch ; preuve fichier GED | COMP-003 / `fut-evidence-ged` |
 
 ---
 

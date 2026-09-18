@@ -2998,8 +2998,12 @@ Guards métier client (`X-Client-Id`, module `compliance`).
 ### Campagnes / revues (COMP.V2) — `/api/compliance/campaigns`
 
 - **GET /campaigns?frameworkId=** — Liste des campagnes du client (filtre optionnel). Permission **`compliance.read`**.
-- **POST /campaigns** — Body `{ frameworkId, name?, reviewFrequencyMonths?, openImmediately?, createSnapshot? }`. Fige `frozenFrameworkName` / `frozenFrameworkVersion`. Permission **`compliance.update`**. Audit `compliance.campaign.created` (+ `opened` / `snapshot` si demandé).
-- **GET /campaigns/:id** — Détail + liste légère des instantanés.
+- **POST /campaigns** — Body `{ frameworkId, name?, reviewFrequencyMonths?, openImmediately?, createSnapshot?, scopeDomainKeys?, modality?, ownerUserId?, dueAt? }`.
+  - `scopeDomainKeys` : clés de domaine (`category`) à inclure ; au moins une si fourni ; invalide → **400**. Instantané initial **filtré** sur ce périmètre.
+  - `modality` : `SELF_ASSESSMENT` \| `INTERNAL_AUDIT` \| `EXTERNAL_AUDIT` (défaut auto-évaluation).
+  - `ownerUserId` : membre actif du client ; `dueAt` : échéance ISO.
+  - Fige `frozenFrameworkName` / `frozenFrameworkVersion`. Permission **`compliance.update`**. Audit `compliance.campaign.created` (+ `opened` / `snapshot` si demandé).
+- **GET /campaigns/:id** — Détail (+ `scopeDomainKeys`, `modality`, `owner`, `dueAt`) + liste légère des instantanés.
 - **POST /campaigns/:id/open** — Brouillon → ouverte (re-fige name/version du référentiel courant).
 - **POST /campaigns/:id/close** — Body `{ closeNote?, createSnapshot? }` (snapshot de clôture par défaut).
 - **GET|POST /campaigns/:id/snapshots** — Liste / création d’instantané (payload JSON exigences + totaux `C/A`).
@@ -3009,7 +3013,7 @@ Guards métier client (`X-Client-Id`, module `compliance`).
 - **POST /campaigns/:id/evaluations-import/preview** — Body `{ csvContent }`. Campagne **OPEN** uniquement. Réponse : lignes validées/erreurs + `fingerprint`. Permission **`compliance.update`**.
 - **POST /campaigns/:id/evaluations-import/confirm** — Body `{ fingerprint, csvContent, idempotencyKey? }`. Import **atomique** (0 erreur obligatoire) ; `COMPLIANT` crée une observation si aucune preuve justifiante ; `NOT_APPLICABLE` / `NA` crée une **demande** en attente (pas le statut effectif). Audit `compliance.campaign.evaluations_imported`. Permission **`compliance.update`**.
 
-**Décisions V2.1 figées** : exigence plate (pas de Criterion) ; périmètre = client ; pas de module actions correctives dédié ; stockage instantané en JSON DB.
+**Décisions V2.1 / V2.8** : exigence plate (pas de Criterion) ; périmètre = client (+ `scopeDomainKeys` domaines) ; actions correctives via **Plans d’actions** (`ProjectTask.complianceGapId`), pas d’entité Remédiation dédiée ; stockage instantané en JSON DB (filtré au scope).
 
 **UI** : bouton **Lancer une revue** sur `/compliance/frameworks/[id]` (liste, clôture, import CSV, consultation d’instantanés) ; bandeau **Revues** sur `/compliance/dashboard`.
 
@@ -3030,8 +3034,11 @@ Guards métier client (`X-Client-Id`, module `compliance`).
 #### Écarts
 
 - **GET /api/compliance/gaps?requirementId=** — Liste. Permission **`compliance.read`**.
-- **POST /api/compliance/gaps** — Body `{ requirementId, title, finding, criticality?, ownerUserId?, dueAt?, businessImpact?, projectRiskId? }`. Permission **`compliance.update`**. Audit `compliance.gap.created`.
+- **POST /api/compliance/gaps** — Body `{ requirementId, title, finding, criticality?, ownerUserId?, dueAt?, businessImpact?, projectRiskId? }`. Permission **`compliance.update`**. Audit `compliance.gap.created`. Si une campagne **OPEN** du même référentiel a un `scopeDomainKeys` non null, l’exigence doit être dans le périmètre d’**au moins une** revue ouverte (**400** sinon) — même règle sur `PUT …/requirements/:id/status`.
 - **PATCH /api/compliance/gaps/:id** — Mise à jour / transitions. Clôture (`CLOSED`) exige `verificationNote` ; annulation (`CANCELLED`) exige `cancelReason`. Permission **`compliance.update`**. Audit `compliance.gap.updated`.
+- **GET /api/compliance/gaps/:gapId/action-plan-tasks** — Tâches de plan d’actions liées à l’écart (`ProjectTask.complianceGapId` + `actionPlanId`). Réponse `{ items: [{ id, name, actionPlan: { id, code, title, targetDate, startDate } }] }`. Permission **`compliance.read`**.
+- **POST /api/compliance/gaps/:gapId/remediation-plan** — Body `{ mode: 'CREATE'|'LINK', title?, description?, code?, startDate?, targetDate?, ownerUserId?, actionPlanId?, taskTitle? }`. Crée ou rattache un `ActionPlan` + tâche avec `complianceGapId` ; sync `dueAt` / owner de l’écart. Permissions **`compliance.update`** + **`projects.update`**. Audit `compliance.gap.remediation_linked`. Doublon gap+plan → **409**.
+- **POST /api/compliance/requirements/:requirementId/remediation-plan** — Même body ; **ensureOpenGap** (trouve ou crée un écart OPEN) puis même logique. Permissions **`compliance.update`** + **`projects.update`**.
 
 #### Rappels
 

@@ -150,6 +150,8 @@ import { ProjectReviewSeriesService } from './project-reviews/project-review-ser
     ProjectsPilotageService,
     ProjectTeamService,
     ProjectDocumentContentService,
+    ActionPlansService,
+    ProjectTasksService,
   ],
 })
 export class ProjectsModule {}

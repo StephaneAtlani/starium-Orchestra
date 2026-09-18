@@ -116,6 +116,31 @@ export function ComplianceCampaignWorkspace({
     [campaignQ.data?.scopeDomainKeys],
   );
 
+  const scopeDomainLabels = useMemo(() => {
+    if (!scopeKeys || !overviewQ.data) return null;
+    const byKey = new Map(
+      overviewQ.data.domains.map((d) => [d.key, displayLabel(d.label, 'Domaine')]),
+    );
+    return scopeKeys.map((k) => byKey.get(k) ?? displayLabel(k, 'Domaine'));
+  }, [scopeKeys, overviewQ.data]);
+
+  const scopeDomainSummary = useMemo(() => {
+    if (!scopeKeys) return 'Référentiel complet';
+    if (!scopeDomainLabels || scopeDomainLabels.length === 0) {
+      return `${scopeKeys.length} domaine${scopeKeys.length > 1 ? 's' : ''}`;
+    }
+    if (scopeDomainLabels.length <= 4) {
+      return scopeDomainLabels.join(' · ');
+    }
+    const head = scopeDomainLabels.slice(0, 4).join(' · ');
+    return `${head} · +${scopeDomainLabels.length - 4}`;
+  }, [scopeKeys, scopeDomainLabels]);
+
+  const scopeDomainTitle =
+    scopeDomainLabels && scopeDomainLabels.length > 4
+      ? scopeDomainLabels.join(', ')
+      : undefined;
+
   const scopedOverview = useMemo(() => {
     if (!overviewQ.data) return null;
     return scopeComplianceOverview(overviewQ.data, scopeKeys);
@@ -294,10 +319,11 @@ export function ComplianceCampaignWorkspace({
         </div>
         <div>
           <dt className="starium-overline text-muted-foreground">Périmètre</dt>
-          <dd className="mt-1 text-sm font-semibold text-foreground">
-            {scopeKeys
-              ? `${scopeKeys.length} domaine${scopeKeys.length > 1 ? 's' : ''}`
-              : 'Référentiel complet'}
+          <dd
+            className="mt-1 text-sm font-semibold text-foreground"
+            title={scopeDomainTitle}
+          >
+            {scopeDomainSummary}
           </dd>
         </div>
       </dl>

@@ -209,6 +209,57 @@ export class ProjectTasksService {
     return { items };
   }
 
+  /**
+   * Tâches rattachées à un écart conformité et à un plan d’actions.
+   */
+  async listActionPlanTasksForComplianceGap(clientId: string, gapId: string) {
+    const gap = await this.prisma.complianceGap.findFirst({
+      where: { id: gapId, clientId },
+      select: { id: true },
+    });
+    if (!gap) throw new NotFoundException('Écart introuvable');
+
+    const rows = await this.prisma.projectTask.findMany({
+      where: {
+        clientId,
+        complianceGapId: gapId,
+        actionPlanId: { not: null },
+      },
+      orderBy: [{ createdAt: 'desc' }],
+      include: {
+        ...this.taskActionPlanInclude(),
+        actionPlan: {
+          select: {
+            id: true,
+            code: true,
+            title: true,
+            targetDate: true,
+            startDate: true,
+          },
+        },
+      },
+    });
+
+    const items = rows.map((row) => {
+      const { actionPlan, ...taskRow } = row;
+      const mapped = this.mapTaskWithChecklistAndLinks(taskRow);
+      return {
+        ...mapped,
+        actionPlan: actionPlan
+          ? {
+              id: actionPlan.id,
+              code: actionPlan.code,
+              title: actionPlan.title,
+              targetDate: actionPlan.targetDate,
+              startDate: actionPlan.startDate,
+            }
+          : null,
+      };
+    });
+
+    return { items };
+  }
+
   async getOne(clientId: string, projectId: string, taskId: string) {
     await this.projects.getProjectForScope(clientId, projectId);
     const task = await this.prisma.projectTask.findFirst({
@@ -414,6 +465,7 @@ export class ProjectTasksService {
     }
 
     await this.validateRiskProjectCoherence(clientId, resolvedProjectId, dto.riskId ?? null);
+    await this.assertComplianceGapInClient(clientId, dto.complianceGapId ?? null);
 
     if (!resolvedProjectId) {
       this.assertNoProjectOnlyPayload({
@@ -456,6 +508,7 @@ export class ProjectTasksService {
         projectId: resolvedProjectId,
         actionPlanId,
         riskId: dto.riskId ?? null,
+        complianceGapId: dto.complianceGapId ?? null,
         name: dto.name.trim(),
         description: dto.description?.trim() ?? null,
         code: dto.code?.trim() ?? null,
@@ -1164,6 +1217,20 @@ export class ProjectTasksService {
       throw new BadRequestException(
         'Ce risque est rattaché à un projet : la tâche doit avoir le même projectId',
       );
+    }
+  }
+
+  private async assertComplianceGapInClient(
+    clientId: string,
+    gapId: string | null | undefined,
+  ): Promise<void> {
+    if (gapId == null || gapId === '') return;
+    const gap = await this.prisma.complianceGap.findFirst({
+      where: { id: gapId, clientId },
+      select: { id: true },
+    });
+    if (!gap) {
+      throw new BadRequestException('Écart de conformité introuvable pour ce client');
     }
   }
 

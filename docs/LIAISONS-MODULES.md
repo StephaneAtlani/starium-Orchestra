@@ -122,6 +122,8 @@ flowchart LR
   MEET --> CYC
   PROJ -->|Escalation COPRO→COPIL| PROJ
   PROJ -->|Descent COPIL→COPRO| PROJ
+  COMP[Conformité] -->|ProjectTask.complianceGapId| PLAN[Plans d'action]
+  COMP -->|complianceRequirementId| RISK
 ```
 
 ---
@@ -151,6 +153,7 @@ Statuts : **live** = code + usage ; **partial** = FK/socle sans tout le parcours
 | `meet-risk` | Réunions | Risques | Overlay | `MeetingBlocker.riskId` | RFC-MEET-001 |
 | `meet-attendee` | Réunions | RH | FK | `MeetingAttendee.resourceId` | RFC-MEET-001 |
 | `compliance-risk` | Conformité | Risques | FK | `ProjectRisk.complianceRequirementId` — CTA modale exigence → `POST /api/risks` (COMP-001-A) | RFC-PROJ-RISK-001 · RFC-COMP-001-A |
+| `compliance-action-plan` | Conformité | Plans d'action | FK | `ProjectTask.complianceGapId` + `actionPlanId` — remédiation (ensure gap → CREATE/LINK plan) | RFC-COMP-003 · RFC-PLA-001 |
 | `compliance-catalog` | Admin plateforme | Conformité (client) | Copie | Activation : `ComplianceFramework` `clientId=null` → instance client + exigences | RFC-ADM-002 |
 | `project-budget` | Projets | Budgets | N:N | `ProjectBudgetLink` | RFC-PROJ-010 |
 | `scenario-budget` | Projets | Budgets | FK | `ProjectScenarioFinancialLine` | RFC-PROJ-SC-002 |

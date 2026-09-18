@@ -39,7 +39,7 @@ describe('ComplianceService', () => {
       },
       projectRisk: { count: jest.fn(), groupBy: jest.fn() },
       complianceCampaign: {
-        findMany: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
         findFirst: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
@@ -63,12 +63,35 @@ describe('ComplianceService', () => {
       clientUser: {
         findFirst: jest.fn(),
       },
+      complianceGap: {
+        findFirst: jest.fn(),
+        findFirstOrThrow: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+      },
+      projectTask: {
+        findFirst: jest.fn(),
+      },
       $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
         fn(prisma),
       ),
     };
     auditLogs = { create: jest.fn().mockResolvedValue(undefined) };
-    service = new ComplianceService(prisma, auditLogs);
+    const actionPlans = {
+      getForScope: jest.fn(),
+      getOne: jest.fn(),
+      create: jest.fn(),
+    };
+    const projectTasks = {
+      listActionPlanTasksForComplianceGap: jest.fn(),
+      createForActionPlan: jest.fn(),
+    };
+    service = new ComplianceService(
+      prisma,
+      auditLogs,
+      actionPlans as any,
+      projectTasks as any,
+    );
   });
 
   describe('deriveComplianceEvidenceKind / evidenceJustifiesCompliance', () => {
@@ -667,6 +690,125 @@ describe('ComplianceService', () => {
       });
       expect(prisma.complianceCampaignSnapshot.create).toHaveBeenCalled();
       expect(out.id).toBe('camp-1');
+    });
+
+    it('crée une campagne avec périmètre et filtre l’instantané', async () => {
+      prisma.complianceFramework.findFirst.mockResolvedValue({
+        id: 'fw-1',
+        clientId: 'c1',
+        name: 'NIS2',
+        version: '3',
+      });
+      prisma.complianceRequirement.findMany
+        .mockResolvedValueOnce([
+          { category: 'Gouvernance' },
+          { category: 'Technique' },
+        ])
+        .mockResolvedValueOnce([
+          {
+            id: 'req-gov',
+            code: 'G.1',
+            title: 'Gouv',
+            category: 'Gouvernance',
+            statuses: [],
+            evidences: [],
+          },
+        ]);
+      prisma.clientUser.findFirst.mockResolvedValue({ id: 'cu-1' });
+      prisma.complianceCampaign.create.mockResolvedValue({
+        id: 'camp-2',
+        clientId: 'c1',
+        frameworkId: 'fw-1',
+        name: 'Revue ciblée',
+        status: 'OPEN',
+        frozenFrameworkName: 'NIS2',
+        frozenFrameworkVersion: '3',
+        modality: 'INTERNAL_AUDIT',
+        scopeDomainKeys: ['Gouvernance'],
+        ownerUserId: 'u1',
+        dueAt: new Date('2026-12-31'),
+      });
+      prisma.complianceCampaign.findFirst.mockResolvedValue({
+        id: 'camp-2',
+        clientId: 'c1',
+        frameworkId: 'fw-1',
+        name: 'Revue ciblée',
+        status: 'OPEN',
+        frozenFrameworkName: 'NIS2',
+        frozenFrameworkVersion: '3',
+        scopeDomainKeys: ['Gouvernance'],
+        _count: { snapshots: 1 },
+        framework: { id: 'fw-1', name: 'NIS2', version: '3' },
+        owner: null,
+        snapshots: [],
+      });
+      prisma.complianceCampaignSnapshot.create.mockResolvedValue({
+        id: 'snap-2',
+        campaignId: 'camp-2',
+      });
+
+      await service.createCampaign(
+        'c1',
+        {
+          frameworkId: 'fw-1',
+          name: 'Revue ciblée',
+          openImmediately: true,
+          createSnapshot: true,
+          scopeDomainKeys: ['Gouvernance'],
+          modality: 'INTERNAL_AUDIT' as any,
+          ownerUserId: 'u1',
+          dueAt: '2026-12-31T12:00:00.000Z',
+        },
+        { actorUserId: 'u1' },
+      );
+
+      expect(prisma.complianceCampaign.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          scopeDomainKeys: ['Gouvernance'],
+          modality: 'INTERNAL_AUDIT',
+          ownerUserId: 'u1',
+        }),
+      });
+      const snapCall = prisma.complianceCampaignSnapshot.create.mock.calls[0][0];
+      expect(snapCall.data.payload.totals.requirementCount).toBe(1);
+      expect(snapCall.data.payload.requirements).toHaveLength(1);
+      expect(snapCall.data.payload.requirements[0].category).toBe('Gouvernance');
+    });
+
+    it('refuse un domaine hors référentiel', async () => {
+      prisma.complianceFramework.findFirst.mockResolvedValue({
+        id: 'fw-1',
+        clientId: 'c1',
+        name: 'NIS2',
+        version: '3',
+      });
+      prisma.complianceRequirement.findMany.mockResolvedValue([
+        { category: 'Gouvernance' },
+      ]);
+      await expect(
+        service.createCampaign('c1', {
+          frameworkId: 'fw-1',
+          scopeDomainKeys: ['Inexistant'],
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('refuse d’évaluer une exigence hors périmètre d’une revue OPEN', async () => {
+      prisma.complianceRequirement.findFirst.mockResolvedValue({
+        id: 'req-1',
+        category: 'Technique',
+        frameworkId: 'fw-1',
+      });
+      prisma.complianceCampaign.findMany.mockResolvedValue([
+        { scopeDomainKeys: ['Gouvernance'] },
+      ]);
+      prisma.complianceStatus.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.upsertStatusForRequirement('c1', 'req-1', {
+          status: ComplianceAssessmentStatus.COMPLIANT,
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
     });
 
     it('refuse d’ouvrir une campagne non brouillon', async () => {

@@ -84,6 +84,11 @@ export class CreateActionPlanTaskDto {
   @IsString()
   phaseId?: string | null;
 
+  /** Lier la tâche à un écart conformité du même client. */
+  @IsOptional()
+  @IsString()
+  complianceGapId?: string | null;
+
   /**
    * Responsable métier — ressource humaine (`Resource` type HUMAN), jamais un `User` direct.
    */

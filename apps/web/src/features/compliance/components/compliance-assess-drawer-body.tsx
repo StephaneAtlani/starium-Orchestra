@@ -98,6 +98,7 @@ export function ComplianceAssessDrawerBody({
   onGapFindingChange,
   onCreateGap,
   gapPending,
+  onOpenRemediationPlan,
   advancedSlot,
 }: {
   data: ComplianceRequirementDetailApi;
@@ -137,6 +138,7 @@ export function ComplianceAssessDrawerBody({
   onGapFindingChange: (v: string) => void;
   onCreateGap: () => void;
   gapPending: boolean;
+  onOpenRemediationPlan?: () => void;
   /** Slot colonne droite (actions avancées) — évite bandeau blanc hors grille. */
   advancedSlot?: React.ReactNode;
 }) {
@@ -477,6 +479,15 @@ export function ComplianceAssessDrawerBody({
                 >
                   Créer l’écart
                 </Button>
+                {onOpenRemediationPlan ? (
+                  <Button
+                    type="button"
+                    className="min-h-11 sm:min-h-9"
+                    onClick={onOpenRemediationPlan}
+                  >
+                    Plan d’actions
+                  </Button>
+                ) : null}
               </div>
             ) : (
               <p className="text-sm text-[color:var(--state-danger)]">

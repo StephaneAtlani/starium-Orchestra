@@ -54,6 +54,7 @@ import {
   CreateComplianceGapDto,
   PatchComplianceGapDto,
 } from './dto/compliance-gap.dto';
+import { ComplianceRemediationPlanDto } from './dto/compliance-remediation-plan.dto';
 
 @Controller('compliance')
 @UseGuards(JwtAuthGuard, ActiveClientGuard, ModuleAccessGuard, PermissionsGuard)
@@ -521,6 +522,46 @@ export class ComplianceController {
   ) {
     const context: AuditContext = { actorUserId, meta };
     return this.compliance.patchGap(clientId!, id, dto, context);
+  }
+
+  @Get('gaps/:gapId/action-plan-tasks')
+  @RequirePermissions('compliance.read')
+  listGapActionPlanTasks(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('gapId') gapId: string,
+  ) {
+    return this.compliance.listGapActionPlanTasks(clientId!, gapId);
+  }
+
+  @Post('gaps/:gapId/remediation-plan')
+  @RequirePermissions('compliance.update', 'projects.update')
+  attachRemediationPlan(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('gapId') gapId: string,
+    @Body() dto: ComplianceRemediationPlanDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.compliance.attachRemediationPlan(clientId!, gapId, dto, context);
+  }
+
+  @Post('requirements/:requirementId/remediation-plan')
+  @RequirePermissions('compliance.update', 'projects.update')
+  attachRemediationPlanForRequirement(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('requirementId') requirementId: string,
+    @Body() dto: ComplianceRemediationPlanDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.compliance.attachRemediationPlanForRequirement(
+      clientId!,
+      requirementId,
+      dto,
+      context,
+    );
   }
 
   /**

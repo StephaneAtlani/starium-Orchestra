@@ -6,6 +6,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  ActionPlanPriority,
+  ActionPlanStatus,
   ComplianceAssessmentStatus,
   ComplianceCampaignModality,
   ComplianceCampaignStatus,
@@ -20,6 +22,8 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import type { AuditContext } from '../budget-management/types/audit-context';
+import { ActionPlansService } from '../projects/action-plans.service';
+import { ProjectTasksService } from '../projects/project-tasks.service';
 import {
   COMPLIANCE_AUDIT_ACTION,
   COMPLIANCE_AUDIT_RESOURCE_TYPE,
@@ -59,6 +63,10 @@ import {
   CreateComplianceGapDto,
   PatchComplianceGapDto,
 } from './dto/compliance-gap.dto';
+import {
+  ComplianceRemediationPlanDto,
+  ComplianceRemediationPlanMode,
+} from './dto/compliance-remediation-plan.dto';
 import { deriveComplianceFamilyLabel } from './compliance-family-label';
 import {
   CAMPAIGN_EVAL_IMPORT_TEMPLATE,
@@ -228,6 +236,8 @@ export class ComplianceService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogs: AuditLogsService,
+    private readonly actionPlans: ActionPlansService,
+    private readonly projectTasks: ProjectTasksService,
   ) {}
 
   async listFrameworks(clientId: string) {
@@ -784,8 +794,19 @@ export class ComplianceService {
   ) {
     const existing = await this.prisma.complianceStatus.findFirst({
       where: { id: statusId, clientId },
+      include: {
+        requirement: {
+          select: { id: true, category: true, frameworkId: true },
+        },
+      },
     });
     if (!existing) throw new NotFoundException('Statut introuvable');
+
+    await this.assertRequirementInOpenCampaignScope(
+      clientId,
+      existing.requirement.frameworkId,
+      existing.requirement.category,
+    );
 
     await this.assertEvaluationTransition(clientId, existing.requirementId, dto);
 
@@ -850,9 +871,15 @@ export class ComplianceService {
   ) {
     const req = await this.prisma.complianceRequirement.findFirst({
       where: { id: requirementId, framework: { clientId } },
-      select: { id: true },
+      select: { id: true, category: true, frameworkId: true },
     });
     if (!req) throw new NotFoundException('Exigence introuvable');
+
+    await this.assertRequirementInOpenCampaignScope(
+      clientId,
+      req.frameworkId,
+      req.category,
+    );
 
     const existing = await this.prisma.complianceStatus.findUnique({
       where: {
@@ -1032,6 +1059,54 @@ export class ComplianceService {
     if (!cu) {
       throw new BadRequestException(
         'Le destinataire doit être un membre actif du client',
+      );
+    }
+  }
+
+  private parseScopeDomainKeys(raw: unknown): string[] | null {
+    if (raw == null) return null;
+    if (!Array.isArray(raw)) return null;
+    const keys = raw
+      .filter((k): k is string => typeof k === 'string')
+      .map((k) => k.trim())
+      .filter((k) => k.length > 0);
+    return keys.length > 0 ? keys : null;
+  }
+
+  private domainKeyFromCategory(category: string | null | undefined): string {
+    const trimmed = category?.trim();
+    return trimmed && trimmed.length > 0 ? trimmed : UNCATEGORIZED_DOMAIN_KEY;
+  }
+
+  /**
+   * Si au moins une campagne OPEN existe sur le FW avec un périmètre non null,
+   * l’exigence doit appartenir au scope d’au moins une de ces campagnes
+   * (scope null = référentiel complet = toujours autorisé pour cette campagne).
+   */
+  private async assertRequirementInOpenCampaignScope(
+    clientId: string,
+    frameworkId: string,
+    category: string | null | undefined,
+  ): Promise<void> {
+    const openCampaigns = await this.prisma.complianceCampaign.findMany({
+      where: {
+        clientId,
+        frameworkId,
+        status: ComplianceCampaignStatus.OPEN,
+      },
+      select: { scopeDomainKeys: true },
+    });
+    if (openCampaigns.length === 0) return;
+
+    const domainKey = this.domainKeyFromCategory(category);
+    const allowed = openCampaigns.some((c) => {
+      const keys = this.parseScopeDomainKeys(c.scopeDomainKeys);
+      if (!keys) return true;
+      return keys.includes(domainKey);
+    });
+    if (!allowed) {
+      throw new BadRequestException(
+        'Cette exigence est hors du périmètre des revues ouvertes sur ce référentiel',
       );
     }
   }
@@ -1271,9 +1346,16 @@ export class ComplianceService {
   ) {
     const req = await this.prisma.complianceRequirement.findFirst({
       where: { id: dto.requirementId, framework: { clientId } },
-      select: { id: true },
+      select: { id: true, category: true, frameworkId: true },
     });
     if (!req) throw new NotFoundException('Exigence introuvable');
+
+    await this.assertRequirementInOpenCampaignScope(
+      clientId,
+      req.frameworkId,
+      req.category,
+    );
+
     if (dto.ownerUserId) {
       await this.assertAssigneeOnClient(clientId, dto.ownerUserId);
     }
@@ -1322,6 +1404,240 @@ export class ComplianceService {
     });
 
     return this.mapGap(row);
+  }
+
+  async listGapActionPlanTasks(clientId: string, gapId: string) {
+    await this.requireGap(clientId, gapId);
+    return this.projectTasks.listActionPlanTasksForComplianceGap(clientId, gapId);
+  }
+
+  async attachRemediationPlanForRequirement(
+    clientId: string,
+    requirementId: string,
+    dto: ComplianceRemediationPlanDto,
+    context?: AuditContext,
+  ) {
+    const gap = await this.ensureOpenGap(clientId, requirementId, context);
+    return this.attachRemediationPlan(clientId, gap.id, dto, context);
+  }
+
+  async attachRemediationPlan(
+    clientId: string,
+    gapId: string,
+    dto: ComplianceRemediationPlanDto,
+    context?: AuditContext,
+  ) {
+    const gap = await this.requireGap(clientId, gapId);
+    if (gap.status !== ComplianceGapStatus.OPEN) {
+      throw new BadRequestException(
+        'Seuls les écarts ouverts peuvent recevoir un plan de remédiation',
+      );
+    }
+
+    const requirement = await this.prisma.complianceRequirement.findFirst({
+      where: { id: gap.requirementId, framework: { clientId } },
+      select: { id: true, code: true, title: true },
+    });
+    if (!requirement) throw new NotFoundException('Exigence introuvable');
+
+    let actionPlanId: string;
+    let mode = dto.mode;
+
+    if (dto.mode === ComplianceRemediationPlanMode.LINK) {
+      if (!dto.actionPlanId?.trim()) {
+        throw new BadRequestException('actionPlanId requis en mode LINK');
+      }
+      const plan = await this.actionPlans.getForScope(
+        clientId,
+        dto.actionPlanId.trim(),
+      );
+      actionPlanId = plan.id;
+
+      const dup = await this.prisma.projectTask.findFirst({
+        where: {
+          clientId,
+          actionPlanId,
+          complianceGapId: gap.id,
+        },
+        select: { id: true },
+      });
+      if (dup) {
+        throw new ConflictException(
+          'Cet écart est déjà lié à ce plan d’actions',
+        );
+      }
+    } else {
+      const title = dto.title?.trim();
+      if (!title) {
+        throw new BadRequestException('Le titre (objectif) est requis en mode CREATE');
+      }
+      const code =
+        dto.code?.trim() ||
+        `REM-${requirement.code.replace(/[^A-Za-z0-9]+/g, '-').slice(0, 24)}-${Date.now().toString(36).slice(-4)}`.toUpperCase();
+
+      if (dto.ownerUserId) {
+        await this.assertAssigneeOnClient(clientId, dto.ownerUserId);
+      }
+
+      const plan = await this.actionPlans.create(clientId, {
+        title,
+        code,
+        description: dto.description?.trim() || gap.finding,
+        status: ActionPlanStatus.ACTIVE,
+        priority: ActionPlanPriority.MEDIUM,
+        ownerUserId: dto.ownerUserId ?? gap.ownerUserId ?? null,
+        startDate: dto.startDate ?? null,
+        targetDate: dto.targetDate ?? null,
+      });
+      actionPlanId = plan.id;
+      mode = ComplianceRemediationPlanMode.CREATE;
+    }
+
+    const taskTitle =
+      dto.taskTitle?.trim() ||
+      gap.title.trim() ||
+      `${requirement.code} — ${requirement.title}`;
+
+    const task = await this.projectTasks.createForActionPlan(
+      clientId,
+      actionPlanId,
+      {
+        name: taskTitle.slice(0, 200),
+        description: gap.finding,
+        complianceGapId: gap.id,
+        plannedEndDate: dto.targetDate ?? gap.dueAt?.toISOString() ?? null,
+        ownerUserId: dto.ownerUserId ?? gap.ownerUserId ?? null,
+      },
+      context,
+      context?.actorUserId,
+    );
+
+    const gapPatch: Prisma.ComplianceGapUpdateInput = {};
+    if (dto.targetDate) {
+      gapPatch.dueAt = new Date(dto.targetDate);
+    }
+    if (dto.ownerUserId) {
+      gapPatch.owner = { connect: { id: dto.ownerUserId } };
+    }
+    if (Object.keys(gapPatch).length > 0) {
+      await this.prisma.complianceGap.update({
+        where: { id: gap.id },
+        data: gapPatch,
+      });
+    }
+
+    const plan = await this.actionPlans.getOne(clientId, actionPlanId);
+
+    await this.auditLogs.create({
+      clientId,
+      userId: context?.actorUserId,
+      action: COMPLIANCE_AUDIT_ACTION.GAP_REMEDIATION_LINKED,
+      resourceType: COMPLIANCE_AUDIT_RESOURCE_TYPE.COMPLIANCE_GAP,
+      resourceId: gap.id,
+      newValue: {
+        mode,
+        gapTitle: gap.title,
+        actionPlanId: plan.id,
+        actionPlanCode: plan.code,
+        actionPlanTitle: plan.title,
+        taskId: task.id,
+      },
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    });
+
+    return {
+      gap: this.mapGap(
+        await this.prisma.complianceGap.findFirstOrThrow({
+          where: { id: gap.id, clientId },
+          include: {
+            owner: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
+          },
+        }),
+      ),
+      actionPlan: {
+        id: plan.id,
+        code: plan.code,
+        title: plan.title,
+        targetDate: plan.targetDate,
+        startDate: plan.startDate,
+      },
+      task: {
+        id: task.id,
+        name: task.name,
+      },
+    };
+  }
+
+  async ensureOpenGap(
+    clientId: string,
+    requirementId: string,
+    context?: AuditContext,
+  ) {
+    const req = await this.prisma.complianceRequirement.findFirst({
+      where: { id: requirementId, framework: { clientId } },
+      select: {
+        id: true,
+        code: true,
+        title: true,
+        category: true,
+        frameworkId: true,
+      },
+    });
+    if (!req) throw new NotFoundException('Exigence introuvable');
+
+    await this.assertRequirementInOpenCampaignScope(
+      clientId,
+      req.frameworkId,
+      req.category,
+    );
+
+    const existing = await this.prisma.complianceGap.findFirst({
+      where: {
+        clientId,
+        requirementId,
+        status: ComplianceGapStatus.OPEN,
+      },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        owner: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
+      },
+    });
+    if (existing) return existing;
+
+    return this.prisma.complianceGap.create({
+      data: {
+        clientId,
+        requirementId,
+        title: `Écart — ${req.code} ${req.title}`.slice(0, 200),
+        finding: `Remédiation ouverte pour l’exigence ${req.code} — ${req.title}`,
+        criticality: ComplianceGapCriticality.MEDIUM,
+        createdByUserId: context?.actorUserId ?? null,
+      },
+      include: {
+        owner: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
+      },
+    });
+  }
+
+  private async requireGap(clientId: string, gapId: string) {
+    const gap = await this.prisma.complianceGap.findFirst({
+      where: { id: gapId, clientId },
+    });
+    if (!gap) throw new NotFoundException('Écart introuvable');
+    return gap;
   }
 
   async patchGap(
@@ -2604,10 +2920,27 @@ export class ComplianceService {
       frozenFrameworkName: string;
       frozenFrameworkVersion: string;
       status: ComplianceCampaignStatus;
+      scopeDomainKeys?: unknown;
     },
   ) {
+    const scopeKeys = this.parseScopeDomainKeys(campaign.scopeDomainKeys);
+    const where: Prisma.ComplianceRequirementWhereInput = { frameworkId };
+    if (scopeKeys) {
+      const includesUncategorized = scopeKeys.includes(UNCATEGORIZED_DOMAIN_KEY);
+      const named = scopeKeys.filter((k) => k !== UNCATEGORIZED_DOMAIN_KEY);
+      const or: Prisma.ComplianceRequirementWhereInput[] = [];
+      if (named.length > 0) {
+        or.push({ category: { in: named } });
+      }
+      if (includesUncategorized) {
+        or.push({ category: null });
+        or.push({ category: '' });
+      }
+      where.OR = or.length > 0 ? or : [{ id: '__none__' }];
+    }
+
     const requirements = await this.prisma.complianceRequirement.findMany({
-      where: { frameworkId },
+      where,
       orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
       select: {
         id: true,
