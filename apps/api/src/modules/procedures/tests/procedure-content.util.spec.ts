@@ -45,6 +45,40 @@ describe('assertProcedureContentJson', () => {
     expect(assertProcedureContentJson(doc)).toEqual(doc);
   });
 
+  it('accepte procedureImage et procedureFile avec alt/label', () => {
+    const doc = {
+      type: 'doc',
+      content: [
+        {
+          type: 'procedureImage',
+          attrs: { assetId: 'clxxxxxxxx0001asset00001', alt: 'Schéma accès' },
+        },
+        {
+          type: 'procedureFile',
+          attrs: {
+            assetId: 'clxxxxxxxx0001asset00002',
+            label: 'Annexe PDF',
+          },
+        },
+      ],
+    };
+    expect(assertProcedureContentJson(doc)).toEqual(doc);
+  });
+
+  it('refuse procedureImage sans alt', () => {
+    expect(() =>
+      assertProcedureContentJson({
+        type: 'doc',
+        content: [
+          {
+            type: 'procedureImage',
+            attrs: { assetId: 'clxxxxxxxx0001asset00001', alt: '' },
+          },
+        ],
+      }),
+    ).toThrow(BadRequestException);
+  });
+
   it('refuse H7', () => {
     expect(() =>
       assertProcedureContentJson({

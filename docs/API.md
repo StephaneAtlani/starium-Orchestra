@@ -3115,11 +3115,15 @@ Référence : [RFC-PROC-002](RFC/RFC-PROC-002%20%E2%80%94%20Cr%C3%A9er%20%C3%A9d
 - **GET /api/procedures** — Liste paginée `{ items, total, limit, offset }`. Query : `limit`, `offset`, `status?`, `category?`, `q?`, `includeArchived?`. Items : `code`, `title`, `status`, `category`, `ownerLabel` (jamais d’ID propriétaire), version publiée si présente. Permission **`procedures.read`**. Archivées masquées par défaut.
 - **POST /api/procedures** — Création brouillon. Body : `{ code, title, description?, category?, ownerUserId? }`. Crée `Procedure` `DRAFT` + `ProcedureVersion` n°1 `DRAFT` (`contentJson` doc TipTap vide). Code unique par client → **409**. Owner doit être membre du client. Audit `procedure.created`. Permission **`procedures.create`**.
 - **GET /api/procedures/:id** — Détail + résumé brouillon courant (`currentDraft`). Permission **`procedures.read`**.
-- **PATCH /api/procedures/:id/draft** — Body `{ contentJson, expectedUpdatedAt? }`. Met à jour le brouillon TipTap. Whitelist **PROC-005 Lot A** : nodes `heading` (niveaux **1–6**), `horizontalRule`, `codeBlock`, listes, blockquote… ; marks `bold`/`italic`/`underline`/`strike`/`link` (https only) / `textStyle.colorToken` / `highlight.color|colorToken` (jetons DS fermés — hex libre → **400**). Optimistic lock → **409**. Archivée → **400**. Audit `procedure.draft.updated` (taille, pas le corps). Permission **`procedures.update`**.
+- **PATCH /api/procedures/:id/draft** — Body `{ contentJson, expectedUpdatedAt? }`. Met à jour le brouillon TipTap. Whitelist **PROC-005** : headings **1–6**, `horizontalRule`, `codeBlock`, marks styles/couleur tokenisés, nodes **`procedureImage`** (`assetId` + `alt` obligatoire) / **`procedureFile`** (`assetId` + `label`) — assets doivent appartenir à la procédure. Liens `https` only. Optimistic lock → **409**. Archivée → **400**. Audit `procedure.draft.updated` (taille, pas le corps). Permission **`procedures.update`**.
+- **GET /api/procedures/:id/assets** — Liste `{ id, label, mimeType, sizeBytes, createdAt }` (libellé métier). Permission **`procedures.read`**.
+- **POST /api/procedures/:id/assets/upload** — Multipart champ `file` (PNG/JPEG/WebP/GIF/PDF, limite plateforme). Stockage domaine `procedures`. Audit `procedure.asset.uploaded`. Permission **`procedures.update`**.
+- **GET /api/procedures/:id/assets/:assetId** — Stream inline authz. Permission **`procedures.read`**.
+- **DELETE /api/procedures/:id/assets/:assetId** — Refus **400** si encore référencé dans le brouillon. Audit `procedure.asset.deleted`. Permission **`procedures.update`**.
 - **POST /api/procedures/:id/archive** — `status=ARCHIVED`, conserve `statusBeforeArchive`. Audit `procedure.archived`. Permission **`procedures.archive`**.
 - **POST /api/procedures/:id/unarchive** — restaure `DRAFT` ou `PUBLISHED` selon `statusBeforeArchive`. Audit `procedure.unarchived`. Permission **`procedures.archive`**.
 
-UI : `/procedures` (catalogue + création), `/procedures/[id]/edit` (métadonnées + éditeur TipTap avancé Lot A + archive).
+UI : `/procedures` (catalogue + création), `/procedures/[id]/edit` (éditeur TipTap avancé + médias).
 
 ---
 

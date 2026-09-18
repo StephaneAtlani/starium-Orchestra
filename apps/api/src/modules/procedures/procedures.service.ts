@@ -19,6 +19,7 @@ import {
   assertProcedureContentJson,
   EMPTY_PROCEDURE_DOC,
 } from './lib/procedure-content.util';
+import { ProcedureAssetsService } from './procedure-assets.service';
 
 type AuditMeta = {
   ipAddress?: string;
@@ -46,6 +47,7 @@ export class ProceduresService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogs: AuditLogsService,
+    private readonly assets: ProcedureAssetsService,
   ) {}
 
   async list(clientId: string, query: ListProceduresQueryDto) {
@@ -174,6 +176,7 @@ export class ProceduresService {
     }
 
     const contentJson = assertProcedureContentJson(dto.contentJson);
+    await this.assets.assertAssetsBelongToProcedure(clientId, id, contentJson);
 
     const draft = await this.prisma.procedureVersion.findFirst({
       where: {

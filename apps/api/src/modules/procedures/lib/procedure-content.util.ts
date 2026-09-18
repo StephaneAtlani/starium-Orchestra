@@ -12,6 +12,8 @@ const ALLOWED_NODES = new Set([
   'horizontalRule',
   'text',
   'hardBreak',
+  'procedureImage',
+  'procedureFile',
 ]);
 
 const ALLOWED_MARKS = new Set([
@@ -45,6 +47,7 @@ export const PROCEDURE_HIGHLIGHT_COLOR_TOKENS = new Set([
 ]);
 
 const CODE_LANGUAGE_RE = /^[a-zA-Z0-9_-]{0,32}$/;
+const ASSET_ID_RE = /^[a-z0-9_-]{8,64}$/i;
 
 function assertHttpsHref(href: unknown): void {
   if (typeof href !== 'string' || !/^https:\/\//i.test(href)) {
@@ -65,7 +68,22 @@ function assertColorToken(
   }
 }
 
-function walk(node: unknown, depth: number): void {
+function assertNonEmptyString(raw: unknown, field: string): string {
+  if (typeof raw !== 'string' || !raw.trim()) {
+    throw new BadRequestException(`${field} obligatoire`);
+  }
+  return raw.trim();
+}
+
+function assertAssetId(raw: unknown): string {
+  const id = assertNonEmptyString(raw, 'assetId');
+  if (!ASSET_ID_RE.test(id)) {
+    throw new BadRequestException('assetId invalide');
+  }
+  return id;
+}
+
+function walk(node: unknown, depth: number, assetIds: Set<string>): void {
   if (depth > 40) {
     throw new BadRequestException('Document trop profond');
   }
@@ -91,6 +109,16 @@ function walk(node: unknown, depth: number): void {
       }
     }
   }
+  if (type === 'procedureImage') {
+    const attrs = (n.attrs ?? {}) as Record<string, unknown>;
+    assetIds.add(assertAssetId(attrs.assetId));
+    assertNonEmptyString(attrs.alt, 'Texte alternatif (alt)');
+  }
+  if (type === 'procedureFile') {
+    const attrs = (n.attrs ?? {}) as Record<string, unknown>;
+    assetIds.add(assertAssetId(attrs.assetId));
+    assertNonEmptyString(attrs.label, 'Libellé du fichier');
+  }
   if (Array.isArray(n.marks)) {
     for (const mark of n.marks) {
       if (!mark || typeof mark !== 'object') {
@@ -107,7 +135,6 @@ function walk(node: unknown, depth: number): void {
         assertHttpsHref(attrs.href);
       }
       if (m.type === 'textStyle') {
-        // Refuse hex / CSS libre ; seul colorToken allowlisté.
         if (attrs.color != null && attrs.color !== '') {
           throw new BadRequestException(
             'Couleur texte libre interdite — utilisez colorToken',
@@ -126,7 +153,7 @@ function walk(node: unknown, depth: number): void {
     }
   }
   if (Array.isArray(n.content)) {
-    for (const child of n.content) walk(child, depth + 1);
+    for (const child of n.content) walk(child, depth + 1, assetIds);
   }
 }
 
@@ -141,12 +168,32 @@ export function assertProcedureContentJson(
   if (doc.type !== 'doc') {
     throw new BadRequestException('La racine doit être un document (type doc)');
   }
-  walk(doc, 0);
+  walk(doc, 0, new Set());
   const serialized = JSON.stringify(doc);
   if (serialized.length > 500_000) {
     throw new BadRequestException('Contenu trop volumineux');
   }
   return doc;
+}
+
+/** Collecte les assetId référencés dans le document (sans re-valider le schéma). */
+export function collectProcedureAssetIds(contentJson: unknown): string[] {
+  const ids = new Set<string>();
+  const walkCollect = (node: unknown, depth: number) => {
+    if (depth > 40 || !node || typeof node !== 'object') return;
+    const n = node as Record<string, unknown>;
+    if (n.type === 'procedureImage' || n.type === 'procedureFile') {
+      const assetId = (n.attrs as { assetId?: unknown } | undefined)?.assetId;
+      if (typeof assetId === 'string' && assetId.trim()) {
+        ids.add(assetId.trim());
+      }
+    }
+    if (Array.isArray(n.content)) {
+      for (const child of n.content) walkCollect(child, depth + 1);
+    }
+  };
+  walkCollect(contentJson, 0);
+  return [...ids];
 }
 
 export const EMPTY_PROCEDURE_DOC = {

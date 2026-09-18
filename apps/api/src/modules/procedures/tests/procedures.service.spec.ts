@@ -13,7 +13,14 @@ describe('ProceduresService', () => {
   const auditLogs = { create: jest.fn().mockResolvedValue(undefined) };
 
   function buildService(prisma: Record<string, unknown>) {
-    return new ProceduresService(prisma as any, auditLogs as any);
+    const assets = {
+      assertAssetsBelongToProcedure: jest.fn().mockResolvedValue(undefined),
+    };
+    return new ProceduresService(
+      prisma as any,
+      auditLogs as any,
+      assets as any,
+    );
   }
 
   beforeEach(() => {

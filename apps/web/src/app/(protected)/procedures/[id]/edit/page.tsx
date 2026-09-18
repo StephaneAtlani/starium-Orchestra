@@ -259,6 +259,8 @@ export default function ProcedureEditPage() {
                   content={draftJson}
                   editable={editable}
                   onChange={setDraftJson}
+                  procedureId={procedureId}
+                  authFetch={authFetch}
                 />
               ) : (
                 <LoadingState rows={2} />

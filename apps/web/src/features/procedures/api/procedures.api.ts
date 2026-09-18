@@ -96,3 +96,61 @@ export function updateProcedureDraft(
     body: JSON.stringify(input),
   }).then((r: Response) => parseJson<ProcedureDetail>(r));
 }
+
+export type ProcedureAssetDto = {
+  id: string;
+  label: string;
+  mimeType: string;
+  sizeBytes: number;
+  createdAt: string;
+};
+
+export function listProcedureAssets(
+  authFetch: AuthFetch,
+  procedureId: string,
+): Promise<ProcedureAssetDto[]> {
+  return authFetch(`${BASE}/${procedureId}/assets`).then((r: Response) =>
+    parseJson<ProcedureAssetDto[]>(r),
+  );
+}
+
+export function uploadProcedureAsset(
+  authFetch: AuthFetch,
+  procedureId: string,
+  file: File,
+): Promise<ProcedureAssetDto> {
+  const body = new FormData();
+  body.append('file', file);
+  return authFetch(`${BASE}/${procedureId}/assets/upload`, {
+    method: 'POST',
+    body,
+  }).then((r: Response) => parseJson<ProcedureAssetDto>(r));
+}
+
+export async function downloadProcedureAssetBlob(
+  authFetch: AuthFetch,
+  procedureId: string,
+  assetId: string,
+): Promise<Blob> {
+  const res = await authFetch(`${BASE}/${procedureId}/assets/${assetId}`);
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as {
+      message?: string | string[];
+    };
+    const msg = Array.isArray(body.message)
+      ? body.message.join(', ')
+      : body.message;
+    throw new Error(msg || `Erreur ${res.status}`);
+  }
+  return res.blob();
+}
+
+export function deleteProcedureAsset(
+  authFetch: AuthFetch,
+  procedureId: string,
+  assetId: string,
+): Promise<{ ok: true }> {
+  return authFetch(`${BASE}/${procedureId}/assets/${assetId}`, {
+    method: 'DELETE',
+  }).then((r: Response) => parseJson<{ ok: true }>(r));
+}

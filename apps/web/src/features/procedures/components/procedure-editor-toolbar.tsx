@@ -19,6 +19,7 @@ import {
   Quote,
   Strikethrough,
   Underline as UnderlineIcon,
+  ImagePlus,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -39,6 +40,7 @@ import {
 type Props = {
   editor: Editor;
   onRequestLink: () => void;
+  onRequestMedia?: () => void;
 };
 
 const HEADING_LEVELS = [
@@ -50,7 +52,11 @@ const HEADING_LEVELS = [
   { level: 6 as const, label: 'Titre 6', Icon: Heading6 },
 ];
 
-export function ProcedureEditorToolbar({ editor, onRequestLink }: Props) {
+export function ProcedureEditorToolbar({
+  editor,
+  onRequestLink,
+  onRequestMedia,
+}: Props) {
   const textToken =
     (editor.getAttributes('textStyle').colorToken as string | null) ?? '';
   const highlightToken =
@@ -137,6 +143,15 @@ export function ProcedureEditorToolbar({ editor, onRequestLink }: Props) {
           pressed={editor.isActive('link')}
           onClick={onRequestLink}
           icon={<Link2 className="size-4" aria-hidden />}
+        />
+      </ToolbarGroup>
+
+      <ToolbarGroup label="Médias">
+        <ToolbarButton
+          label="Insérer un média"
+          pressed={false}
+          onClick={() => onRequestMedia?.()}
+          icon={<ImagePlus className="size-4" aria-hidden />}
         />
       </ToolbarGroup>
 
