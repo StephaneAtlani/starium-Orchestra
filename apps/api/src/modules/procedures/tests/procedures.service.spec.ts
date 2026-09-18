@@ -153,4 +153,77 @@ describe('ProceduresService', () => {
       }),
     );
   });
+
+  it('archive / unarchive — restaure le statut avant archivage', async () => {
+    const base = {
+      id: 'proc-1',
+      clientId: 'c1',
+      code: 'PSSI',
+      title: 'PSSI',
+      description: null,
+      category: ProcedureCategory.SECURITY,
+      ownerUserId: null,
+      currentDraftVersionId: null,
+      currentPublishedVersionId: null,
+      createdAt: new Date('2026-09-18T10:00:00Z'),
+      updatedAt: new Date('2026-09-18T10:00:00Z'),
+    };
+    const existing = {
+      ...base,
+      status: ProcedureStatus.DRAFT,
+      statusBeforeArchive: null,
+    };
+    const archived = {
+      ...base,
+      status: ProcedureStatus.ARCHIVED,
+      statusBeforeArchive: ProcedureStatus.DRAFT,
+    };
+    const restored = {
+      ...base,
+      status: ProcedureStatus.DRAFT,
+      statusBeforeArchive: null,
+    };
+    const prisma = {
+      procedure: {
+        findFirst: jest
+          .fn()
+          .mockResolvedValueOnce(existing)
+          .mockResolvedValueOnce(archived)
+          .mockResolvedValueOnce(archived)
+          .mockResolvedValueOnce(restored),
+        update: jest
+          .fn()
+          .mockResolvedValueOnce(archived)
+          .mockResolvedValueOnce(restored),
+      },
+      procedureVersion: { findFirst: jest.fn().mockResolvedValue(null) },
+      user: { findFirst: jest.fn() },
+    };
+    const service = buildService(prisma);
+    await service.archive('c1', 'proc-1', 'actor-1');
+    expect(prisma.procedure.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: ProcedureStatus.ARCHIVED,
+          statusBeforeArchive: ProcedureStatus.DRAFT,
+        }),
+      }),
+    );
+    expect(auditLogs.create).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'procedure.archived' }),
+    );
+
+    await service.unarchive('c1', 'proc-1', 'actor-1');
+    expect(prisma.procedure.update).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: ProcedureStatus.DRAFT,
+          statusBeforeArchive: null,
+        }),
+      }),
+    );
+    expect(auditLogs.create).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'procedure.unarchived' }),
+    );
+  });
 });

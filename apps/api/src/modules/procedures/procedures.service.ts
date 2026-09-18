@@ -218,6 +218,91 @@ export class ProceduresService {
     }
   }
 
+  async archive(
+    clientId: string,
+    id: string,
+    actorUserId?: string,
+    meta?: AuditMeta,
+  ) {
+    const existing = await this.prisma.procedure.findFirst({
+      where: { id, clientId },
+    });
+    if (!existing) throw new NotFoundException('Procédure introuvable');
+    if (existing.status === ProcedureStatus.ARCHIVED) {
+      return this.getById(clientId, id);
+    }
+
+    const updated = await this.prisma.procedure.update({
+      where: { id },
+      data: {
+        statusBeforeArchive: existing.status,
+        status: ProcedureStatus.ARCHIVED,
+        archivedAt: new Date(),
+        archivedByUserId: actorUserId ?? null,
+      },
+    });
+
+    await this.auditLogs.create({
+      clientId,
+      userId: actorUserId,
+      action: 'procedure.archived',
+      resourceType: 'procedure',
+      resourceId: updated.id,
+      oldValue: { status: existing.status },
+      newValue: { status: updated.status },
+      ipAddress: meta?.ipAddress,
+      userAgent: meta?.userAgent,
+      requestId: meta?.requestId,
+    });
+
+    return this.getById(clientId, id);
+  }
+
+  async unarchive(
+    clientId: string,
+    id: string,
+    actorUserId?: string,
+    meta?: AuditMeta,
+  ) {
+    const existing = await this.prisma.procedure.findFirst({
+      where: { id, clientId },
+    });
+    if (!existing) throw new NotFoundException('Procédure introuvable');
+    if (existing.status !== ProcedureStatus.ARCHIVED) {
+      return this.getById(clientId, id);
+    }
+
+    const restoreStatus =
+      existing.statusBeforeArchive === ProcedureStatus.PUBLISHED
+        ? ProcedureStatus.PUBLISHED
+        : ProcedureStatus.DRAFT;
+
+    const updated = await this.prisma.procedure.update({
+      where: { id },
+      data: {
+        status: restoreStatus,
+        statusBeforeArchive: null,
+        archivedAt: null,
+        archivedByUserId: null,
+      },
+    });
+
+    await this.auditLogs.create({
+      clientId,
+      userId: actorUserId,
+      action: 'procedure.unarchived',
+      resourceType: 'procedure',
+      resourceId: updated.id,
+      oldValue: { status: ProcedureStatus.ARCHIVED },
+      newValue: { status: updated.status },
+      ipAddress: meta?.ipAddress,
+      userAgent: meta?.userAgent,
+      requestId: meta?.requestId,
+    });
+
+    return this.getById(clientId, id);
+  }
+
   private async ensureOwnerInClient(clientId: string, userId: string) {
     const membership = await this.prisma.clientUser.findFirst({
       where: { clientId, userId },

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle } from 'lucide-react';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
@@ -11,12 +11,18 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { EmptyState } from '@/components/feedback/empty-state';
 import { ErrorState } from '@/components/feedback/error-state';
 import { LoadingState } from '@/components/feedback/loading-state';
-import { buttonVariants } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
+import { usePermissions } from '@/hooks/use-permissions';
 import { displayLabel } from '@/lib/display-label';
-import { getProcedure } from '@/features/procedures/api/procedures.api';
+import { toast } from '@/lib/toast';
+import {
+  archiveProcedure,
+  getProcedure,
+  unarchiveProcedure,
+} from '@/features/procedures/api/procedures.api';
 import { procedureQueryKeys } from '@/features/procedures/lib/procedure-query-keys';
 import {
   procedureCategoryLabel,
@@ -29,12 +35,39 @@ export default function ProcedureEditPage() {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id ?? '';
+  const { has } = usePermissions();
+  const canArchive = has('procedures.archive');
+  const queryClient = useQueryClient();
 
   const q = useQuery({
     queryKey: procedureQueryKeys.detail(clientId, procedureId),
     queryFn: () => getProcedure(authFetch, procedureId),
     enabled: Boolean(clientId) && Boolean(procedureId),
   });
+
+  const archiveMut = useMutation({
+    mutationFn: () => archiveProcedure(authFetch, procedureId),
+    onSuccess: async () => {
+      toast.success('Procédure archivée');
+      await queryClient.invalidateQueries({
+        queryKey: procedureQueryKeys.all(clientId),
+      });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const unarchiveMut = useMutation({
+    mutationFn: () => unarchiveProcedure(authFetch, procedureId),
+    onSuccess: async () => {
+      toast.success('Procédure restaurée');
+      await queryClient.invalidateQueries({
+        queryKey: procedureQueryKeys.all(clientId),
+      });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const isArchived = q.data?.status === 'ARCHIVED';
 
   return (
     <RequireActiveClient>
@@ -43,9 +76,7 @@ export default function ProcedureEditPage() {
           backHref="/procedures"
           eyebrow="Gouvernance › Procédures"
           title={
-            q.data
-              ? displayLabel(q.data.title, 'Procédure')
-              : 'Procédure'
+            q.data ? displayLabel(q.data.title, 'Procédure') : 'Procédure'
           }
           description={
             q.data
@@ -53,12 +84,52 @@ export default function ProcedureEditPage() {
               : 'Chargement…'
           }
           actions={
-            <Link
-              href="/procedures"
-              className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'min-h-11 sm:min-h-9')}
-            >
-              Catalogue
-            </Link>
+            <div className="flex flex-wrap gap-2">
+              {canArchive && q.isSuccess ? (
+                isArchived ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="min-h-11 sm:min-h-9"
+                    disabled={unarchiveMut.isPending}
+                    onClick={() => unarchiveMut.mutate()}
+                  >
+                    Désarchiver
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="min-h-11 sm:min-h-9"
+                    disabled={archiveMut.isPending}
+                    onClick={() => {
+                      if (
+                        typeof window !== 'undefined' &&
+                        !window.confirm(
+                          'Archiver cette procédure ? Elle disparaîtra du catalogue actif.',
+                        )
+                      ) {
+                        return;
+                      }
+                      archiveMut.mutate();
+                    }}
+                  >
+                    Archiver
+                  </Button>
+                )
+              ) : null}
+              <Link
+                href="/procedures"
+                className={cn(
+                  buttonVariants({ variant: 'outline', size: 'sm' }),
+                  'min-h-11 sm:min-h-9',
+                )}
+              >
+                Catalogue
+              </Link>
+            </div>
           }
         />
 
@@ -72,7 +143,21 @@ export default function ProcedureEditPage() {
 
         {q.isSuccess ? (
           <div className="flex flex-col gap-4">
-            <section className="starium-section space-y-2 p-4 sm:p-5" aria-labelledby="procedure-meta">
+            {isArchived ? (
+              <Alert>
+                <AlertCircle className="size-4" />
+                <AlertTitle>Procédure archivée</AlertTitle>
+                <AlertDescription>
+                  Lecture seule jusqu&apos;à désarchivage. Les versions et assets
+                  sont conservés.
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
+            <section
+              className="starium-section space-y-2 p-4 sm:p-5"
+              aria-labelledby="procedure-meta"
+            >
               <h2 id="procedure-meta" className="text-base font-semibold">
                 Métadonnées
               </h2>
@@ -115,19 +200,13 @@ export default function ProcedureEditPage() {
 
             <EmptyState
               title="Éditeur de contenu riche"
-              description="La rédaction TipTap (texte, médias, liens) arrive avec US-PROC-02. Les métadonnées et le brouillon v1 sont déjà créés."
+              description={
+                isArchived
+                  ? 'Contenu en lecture seule (procédure archivée).'
+                  : 'La rédaction TipTap (texte, médias, liens) arrive avec US-PROC-02. Les métadonnées et le brouillon v1 sont déjà créés.'
+              }
             />
           </div>
-        ) : null}
-
-        {q.isError ? (
-          <Alert variant="destructive">
-            <AlertCircle className="size-4" />
-            <AlertTitle>Procédure inaccessible</AlertTitle>
-            <AlertDescription>
-              Vérifiez vos droits ou revenez au catalogue.
-            </AlertDescription>
-          </Alert>
         ) : null}
       </PageContainer>
     </RequireActiveClient>

@@ -63,3 +63,21 @@ export function createProcedure(
     body: JSON.stringify(input),
   }).then((r: Response) => parseJson<ProcedureDetail>(r));
 }
+
+export function archiveProcedure(
+  authFetch: AuthFetch,
+  id: string,
+): Promise<ProcedureDetail> {
+  return authFetch(`${BASE}/${id}/archive`, { method: 'POST' }).then(
+    (r: Response) => parseJson<ProcedureDetail>(r),
+  );
+}
+
+export function unarchiveProcedure(
+  authFetch: AuthFetch,
+  id: string,
+): Promise<ProcedureDetail> {
+  return authFetch(`${BASE}/${id}/unarchive`, { method: 'POST' }).then(
+    (r: Response) => parseJson<ProcedureDetail>(r),
+  );
+}

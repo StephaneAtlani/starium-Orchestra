@@ -45,4 +45,28 @@ export class ProceduresController {
   ) {
     return this.proceduresService.getById(clientId!, id);
   }
+
+  @Post(':id/archive')
+  @RequirePermissions('procedures.archive')
+  archive(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta()
+    meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    return this.proceduresService.archive(clientId!, id, actorUserId, meta);
+  }
+
+  @Post(':id/unarchive')
+  @RequirePermissions('procedures.archive')
+  unarchive(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta()
+    meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    return this.proceduresService.unarchive(clientId!, id, actorUserId, meta);
+  }
 }
