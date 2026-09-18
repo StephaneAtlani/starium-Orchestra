@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Starium — Design preview · Versioning procédures</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --brand-gold: #E8A317;
+  --brand-gold-600: #CC8E0E;
+  --brand-gold-700: #5F3F00;
+  --brand-gold-050: #FBEAB5;
+  --brand-ink: #0E0E10;
+  --neutral-0: #FFFFFF;
+  --neutral-50: #FAF9F7;
+  --neutral-100: #F4F2EE;
+  --neutral-200: #E9E6E0;
+  --neutral-300: #D6D2CA;
+  --neutral-500: #8C8579;
+  --neutral-600: #5F5A52;
+  --state-success: #1F8A5B;
+  --state-success-bg: #E6F4ED;
+  --state-warning: #C77A00;
+  --state-warning-bg: #FFF1DC;
+  --state-danger: #B42318;
+  --state-danger-bg: #FBE8E6;
+  --state-info: #2A6FDB;
+  --state-info-bg: #E3EEFB;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-pill: 999px;
+  --shadow-1: 0 1px 2px rgba(14,14,16,.04), 0 1px 1px rgba(14,14,16,.03);
+  --shadow-3: 0 8px 24px rgba(14,14,16,.12), 0 2px 6px rgba(14,14,16,.06);
+  --shadow-focus: 0 0 0 3px rgba(232,163,23,.32);
+  --font: 'Manrope', system-ui, sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: var(--font);
+  background: var(--neutral-50);
+  color: var(--brand-ink);
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.45;
+}
+.wrap { max-width: 1080px; margin: 0 auto; padding: 48px 28px 80px; }
+.eyebrow {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--brand-gold-700); background: var(--brand-gold-050);
+  padding: 6px 12px; border-radius: var(--radius-pill); margin-bottom: 16px;
+}
+.eyebrow i { width: 8px; height: 8px; border-radius: 50%; background: var(--brand-gold); }
+h1 { font-size: 32px; font-weight: 800; letter-spacing: -.02em; margin: 0 0 8px; }
+.lede { margin: 0 0 40px; max-width: 640px; color: var(--neutral-600); font-size: 15px; }
+.sec { margin-bottom: 56px; }
+.sec h2 { font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--neutral-500); margin: 0 0 18px; }
+.card {
+  background: var(--neutral-0); border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg); padding: 24px; box-shadow: var(--shadow-1);
+}
+.typo-hero { font-size: 40px; font-weight: 800; letter-spacing: -.03em; margin: 0 0 12px; }
+.typo-body { font-size: 15px; color: var(--neutral-600); max-width: 520px; margin: 0 0 20px; }
+.typo-data { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.typo-data th { text-align: left; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--neutral-500); padding: 8px 10px; border-bottom: 1px solid var(--neutral-200); }
+.typo-data td { padding: 10px; border-bottom: 1px solid var(--neutral-100); }
+.typo-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px; background: var(--brand-ink); color: #F3F2EF;
+  padding: 14px 16px; border-radius: var(--radius-md); margin: 16px 0 0;
+}
+.typo-code .g { color: var(--brand-gold); }
+.swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; margin-bottom: 24px; }
+.swatch { border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--neutral-200); }
+.swatch .chip { height: 56px; }
+.swatch .meta { padding: 8px 10px; background: var(--neutral-0); font-size: 11px; }
+.swatch .meta b { display: block; font-weight: 700; }
+.swatch .meta span { color: var(--neutral-500); font-variant-numeric: tabular-nums; }
+.ui-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 16px; }
+.btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 9px 16px; min-height: 44px; border-radius: var(--radius-pill);
+  font-family: var(--font); font-size: 13px; font-weight: 700; cursor: pointer; border: none;
+}
+.btn-primary { background: var(--brand-ink); color: #fff; }
+.btn-outline { background: var(--neutral-0); color: var(--brand-ink); border: 1px solid var(--neutral-200); }
+.btn-ghost { background: transparent; color: var(--neutral-600); }
+.input {
+  height: 44px; padding: 0 14px; border: 1px solid var(--neutral-200); border-radius: var(--radius-md);
+  font-family: var(--font); font-size: 14px; background: var(--neutral-0); min-width: 220px;
+}
+.input:focus { outline: none; box-shadow: var(--shadow-focus); border-color: var(--brand-gold); }
+.input.err { border-color: var(--state-danger); }
+.alert { padding: 12px 14px; border-radius: var(--radius-md); font-size: 13px; font-weight: 600; }
+.alert-danger { background: var(--state-danger-bg); color: var(--state-danger); }
+.alert-warn { background: var(--state-warning-bg); color: var(--state-warning); }
+.alert-ok { background: var(--state-success-bg); color: var(--state-success); }
+.alert-info { background: var(--state-info-bg); color: var(--state-info); }
+.mini-card { padding: 16px; border: 1px solid var(--neutral-200); border-radius: var(--radius-lg); background: var(--neutral-50); }
+
+/* Mockup shell */
+.mock-shell {
+  display: grid; grid-template-columns: 1fr 300px; gap: 16px;
+  background: var(--neutral-50); border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg); padding: 16px; min-height: 420px;
+}
+@media (max-width: 800px) { .mock-shell { grid-template-columns: 1fr; } }
+.mock-doc {
+  background: var(--neutral-0); border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg); padding: 20px 22px; box-shadow: var(--shadow-1);
+}
+.mock-doc h3 { margin: 0 0 6px; font-size: 20px; font-weight: 800; letter-spacing: -.02em; }
+.meta-line { font-size: 12.5px; color: var(--neutral-500); display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 16px; }
+.meta-line .sep { color: var(--neutral-300); }
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: var(--radius-pill);
+}
+.badge-draft { background: var(--neutral-100); color: var(--neutral-600); }
+.badge-pub { background: var(--state-success-bg); color: var(--state-success); }
+.badge-major { background: var(--state-warning-bg); color: var(--state-warning); }
+.panel {
+  background: var(--neutral-0); border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg); padding: 14px 16px; box-shadow: var(--shadow-1);
+}
+.panel h4 { margin: 0 0 12px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--neutral-500); }
+.pr-hist { display: flex; flex-direction: column; gap: 10px; }
+.pr-hist-row {
+  display: grid; grid-template-columns: 48px 1fr; gap: 10px;
+  font-size: 12.5px; color: var(--neutral-600); padding-bottom: 10px;
+  border-bottom: 1px solid var(--neutral-100);
+}
+.pr-hist-row:last-child { border-bottom: 0; padding-bottom: 0; }
+.pr-hist-row b { color: var(--brand-ink); font-weight: 800; font-variant-numeric: tabular-nums; }
+.pr-hist-row .tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.pr-hist-row .who { font-size: 11.5px; color: var(--neutral-500); margin-top: 2px; }
+
+/* Modal overlay mock */
+.modal-stage {
+  position: relative; margin-top: 20px;
+  background: rgba(14,14,16,.4); border-radius: var(--radius-lg);
+  padding: 28px 16px; display: flex; justify-content: center;
+}
+.modal {
+  width: 100%; max-width: 440px; background: var(--neutral-0);
+  border-radius: var(--radius-xl); box-shadow: var(--shadow-3); overflow: hidden;
+}
+.modal-h {
+  display: flex; gap: 12px; align-items: flex-start;
+  padding: 20px 22px; border-bottom: 1px solid var(--neutral-200);
+}
+.modal-icon {
+  width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0;
+  background: var(--brand-gold-050); color: var(--brand-gold-700);
+  display: grid; place-items: center; font-size: 18px;
+}
+.modal-h h3 { margin: 0; font-size: 16px; font-weight: 800; }
+.modal-h p { margin: 4px 0 0; font-size: 13px; color: var(--neutral-500); }
+.modal-x { margin-left: auto; width: 36px; height: 36px; border: none; background: transparent; border-radius: var(--radius-md); cursor: pointer; color: var(--neutral-500); font-size: 18px; }
+.modal-b { padding: 20px; }
+.modal-f {
+  display: flex; justify-content: flex-end; gap: 10px;
+  padding: 14px 20px; border-top: 1px solid var(--neutral-200);
+}
+.seg {
+  display: flex; padding: 3px; background: var(--neutral-100);
+  border-radius: var(--radius-pill); gap: 2px; margin-bottom: 14px;
+}
+.seg button {
+  flex: 1; border: none; background: transparent; min-height: 40px;
+  border-radius: var(--radius-pill); font-family: var(--font);
+  font-size: 13px; font-weight: 700; color: var(--neutral-600); cursor: pointer;
+}
+.seg button.on { background: var(--brand-ink); color: #fff; }
+.preview-pill {
+  font-size: 13px; font-weight: 700; padding: 10px 14px;
+  background: var(--neutral-50); border: 1px dashed var(--neutral-300);
+  border-radius: var(--radius-md); margin-bottom: 14px;
+}
+.preview-pill strong { font-variant-numeric: tabular-nums; }
+.field label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+.field textarea {
+  width: 100%; min-height: 88px; padding: 12px; border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-md); font-family: var(--font); font-size: 14px; resize: vertical;
+}
+.field textarea:focus { outline: none; box-shadow: var(--shadow-focus); border-color: var(--brand-gold); }
+.field .hint { font-size: 12px; color: var(--state-danger); margin-top: 6px; font-weight: 600; }
+.field.hidden { display: none; }
+.note { margin-top: 16px; font-size: 12.5px; color: var(--neutral-500); max-width: 640px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow"><i></i> Design preview · Versioning procédures</div>
+  <h1>Starium Orchestra</h1>
+  <p class="lede">La version officielle se lit d’un coup d’œil, le brouillon ne se confond jamais. Tokens handoff / DS Starium ; composition UI pour publish mineure·majeure, historique et restore.</p>
+
+  <section class="sec">
+    <h2>1 · Specimen typo</h2>
+    <div class="card">
+      <p class="typo-hero">Starium Orchestra</p>
+      <p class="typo-body">Instruction d’une demande de projet — du dépôt à la création. Le brouillon reste sans numéro ; seule une publication crée une version officielle <strong>v2.1</strong> à diffuser.</p>
+      <table class="typo-data">
+        <thead><tr><th>Version</th><th>Type</th><th>Publiée le</th></tr></thead>
+        <tbody>
+          <tr><td>v2.1</td><td>Mineure</td><td>12/09/2026</td></tr>
+          <tr><td>v2.0</td><td>Majeure</td><td>01/09/2026</td></tr>
+          <tr><td>v1.3</td><td>Mineure</td><td>18/08/2026</td></tr>
+        </tbody>
+      </table>
+      <pre class="typo-code">{ "bumpType": <span class="g">"MAJOR"</span>, "label": <span class="g">"v3.0"</span>, "changeSummary": "…" }</pre>
+    </div>
+  </section>
+
+  <section class="sec">
+    <h2>2 · Palette &amp; composants</h2>
+    <div class="swatches">
+      <div class="swatch"><div class="chip" style="background:#E8A317"></div><div class="meta"><b>Brand gold</b><span>#E8A317</span></div></div>
+      <div class="swatch"><div class="chip" style="background:#0E0E10"></div><div class="meta"><b>Brand ink</b><span>#0E0E10</span></div></div>
+      <div class="swatch"><div class="chip" style="background:#FAF9F7"></div><div class="meta"><b>Neutral 50</b><span>#FAF9F7</span></div></div>
+      <div class="swatch"><div class="chip" style="background:#E9E6E0"></div><div class="meta"><b>Neutral 200</b><span>#E9E6E0</span></div></div>
+      <div class="swatch"><div class="chip" style="background:#1F8A5B"></div><div class="meta"><b>Success</b><span>#1F8A5B</span></div></div>
+      <div class="swatch"><div class="chip" style="background:#C77A00"></div><div class="meta"><b>Warning / majeure</b><span>#C77A00</span></div></div>
+      <div class="swatch"><div class="chip" style="background:#B42318"></div><div class="meta"><b>Danger</b><span>#B42318</span></div></div>
+      <div class="swatch"><div class="chip" style="background:#2A6FDB"></div><div class="meta"><b>Info</b><span>#2A6FDB</span></div></div>
+    </div>
+    <div class="card">
+      <div class="ui-row">
+        <button type="button" class="btn btn-primary">Publier</button>
+        <button type="button" class="btn btn-outline">Versions</button>
+        <button type="button" class="btn btn-ghost">Aperçu</button>
+      </div>
+      <div class="ui-row">
+        <input class="input" placeholder="Commentaire de version" aria-label="Commentaire">
+        <input class="input err" value="" placeholder="Requis pour une majeure" aria-invalid="true" aria-label="Commentaire erreur">
+      </div>
+      <div class="ui-row">
+        <div class="alert alert-ok">Publiée — v1.1</div>
+        <div class="alert alert-warn">Publication majeure — commentaire requis</div>
+        <div class="alert alert-danger">Indiquez un motif pour la version majeure</div>
+        <div class="alert alert-info">Brouillon — pas de numéro de version</div>
+      </div>
+      <div class="mini-card">Carte : fond papier, bordure soft, rayon 14 px — pas de cadre dans cadre pour les KPI.</div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <h2>3 · Mockup — éditeur + historique + modale Publier</h2>
+    <div class="mock-shell">
+      <div class="mock-doc">
+        <div class="ui-row" style="justify-content:space-between;margin-bottom:8px">
+          <span class="badge badge-draft">Brouillon</span>
+          <div class="ui-row" style="margin:0">
+            <button type="button" class="btn btn-outline">Versions</button>
+            <button type="button" class="btn btn-primary">Publier</button>
+          </div>
+        </div>
+        <h3>Instruction d’une demande de projet</h3>
+        <div class="meta-line">
+          <span>Responsable · Olivier Masson</span>
+          <span class="sep">·</span>
+          <span>Brouillon (sans n°)</span>
+          <span class="sep">·</span>
+          <span>Publiée courante <strong style="color:var(--brand-ink);font-variant-numeric:tabular-nums">v2.1</strong></span>
+        </div>
+        <p style="margin:0;font-size:14px;color:var(--neutral-600)">Du dépôt à la création du projet en portfolio. Contenu en cours d’édition — le numéro ne sera attribué qu’à la publication.</p>
+      </div>
+      <aside class="panel" aria-label="Historique des versions">
+        <h4>Historique</h4>
+        <div class="pr-hist">
+          <div class="pr-hist-row">
+            <b>v2.1</b>
+            <div>
+              Ajout du schéma de circuit
+              <div class="tags"><span class="badge badge-pub">Courante</span></div>
+              <div class="who">12 sept. 2026 · Mélanie Faure</div>
+            </div>
+          </div>
+          <div class="pr-hist-row">
+            <b>v2.0</b>
+            <div>
+              Refonte des rôles
+              <div class="tags"><span class="badge badge-major">Majeure</span></div>
+              <div class="who">1 sept. 2026 · Olivier Masson</div>
+            </div>
+          </div>
+          <div class="pr-hist-row">
+            <b>v1.3</b>
+            <div>
+              Seuils COPIL mis à jour
+              <div class="who">18 août 2026 · Jean Vasseur</div>
+            </div>
+          </div>
+        </div>
+        <button type="button" class="btn btn-outline" style="width:100%;justify-content:center;margin-top:14px">Restaurer dans le brouillon…</button>
+      </aside>
+    </div>
+
+    <div class="modal-stage" aria-hidden="false">
+      <div class="modal" role="dialog" aria-labelledby="pub-title">
+        <div class="modal-h">
+          <div class="modal-icon" aria-hidden="true">↑</div>
+          <div>
+            <h3 id="pub-title">Publier la procédure</h3>
+            <p>Crée la version officielle à diffuser.</p>
+          </div>
+          <button type="button" class="modal-x" aria-label="Fermer">×</button>
+        </div>
+        <div class="modal-b">
+          <div class="seg" role="group" aria-label="Type de version">
+            <button type="button" class="on">Mineure</button>
+            <button type="button">Majeure</button>
+          </div>
+          <div class="preview-pill">Prochaine version · <strong>v2.2</strong> <span style="font-weight:500;color:var(--neutral-500)">(aperçu)</span></div>
+          <div class="field" id="summary-field">
+            <label for="sum">Commentaire de version <span style="font-weight:500;color:var(--neutral-500)">(optionnel en mineure)</span></label>
+            <textarea id="sum" placeholder="Ex. mise à jour des seuils COPIL"></textarea>
+          </div>
+        </div>
+        <div class="modal-f">
+          <button type="button" class="btn btn-outline">Annuler</button>
+          <button type="button" class="btn btn-primary">Publier v2.2</button>
+        </div>
+      </div>
+    </div>
+    <p class="note">Si Majeure : segmented bascule, aperçu → <strong>v3.0</strong>, commentaire requis, erreur inline si vide. 1ʳᵉ publish : segmented masqué, forcé v1.0. Restore = deuxième modale de confirmation (même anatomie StariumModal).</p>
+  </section>
+</div>
+<script>
+(function () {
+  const seg = document.querySelectorAll('.seg button');
+  const preview = document.querySelector('.preview-pill strong');
+  const cta = document.querySelector('.modal-f .btn-primary');
+  const label = document.querySelector('#summary-field label');
+  const field = document.querySelector('#summary-field');
+  seg.forEach(function (btn, i) {
+    btn.addEventListener('click', function () {
+      seg.forEach(function (b) { b.classList.remove('on'); });
+      btn.classList.add('on');
+      var major = i === 1;
+      preview.textContent = major ? 'v3.0' : 'v2.2';
+      cta.textContent = major ? 'Publier v3.0' : 'Publier v2.2';
+      label.innerHTML = major
+        ? 'Commentaire de version <span style="color:var(--state-danger)">(obligatoire)</span>'
+        : 'Commentaire de version <span style="font-weight:500;color:var(--neutral-500)">(optionnel en mineure)</span>';
+      field.classList.toggle('req', major);
+    });
+  });
+})();
+</script>
+</body>
+</html>
