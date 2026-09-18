@@ -18,6 +18,7 @@ import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CreateProcedureDto } from './dto/create-procedure.dto';
 import { ListProceduresQueryDto } from './dto/list-procedures.query.dto';
+import { TransitionProcedureDto } from './dto/transition-procedure.dto';
 import { UpdateProcedureDraftDto } from './dto/update-procedure-draft.dto';
 import { ProceduresService } from './procedures.service';
 
@@ -67,6 +68,25 @@ export class ProceduresController {
     meta: { ipAddress?: string; userAgent?: string; requestId?: string },
   ) {
     return this.proceduresService.updateDraft(
+      clientId!,
+      id,
+      dto,
+      actorUserId,
+      meta,
+    );
+  }
+
+  @Post(':id/transition')
+  @RequirePermissions('procedures.update')
+  transition(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+    @Body() dto: TransitionProcedureDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta()
+    meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    return this.proceduresService.transition(
       clientId!,
       id,
       dto,

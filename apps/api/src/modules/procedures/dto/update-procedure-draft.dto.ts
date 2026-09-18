@@ -1,8 +1,19 @@
-import { IsISO8601, IsObject, IsOptional } from 'class-validator';
+import { IsEnum, IsISO8601, IsObject, IsOptional, IsString, MaxLength } from 'class-validator';
+import { ProcedureCategory } from '@prisma/client';
 
 export class UpdateProcedureDraftDto {
+  @IsOptional()
   @IsObject()
-  contentJson!: Record<string, unknown>;
+  contentJson?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  title?: string;
+
+  @IsOptional()
+  @IsEnum(ProcedureCategory)
+  category?: ProcedureCategory;
 
   /** Optimistic lock : `updatedAt` ISO de la procédure. */
   @IsOptional()

@@ -5,6 +5,7 @@ export const ALLOWED_PROCEDURE_ASSET_MIME = new Set([
   'image/png',
   'image/webp',
   'image/gif',
+  'image/svg+xml',
 ]);
 
 export const PROCEDURE_ASSET_MIME_TO_EXT: Record<string, string> = {
@@ -14,6 +15,7 @@ export const PROCEDURE_ASSET_MIME_TO_EXT: Record<string, string> = {
   'image/png': '.png',
   'image/webp': '.webp',
   'image/gif': '.gif',
+  'image/svg+xml': '.svg',
 };
 
 export function isProcedureImageMime(mime: string): boolean {

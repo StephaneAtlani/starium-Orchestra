@@ -7218,17 +7218,17 @@ model MeetingAttachment {
 
 enum ProcedureStatus {
   DRAFT
+  IN_REVIEW
   PUBLISHED
   ARCHIVED
 }
 
 enum ProcedureCategory {
-  SECURITY
-  OPERATIONS
-  HR
-  IT_SERVICE
+  PILOTAGE
   COMPLIANCE
-  OTHER
+  FINANCE
+  ORGANISATION
+  SECURITY
 }
 
 enum ProcedureVersionLifecycle {
@@ -7242,7 +7242,7 @@ model Procedure {
   code                      String
   title                     String
   description               String?
-  category                  ProcedureCategory @default(OTHER)
+  category                  ProcedureCategory @default(PILOTAGE)
   status                    ProcedureStatus   @default(DRAFT)
   statusBeforeArchive       ProcedureStatus?
   ownerUserId               String?

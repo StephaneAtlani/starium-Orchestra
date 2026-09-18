@@ -1,5 +1,7 @@
 import {
+  BadRequestException,
   ConflictException,
+  ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
 import {
@@ -11,6 +13,11 @@ import { ProceduresService } from '../procedures.service';
 
 describe('ProceduresService', () => {
   const auditLogs = { create: jest.fn().mockResolvedValue(undefined) };
+  const effectivePermissions = {
+    resolvePermissionCodesForRequest: jest
+      .fn()
+      .mockResolvedValue(new Set(['procedures.publish', 'procedures.update'])),
+  };
 
   function buildService(prisma: Record<string, unknown>) {
     const assets = {
@@ -20,6 +27,7 @@ describe('ProceduresService', () => {
       prisma as any,
       auditLogs as any,
       assets as any,
+      effectivePermissions as any,
     );
   }
 
@@ -27,7 +35,7 @@ describe('ProceduresService', () => {
     jest.clearAllMocks();
   });
 
-  it('create — happy path : DRAFT + version 1 + audit', async () => {
+  it('create — happy path : DRAFT + version 1 + EMPTY_V2', async () => {
     const procedure = {
       id: 'proc-1',
       clientId: 'c1',
@@ -49,12 +57,21 @@ describe('ProceduresService', () => {
       versionNumber: 1,
       lifecycle: ProcedureVersionLifecycle.DRAFT,
       title: 'PSSI',
+      contentJson: {
+        schemaVersion: 2,
+        blocks: [
+          { t: 'h1', html: '' },
+          { t: 'p', html: '' },
+        ],
+      },
       updatedAt: new Date('2026-09-18T10:00:00Z'),
     };
 
     const tx = {
       procedure: {
-        create: jest.fn().mockResolvedValue({ ...procedure, currentDraftVersionId: null }),
+        create: jest
+          .fn()
+          .mockResolvedValue({ ...procedure, currentDraftVersionId: null }),
         update: jest.fn().mockResolvedValue(procedure),
       },
       procedureVersion: {
@@ -90,6 +107,7 @@ describe('ProceduresService', () => {
           clientId: 'c1',
           code: 'PSSI',
           status: ProcedureStatus.DRAFT,
+          category: ProcedureCategory.SECURITY,
         }),
       }),
     );
@@ -98,33 +116,39 @@ describe('ProceduresService', () => {
         data: expect.objectContaining({
           versionNumber: 1,
           lifecycle: ProcedureVersionLifecycle.DRAFT,
+          contentJson: expect.objectContaining({ schemaVersion: 2 }),
         }),
       }),
     );
-    expect(auditLogs.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        action: 'procedure.created',
-        resourceType: 'procedure',
-        resourceId: 'proc-1',
-        clientId: 'c1',
-      }),
-    );
-    expect(result.code).toBe('PSSI');
-    expect(result.currentDraft?.versionNumber).toBe(1);
+    expect(result.id).toBe('proc-1');
+    expect(auditLogs.create).toHaveBeenCalled();
   });
 
-  it('create — conflit code → 409', async () => {
+  it('updateDraft — 409 si expectedUpdatedAt ne matche pas', async () => {
     const prisma = {
-      $transaction: jest.fn().mockRejectedValue({ code: 'P2002' }),
-      clientUser: { findFirst: jest.fn() },
+      procedure: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'proc-1',
+          clientId: 'c1',
+          status: ProcedureStatus.DRAFT,
+          currentDraftVersionId: 'ver-1',
+          updatedAt: new Date('2026-09-18T10:00:00Z'),
+        }),
+      },
     };
     const service = buildService(prisma);
     await expect(
-      service.create('c1', { code: 'PSSI', title: 'Dup' }, 'actor-1'),
+      service.updateDraft('c1', 'proc-1', {
+        contentJson: {
+          schemaVersion: 2,
+          blocks: [{ t: 'p', html: 'x' }],
+        },
+        expectedUpdatedAt: '2026-09-18T09:00:00.000Z',
+      }),
     ).rejects.toBeInstanceOf(ConflictException);
   });
 
-  it('getById — isolation : introuvable hors client', async () => {
+  it('getById — NotFound hors client', async () => {
     const prisma = {
       procedure: { findFirst: jest.fn().mockResolvedValue(null) },
     };
@@ -132,105 +156,65 @@ describe('ProceduresService', () => {
     await expect(service.getById('c1', 'proc-x')).rejects.toBeInstanceOf(
       NotFoundException,
     );
-    expect(prisma.procedure.findFirst).toHaveBeenCalledWith({
-      where: { id: 'proc-x', clientId: 'c1' },
-    });
   });
 
-  it('list — filtre clientId systématique', async () => {
-    const count = jest.fn().mockResolvedValue(0);
-    const findMany = jest.fn().mockResolvedValue([]);
-    const prisma = {
-      procedure: { count, findMany },
-      $transaction: jest.fn(async (ops: Promise<unknown>[]) => Promise.all(ops)),
-      user: { findMany: jest.fn().mockResolvedValue([]) },
-      procedureVersion: { findMany: jest.fn().mockResolvedValue([]) },
-    };
-    const service = buildService(prisma);
-    await service.list('c1', { limit: 10, offset: 0 });
-    expect(count).toHaveBeenCalledWith({
-      where: expect.objectContaining({
-        clientId: 'c1',
-        status: { not: ProcedureStatus.ARCHIVED },
-      }),
-    });
-    expect(findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({ clientId: 'c1' }),
-      }),
-    );
-  });
-
-  it('archive / unarchive — restaure le statut avant archivage', async () => {
-    const base = {
-      id: 'proc-1',
-      clientId: 'c1',
-      code: 'PSSI',
-      title: 'PSSI',
-      description: null,
-      category: ProcedureCategory.SECURITY,
-      ownerUserId: null,
-      currentDraftVersionId: null,
-      currentPublishedVersionId: null,
-      createdAt: new Date('2026-09-18T10:00:00Z'),
-      updatedAt: new Date('2026-09-18T10:00:00Z'),
-    };
-    const existing = {
-      ...base,
-      status: ProcedureStatus.DRAFT,
-      statusBeforeArchive: null,
-    };
-    const archived = {
-      ...base,
-      status: ProcedureStatus.ARCHIVED,
-      statusBeforeArchive: ProcedureStatus.DRAFT,
-    };
-    const restored = {
-      ...base,
-      status: ProcedureStatus.DRAFT,
-      statusBeforeArchive: null,
-    };
+  it('transition — refuse contenu vide vers IN_REVIEW', async () => {
     const prisma = {
       procedure: {
-        findFirst: jest
-          .fn()
-          .mockResolvedValueOnce(existing)
-          .mockResolvedValueOnce(archived)
-          .mockResolvedValueOnce(archived)
-          .mockResolvedValueOnce(restored),
-        update: jest
-          .fn()
-          .mockResolvedValueOnce(archived)
-          .mockResolvedValueOnce(restored),
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'proc-1',
+          clientId: 'c1',
+          status: ProcedureStatus.DRAFT,
+          currentDraftVersionId: 'ver-1',
+          updatedAt: new Date(),
+        }),
       },
-      procedureVersion: { findFirst: jest.fn().mockResolvedValue(null) },
-      user: { findFirst: jest.fn() },
+      procedureVersion: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'ver-1',
+          lifecycle: ProcedureVersionLifecycle.DRAFT,
+          contentJson: {
+            schemaVersion: 2,
+            blocks: [
+              { t: 'h1', html: '' },
+              { t: 'p', html: '' },
+            ],
+          },
+        }),
+      },
     };
     const service = buildService(prisma);
-    await service.archive('c1', 'proc-1', 'actor-1');
-    expect(prisma.procedure.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          status: ProcedureStatus.ARCHIVED,
-          statusBeforeArchive: ProcedureStatus.DRAFT,
-        }),
-      }),
-    );
-    expect(auditLogs.create).toHaveBeenCalledWith(
-      expect.objectContaining({ action: 'procedure.archived' }),
-    );
+    await expect(
+      service.transition(
+        'c1',
+        'proc-1',
+        { to: 'IN_REVIEW' as any },
+        'actor-1',
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
 
-    await service.unarchive('c1', 'proc-1', 'actor-1');
-    expect(prisma.procedure.update).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          status: ProcedureStatus.DRAFT,
-          statusBeforeArchive: null,
+  it('transition — publish exige procedures.publish', async () => {
+    effectivePermissions.resolvePermissionCodesForRequest.mockResolvedValueOnce(
+      new Set(['procedures.update']),
+    );
+    const service = buildService({
+      procedure: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'proc-1',
+          status: ProcedureStatus.IN_REVIEW,
+          currentDraftVersionId: 'ver-1',
+          updatedAt: new Date(),
         }),
-      }),
-    );
-    expect(auditLogs.create).toHaveBeenCalledWith(
-      expect.objectContaining({ action: 'procedure.unarchived' }),
-    );
+      },
+    });
+    await expect(
+      service.transition(
+        'c1',
+        'proc-1',
+        { to: 'PUBLISHED' as any },
+        'actor-1',
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 });

@@ -86,12 +86,30 @@ export function updateProcedureDraft(
   authFetch: AuthFetch,
   id: string,
   input: {
-    contentJson: Record<string, unknown>;
+    contentJson?: Record<string, unknown>;
+    title?: string;
+    category?: string;
     expectedUpdatedAt?: string;
   },
 ): Promise<ProcedureDetail> {
   return authFetch(`${BASE}/${id}/draft`, {
     method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(input),
+  }).then((r: Response) => parseJson<ProcedureDetail>(r));
+}
+
+export function transitionProcedure(
+  authFetch: AuthFetch,
+  id: string,
+  input: {
+    to: 'DRAFT' | 'IN_REVIEW' | 'PUBLISHED';
+    changeSummary?: string;
+    expectedUpdatedAt?: string;
+  },
+): Promise<ProcedureDetail> {
+  return authFetch(`${BASE}/${id}/transition`, {
+    method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(input),
   }).then((r: Response) => parseJson<ProcedureDetail>(r));

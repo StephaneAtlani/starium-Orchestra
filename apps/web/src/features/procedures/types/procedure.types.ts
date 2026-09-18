@@ -1,11 +1,15 @@
-export type ProcedureStatusApi = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+export type ProcedureStatusApi =
+  | 'DRAFT'
+  | 'IN_REVIEW'
+  | 'PUBLISHED'
+  | 'ARCHIVED';
+
 export type ProcedureCategoryApi =
-  | 'SECURITY'
-  | 'OPERATIONS'
-  | 'HR'
-  | 'IT_SERVICE'
+  | 'PILOTAGE'
   | 'COMPLIANCE'
-  | 'OTHER';
+  | 'FINANCE'
+  | 'ORGANISATION'
+  | 'SECURITY';
 
 export type ProcedureListItem = {
   id: string;
@@ -16,6 +20,9 @@ export type ProcedureListItem = {
   status: ProcedureStatusApi;
   ownerLabel: string | null;
   publishedVersionNumber: number | null;
+  draftVersionNumber?: number | null;
+  displayVersionNumber?: number | null;
+  blockCount?: number;
   publishedAt: string | null;
   updatedAt: string;
 };
@@ -55,4 +62,10 @@ export type CreateProcedureInput = {
   description?: string;
   category?: ProcedureCategoryApi;
   ownerUserId?: string;
+};
+
+export type TransitionProcedureInput = {
+  to: 'DRAFT' | 'IN_REVIEW' | 'PUBLISHED';
+  changeSummary?: string;
+  expectedUpdatedAt?: string;
 };

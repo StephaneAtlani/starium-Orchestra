@@ -125,11 +125,13 @@ describe('ProcedureAssetsService', () => {
       procedureVersion: {
         findFirst: jest.fn().mockResolvedValue({
           contentJson: {
-            type: 'doc',
-            content: [
+            schemaVersion: 2,
+            blocks: [
               {
-                type: 'procedureImage',
-                attrs: { assetId: 'a1', alt: 'x' },
+                t: 'img',
+                assetId: 'a1',
+                alt: 'x',
+                cap: '',
               },
             ],
           },

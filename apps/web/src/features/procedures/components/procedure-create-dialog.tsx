@@ -28,12 +28,11 @@ const schema = z.object({
   title: z.string().trim().min(1, 'Titre obligatoire').max(300),
   description: z.string().max(2000).optional(),
   category: z.enum([
-    'SECURITY',
-    'OPERATIONS',
-    'HR',
-    'IT_SERVICE',
+    'PILOTAGE',
     'COMPLIANCE',
-    'OTHER',
+    'FINANCE',
+    'ORGANISATION',
+    'SECURITY',
   ]),
   ownerUserId: z.string().optional(),
 });
@@ -70,7 +69,7 @@ export function ProcedureCreateDialog({
       code: '',
       title: '',
       description: '',
-      category: 'OTHER',
+      category: 'PILOTAGE',
       ownerUserId: '',
     },
   });
@@ -81,7 +80,7 @@ export function ProcedureCreateDialog({
       code: '',
       title: '',
       description: '',
-      category: 'OTHER',
+      category: 'PILOTAGE',
       ownerUserId: '',
     });
   }, [open, form]);

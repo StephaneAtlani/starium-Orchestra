@@ -1,166 +1,117 @@
 import { BadRequestException } from '@nestjs/common';
-import { assertProcedureContentJson } from '../lib/procedure-content.util';
+import {
+  assertProcedureContentJson,
+  isProcedureContentEmpty,
+  sanitizeProcedureHtml,
+} from '../lib/procedure-content.util';
 
-describe('assertProcedureContentJson', () => {
-  it('accepte un doc TipTap minimal', () => {
+describe('assertProcedureContentJson (v2 blocks)', () => {
+  it('accepte un document blocs minimal', () => {
     const doc = {
-      type: 'doc',
-      content: [
-        {
-          type: 'paragraph',
-          content: [{ type: 'text', text: 'Hello', marks: [{ type: 'bold' }] }],
-        },
+      schemaVersion: 2,
+      blocks: [
+        { t: 'h1', html: 'Objet' },
+        { t: 'p', html: 'Texte <b>gras</b>' },
       ],
     };
     expect(assertProcedureContentJson(doc)).toEqual(doc);
   });
 
-  it('accepte H6, underline, textStyle et highlight tokenisés', () => {
+  it('refuse TipTap type doc', () => {
+    expect(() =>
+      assertProcedureContentJson({
+        type: 'doc',
+        content: [{ type: 'paragraph' }],
+      }),
+    ).toThrow(BadRequestException);
+  });
+
+  it('refuse javascript: dans un lien', () => {
+    expect(() =>
+      assertProcedureContentJson({
+        schemaVersion: 2,
+        blocks: [
+          {
+            t: 'p',
+            html: '<a href="javascript:alert(1)">x</a>',
+          },
+        ],
+      }),
+    ).toThrow(BadRequestException);
+  });
+
+  it('accepte image avec assetId + alt', () => {
     const doc = {
-      type: 'doc',
-      content: [
+      schemaVersion: 2,
+      blocks: [
         {
-          type: 'heading',
-          attrs: { level: 6 },
-          content: [
-            {
-              type: 'text',
-              text: 'Titre',
-              marks: [
-                { type: 'underline' },
-                { type: 'textStyle', attrs: { colorToken: 'brand' } },
-                { type: 'highlight', attrs: { colorToken: 'warningSoft' } },
-              ],
-            },
+          t: 'img',
+          assetId: 'clxxxxxxxx0001asset00001',
+          alt: 'Schéma',
+          cap: '',
+        },
+      ],
+    };
+    const out = assertProcedureContentJson(doc);
+    expect((out.blocks as unknown[])[0]).toMatchObject({
+      t: 'img',
+      assetId: 'clxxxxxxxx0001asset00001',
+    });
+  });
+
+  it('accepte diag avec nodes/edges', () => {
+    const doc = {
+      schemaVersion: 2,
+      blocks: [
+        {
+          t: 'diag',
+          title: 'Flux',
+          cap: '',
+          nodes: [
+            { id: 'n1', k: 'start', x: 10, y: 10, label: 'Début' },
+            { id: 'n2', k: 'end', x: 100, y: 10, label: 'Fin' },
           ],
-        },
-        { type: 'horizontalRule' },
-        {
-          type: 'codeBlock',
-          attrs: { language: 'bash' },
-          content: [{ type: 'text', text: 'echo ok' }],
+          edges: [{ from: 'n1', to: 'n2' }],
         },
       ],
     };
-    expect(assertProcedureContentJson(doc)).toEqual(doc);
+    expect(assertProcedureContentJson(doc).blocks).toHaveLength(1);
+  });
+});
+
+describe('sanitizeProcedureHtml', () => {
+  it('retire style et script', () => {
+    expect(
+      sanitizeProcedureHtml('<p style="color:red">x</p><script>evil()</script>'),
+    ).toBe('x');
   });
 
-  it('accepte procedureImage et procedureFile avec alt/label', () => {
-    const doc = {
-      type: 'doc',
-      content: [
-        {
-          type: 'procedureImage',
-          attrs: { assetId: 'clxxxxxxxx0001asset00001', alt: 'Schéma accès' },
-        },
-        {
-          type: 'procedureFile',
-          attrs: {
-            assetId: 'clxxxxxxxx0001asset00002',
-            label: 'Annexe PDF',
-          },
-        },
-      ],
-    };
-    expect(assertProcedureContentJson(doc)).toEqual(doc);
+  it('conserve strong et lien https', () => {
+    expect(
+      sanitizeProcedureHtml('<strong>ok</strong> <a href="https://ex.com">l</a>'),
+    ).toBe('<strong>ok</strong> <a href="https://ex.com">l</a>');
   });
+});
 
-  it('refuse procedureImage sans alt', () => {
-    expect(() =>
-      assertProcedureContentJson({
-        type: 'doc',
-        content: [
-          {
-            type: 'procedureImage',
-            attrs: { assetId: 'clxxxxxxxx0001asset00001', alt: '' },
-          },
+describe('isProcedureContentEmpty', () => {
+  it('détecte EMPTY_V2', () => {
+    expect(
+      isProcedureContentEmpty({
+        schemaVersion: 2,
+        blocks: [
+          { t: 'h1', html: '' },
+          { t: 'p', html: '' },
         ],
       }),
-    ).toThrow(BadRequestException);
+    ).toBe(true);
   });
 
-  it('refuse H7', () => {
-    expect(() =>
-      assertProcedureContentJson({
-        type: 'doc',
-        content: [{ type: 'heading', attrs: { level: 7 } }],
+  it('détecte contenu non vide', () => {
+    expect(
+      isProcedureContentEmpty({
+        schemaVersion: 2,
+        blocks: [{ t: 'p', html: 'Hello' }],
       }),
-    ).toThrow(BadRequestException);
-  });
-
-  it('refuse un colorToken texte inconnu', () => {
-    expect(() =>
-      assertProcedureContentJson({
-        type: 'doc',
-        content: [
-          {
-            type: 'paragraph',
-            content: [
-              {
-                type: 'text',
-                text: 'x',
-                marks: [
-                  { type: 'textStyle', attrs: { colorToken: '#ff0000' } },
-                ],
-              },
-            ],
-          },
-        ],
-      }),
-    ).toThrow(BadRequestException);
-  });
-
-  it('refuse une couleur CSS libre sur textStyle', () => {
-    expect(() =>
-      assertProcedureContentJson({
-        type: 'doc',
-        content: [
-          {
-            type: 'paragraph',
-            content: [
-              {
-                type: 'text',
-                text: 'x',
-                marks: [
-                  {
-                    type: 'textStyle',
-                    attrs: { color: 'var(--brand-ink)' },
-                  },
-                ],
-              },
-            ],
-          },
-        ],
-      }),
-    ).toThrow(BadRequestException);
-  });
-
-  it('refuse un script / noeud inconnu', () => {
-    expect(() =>
-      assertProcedureContentJson({
-        type: 'doc',
-        content: [{ type: 'script' }],
-      }),
-    ).toThrow(BadRequestException);
-  });
-
-  it('refuse un lien non https', () => {
-    expect(() =>
-      assertProcedureContentJson({
-        type: 'doc',
-        content: [
-          {
-            type: 'paragraph',
-            content: [
-              {
-                type: 'text',
-                text: 'x',
-                marks: [{ type: 'link', attrs: { href: 'http://evil' } }],
-              },
-            ],
-          },
-        ],
-      }),
-    ).toThrow(BadRequestException);
+    ).toBe(false);
   });
 });

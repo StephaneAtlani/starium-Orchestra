@@ -1,12 +1,12 @@
-export const EMPTY_PROCEDURE_DOC: {
-  type: 'doc';
-  content: Array<{ type: string }>;
-} = {
-  type: 'doc',
-  content: [{ type: 'paragraph' }],
-};
+export const EMPTY_PROCEDURE_DOC = {
+  schemaVersion: 2,
+  blocks: [
+    { t: 'h1', html: '' },
+    { t: 'p', html: '' },
+  ],
+} as const;
 
 export type ProcedureContentJson = {
-  type: 'doc';
-  content?: unknown[];
+  schemaVersion: 2;
+  blocks: unknown[];
 };
