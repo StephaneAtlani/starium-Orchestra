@@ -432,6 +432,51 @@ export function NavigationMenuBody({ className }: NavigationMenuBodyProps) {
                 );
               }
 
+              /* Dropdown générique : items avec children et sans branche dédiée
+                 (ex. Procédures — sinon return null et entrée absente du menu). */
+              if ((item.children?.length ?? 0) > 0) {
+                const dropdownChildren = (item.children ?? []).filter((child) =>
+                  visible(
+                    child,
+                    platformRole,
+                    clientRole,
+                    has,
+                    permsSuccess,
+                    isModuleVisible,
+                  ),
+                );
+                if (dropdownChildren.length === 0) {
+                  return null;
+                }
+
+                const isChildActive = (href: string) => {
+                  if (!pathname) return false;
+                  if (pathname === href) return true;
+                  if (!pathname.startsWith(`${href}/`)) return false;
+                  return true;
+                };
+
+                return (
+                  <SidebarDropdown
+                    key={`dropdown-${item.label}`}
+                    label={item.label}
+                    icon={item.icon}
+                  >
+                    {dropdownChildren.map((child) =>
+                      child.href ? (
+                        <NavSubMenuLink
+                          key={child.href}
+                          href={child.href}
+                          isActive={isChildActive(child.href)}
+                        >
+                          {child.label}
+                        </NavSubMenuLink>
+                      ) : null,
+                    )}
+                  </SidebarDropdown>
+                );
+              }
+
               if (item.href) {
                 const link = (
                   <SidebarItem

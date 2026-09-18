@@ -121,6 +121,7 @@ export class ProceduresService {
             id: true,
             versionNumber: true,
             publishedAt: true,
+            contentJson: true,
           },
         })
       : [];
@@ -751,7 +752,12 @@ export class ProceduresService {
     >,
     publishedMap: Map<
       string,
-      { id: string; versionNumber: number; publishedAt: Date | null }
+      {
+        id: string;
+        versionNumber: number;
+        publishedAt: Date | null;
+        contentJson: Prisma.JsonValue;
+      }
     >,
     draftMap: Map<
       string,
@@ -769,6 +775,8 @@ export class ProceduresService {
       : null;
     const displayVersion =
       published?.versionNumber ?? draft?.versionNumber ?? null;
+    /** Carte catalogue : contenu publié si dispo (sinon brouillon) — aligné mock nb blocs. */
+    const contentForCount = published?.contentJson ?? draft?.contentJson;
     return {
       id: row.id,
       code: row.code,
@@ -781,7 +789,7 @@ export class ProceduresService {
       publishedVersionNumber: published?.versionNumber ?? null,
       draftVersionNumber: draft?.versionNumber ?? null,
       displayVersionNumber: displayVersion,
-      blockCount: countProcedureBlocks(draft?.contentJson),
+      blockCount: countProcedureBlocks(contentForCount),
       publishedAt: published?.publishedAt?.toISOString() ?? null,
       updatedAt: row.updatedAt.toISOString(),
     };

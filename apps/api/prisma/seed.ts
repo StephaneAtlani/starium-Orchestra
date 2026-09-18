@@ -50,6 +50,7 @@ import { ensureDemoProjectTagsAndLabels } from "./seed-project-demo-tags";
 import { ensureDemoGovernanceCycles } from "./seed-governance-cycles-demo";
 import { ensureDemoProjectRequests } from "./seed-project-requests-demo";
 import { ensureLatestModulesDemoForAllClients } from "./seed-latest-modules-demo";
+import { ensureDemoProceduresForAllClients } from "./seed-procedures-demo";
 import { ensureRiskTaxonomyForClient } from "../src/modules/risk-taxonomy/risk-taxonomy-defaults";
 import { ensureDefaultActivityTypes } from "../src/modules/activity-types/activity-types-defaults";
 import { ensureBudgetSnapshotsAndVersions } from "./seed-budget-snapshots-versions";
@@ -4280,6 +4281,9 @@ async function main() {
 
     /** Modules récents : org, contrats, équipes/compétences, capacité, vision, réunions, alertes, abonnements. */
     await ensureLatestModulesDemoForAllClients(prisma);
+
+    /** Catalogue procédures — 4 fiches mock handoff (DEMO-PROC-01…04). */
+    await ensureDemoProceduresForAllClients(prisma);
 
     /** Après un SSO Microsoft, `passwordLoginEnabled` est à false → login mot de passe impossible. Réactive les comptes démo à chaque seed. */
     const demoLoginReset = await prisma.user.updateMany({

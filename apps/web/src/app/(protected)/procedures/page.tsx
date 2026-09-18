@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { AlertCircle, AlertTriangle } from 'lucide-react';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
@@ -7,21 +8,33 @@ import { PageHeader } from '@/components/layout/page-header';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { usePermissions } from '@/hooks/use-permissions';
-import { ProceduresCatalog } from '@/features/procedures/components/procedures-catalog';
+import {
+  ProceduresCatalog,
+  ProceduresCatalogHeaderActions,
+} from '@/features/procedures/components/procedures-catalog';
 
 export default function ProceduresPage() {
   const { has, isLoading: permsLoading, isSuccess: permsSuccess, isError: permsError } =
     usePermissions();
   const canRead = has('procedures.read');
+  const canCreate = has('procedures.create');
+  const [createOpen, setCreateOpen] = useState(false);
 
   return (
     <RequireActiveClient>
       <PageContainer className="flex flex-col gap-4">
         <PageHeader
-          backHref="/compliance/dashboard"
           eyebrow="Gouvernance › Procédures"
           title="Procédures"
-          description="Catalogue des procédures internes du client actif."
+          description="Rédigez, structurez et publiez les procédures de l'organisation. Blocs déplaçables, mise en forme, schémas intégrés."
+          actions={
+            canRead ? (
+              <ProceduresCatalogHeaderActions
+                canCreate={canCreate}
+                onCreate={() => setCreateOpen(true)}
+              />
+            ) : undefined
+          }
         />
 
         {permsLoading && <LoadingState rows={2} />}
@@ -43,7 +56,12 @@ export default function ProceduresPage() {
           </Alert>
         )}
 
-        {permsSuccess && canRead && <ProceduresCatalog />}
+        {permsSuccess && canRead && (
+          <ProceduresCatalog
+            createOpen={createOpen}
+            onCreateOpenChange={setCreateOpen}
+          />
+        )}
       </PageContainer>
     </RequireActiveClient>
   );
