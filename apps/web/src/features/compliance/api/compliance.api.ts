@@ -214,7 +214,11 @@ export async function listComplianceRequirements(
   return res.json() as Promise<ComplianceRequirementRowApi[]>;
 }
 
-export type ComplianceEvidenceKindApi = 'URL' | 'OBSERVATION' | 'FILE';
+export type ComplianceEvidenceKindApi =
+  | 'URL'
+  | 'OBSERVATION'
+  | 'FILE'
+  | 'REFERENCE';
 
 export type ComplianceEvidenceAssessmentApi =
   | 'TO_REVIEW'
@@ -285,6 +289,7 @@ export type ComplianceRequirementDetailApi = {
     isCurrent?: boolean;
     collectedAt?: string | null;
     createdAt?: string | null;
+    createdByLabel?: string | null;
   }>;
   linkedRisks: Array<{
     code: string;
@@ -598,6 +603,7 @@ export type CreateComplianceEvidencePayload = {
   description?: string;
   url?: string;
   kind?: ComplianceEvidenceKindApi;
+  collectedAt?: string;
 };
 
 export async function createComplianceEvidence(

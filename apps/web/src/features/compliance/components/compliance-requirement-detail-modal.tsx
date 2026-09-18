@@ -145,6 +145,10 @@ export function ComplianceRequirementDetailModal({
   const [evidenceName, setEvidenceName] = useState('');
   const [evidenceUrl, setEvidenceUrl] = useState('');
   const [evidenceDescription, setEvidenceDescription] = useState('');
+  const [evidenceCollectedAt, setEvidenceCollectedAt] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
   const [evidenceDraftOpen, setEvidenceDraftOpen] = useState(false);
   const [addEvidenceMenuOpen, setAddEvidenceMenuOpen] = useState(false);
   const addEvidenceMenuRef = useRef<HTMLDivElement>(null);
@@ -298,11 +302,17 @@ export function ComplianceRequirementDetailModal({
         requirementId: requirementId!,
         name: evidenceName.trim(),
         kind: evidenceKind,
-        url: evidenceKind === 'URL' ? evidenceUrl.trim() : undefined,
+        url:
+          evidenceKind === 'URL' || evidenceKind === 'REFERENCE'
+            ? evidenceUrl.trim() || undefined
+            : undefined,
         description:
-          evidenceKind === 'OBSERVATION'
+          evidenceKind === 'OBSERVATION' || evidenceKind === 'REFERENCE'
             ? evidenceDescription.trim()
             : evidenceDescription.trim() || undefined,
+        collectedAt: evidenceCollectedAt
+          ? new Date(`${evidenceCollectedAt}T12:00:00`).toISOString()
+          : undefined,
       }),
     onSuccess: async () => {
       toast.success('Preuve ajoutée');
@@ -627,12 +637,14 @@ export function ComplianceRequirementDetailModal({
                   setEvidenceUrl('');
                   setEvidenceDescription('');
                 } else if (kind === 'REFERENCE') {
-                  setEvidenceKind('OBSERVATION');
-                  setEvidenceName(`Réf. ${q.data.requirement.code}`);
+                  setEvidenceKind('REFERENCE');
+                  setEvidenceName('');
+                  setEvidenceUrl('');
                   setEvidenceDescription('');
                 } else {
                   setEvidenceKind('OBSERVATION');
                   setEvidenceName('');
+                  setEvidenceUrl('');
                   setEvidenceDescription('');
                 }
                 setEvidenceDraftOpen(true);
@@ -650,6 +662,8 @@ export function ComplianceRequirementDetailModal({
               onEvidenceUrlChange={setEvidenceUrl}
               evidenceDescription={evidenceDescription}
               onEvidenceDescriptionChange={setEvidenceDescription}
+              evidenceCollectedAt={evidenceCollectedAt}
+              onEvidenceCollectedAtChange={setEvidenceCollectedAt}
               onSubmitEvidence={() => evidenceMut.mutate()}
               evidencePending={evidenceMut.isPending}
               onEditEvidence={

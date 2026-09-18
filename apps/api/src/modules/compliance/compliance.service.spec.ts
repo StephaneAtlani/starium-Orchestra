@@ -65,6 +65,9 @@ describe('ComplianceService', () => {
       clientUser: {
         findFirst: jest.fn(),
       },
+      user: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
       complianceGap: {
         findFirst: jest.fn(),
         findFirstOrThrow: jest.fn(),
@@ -119,6 +122,17 @@ describe('ComplianceService', () => {
           description: 'vu sur site',
         }),
       ).toBe('OBSERVATION');
+    });
+
+    it('préfère le kind persisté REFERENCE', () => {
+      expect(
+        deriveComplianceEvidenceKind({
+          kind: 'REFERENCE',
+          url: 'https://x',
+          fileId: null,
+          description: 'Politique',
+        }),
+      ).toBe('REFERENCE');
     });
 
     it('justifie conforme avec observation seule', () => {
@@ -246,6 +260,56 @@ describe('ComplianceService', () => {
             requirementId: 'req-1',
             name: 'X',
             kind: ComplianceEvidenceKindDto.OBSERVATION,
+          },
+          'u1',
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('accepte une référence avec description et persiste kind', async () => {
+      prisma.complianceRequirement.findFirst.mockResolvedValue({ id: 'req-1' });
+      prisma.complianceEvidence.create.mockResolvedValue({
+        id: 'ev-ref',
+        requirementId: 'req-1',
+        name: 'POL-SEC',
+        description: 'Politique sécurité v2',
+        url: null,
+        fileId: null,
+        kind: 'REFERENCE',
+        collectedAt: new Date('2026-01-10'),
+      });
+
+      const row = await service.createEvidence(
+        'c1',
+        {
+          requirementId: 'req-1',
+          name: 'POL-SEC',
+          description: 'Politique sécurité v2',
+          kind: ComplianceEvidenceKindDto.REFERENCE,
+          collectedAt: '2026-01-10T12:00:00.000Z',
+        },
+        'u1',
+      );
+
+      expect(row.kind).toBe('REFERENCE');
+      expect(prisma.complianceEvidence.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            kind: 'REFERENCE',
+            description: 'Politique sécurité v2',
+          }),
+        }),
+      );
+    });
+
+    it('refuse une référence sans description', async () => {
+      await expect(
+        service.createEvidence(
+          'c1',
+          {
+            requirementId: 'req-1',
+            name: 'POL',
+            kind: ComplianceEvidenceKindDto.REFERENCE,
           },
           'u1',
         ),

@@ -3069,7 +3069,7 @@ Guards métier client (`X-Client-Id`, module `compliance`). Isolation : toute le
 
 - **POST /api/compliance/evidence** — Body :
   - `requirementId`, `name`, `kind?`, `url?`, `fileId?`, `description?`
-  - Observation seule (sans URL) **autorisée**. Permission **`compliance.update`**.
+  - Observation seule (sans URL) **autorisée**. Kind `REFERENCE` (description obligatoire, URL optionnelle) + `collectedAt?`. Détail exigence enrichit `createdByLabel`. Permission **`compliance.update`**.
 - **PATCH /api/compliance/evidence/:id** — Body `{ assessment?, name?, description?, collectedAt? }`. Appréciation : `TO_REVIEW` \| `RELEVANT` \| `PARTIAL` \| `INSUFFICIENT`. Permission **`compliance.update`**. Audit `compliance.evidence.updated`.
 - **DELETE /api/compliance/evidence/:id** — Soft-delete (`isCurrent=false`) ; audit `compliance.evidence.archived`. Permission **`compliance.update`**.
 - **POST /api/compliance/evidence/:id/versions** — Crée une nouvelle version courante (ancienne `isCurrent=false`). Body optionnel `{ name?, description?, url?, fileId?, collectedAt? }`. Audit `compliance.evidence.versioned`.
@@ -3078,7 +3078,7 @@ Guards métier client (`X-Client-Id`, module `compliance`). Isolation : toute le
   - `kind?` : `URL` \| `OBSERVATION` \| `FILE` (V1 : pas de colonne Prisma ; dérivé à la lecture)
   - `url?`, `fileId?`, `description?`
   - Validation croisée : `URL` ⇒ `url` ; `FILE` ⇒ `fileId` ; `OBSERVATION` ⇒ `description` non vide ; si `kind` omis → dérivé (`url` → URL, `fileId` → FILE, sinon OBSERVATION si description).
-  - Observation seule (sans URL) **autorisée**. Permission **`compliance.update`**.
+  - Observation seule (sans URL) **autorisée**. Kind `REFERENCE` (description obligatoire, URL optionnelle) + `collectedAt?`. Détail exigence enrichit `createdByLabel`. Permission **`compliance.update`**.
 
 #### Dashboard KPI
 

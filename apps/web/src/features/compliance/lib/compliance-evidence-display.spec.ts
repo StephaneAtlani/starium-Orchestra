@@ -8,17 +8,20 @@ describe('compliance-evidence-display', () => {
   it('libellés kind métier', () => {
     expect(complianceEvidenceKindLabel('URL')).toBe('Lien externe');
     expect(complianceEvidenceKindLabel('OBSERVATION')).toBe('Note / constat');
+    expect(complianceEvidenceKindLabel('REFERENCE')).toBe('Référence interne');
     expect(complianceEvidenceKindLabel('FILE')).toBe('Fichier');
     expect(complianceEvidenceKindLabel(undefined)).toBe('Preuve');
   });
 
-  it('compose méta type · date · version', () => {
+  it('compose méta type · date · auteur · version', () => {
     const meta = formatComplianceEvidenceMeta({
-      kind: 'URL',
+      kind: 'REFERENCE',
       collectedAt: '2026-03-15T12:00:00.000Z',
+      createdByLabel: 'Ada Lovelace',
       version: 2,
     });
-    expect(meta).toContain('Lien externe');
+    expect(meta).toContain('Référence interne');
+    expect(meta).toContain('Ada Lovelace');
     expect(meta).toContain('v2');
     expect(meta).toMatch(/15/);
   });

@@ -10,6 +10,8 @@ export function complianceEvidenceKindLabel(
       return 'Fichier';
     case 'OBSERVATION':
       return 'Note / constat';
+    case 'REFERENCE':
+      return 'Référence interne';
     default:
       return 'Preuve';
   }
@@ -20,6 +22,7 @@ export function formatComplianceEvidenceMeta(opts: {
   version?: number | null;
   collectedAt?: string | null;
   createdAt?: string | null;
+  createdByLabel?: string | null;
 }): string {
   const parts: string[] = [complianceEvidenceKindLabel(opts.kind)];
   const dateIso = opts.collectedAt || opts.createdAt;
@@ -34,6 +37,9 @@ export function formatComplianceEvidenceMeta(opts: {
         }),
       );
     }
+  }
+  if (opts.createdByLabel?.trim()) {
+    parts.push(opts.createdByLabel.trim());
   }
   if (opts.version != null && opts.version > 0) {
     parts.push(`v${opts.version}`);

@@ -3943,6 +3943,8 @@ model ComplianceEvidence {
   description     String?
   url             String?
   fileId          String?
+  /// Kind métier persisté (URL|OBSERVATION|FILE|REFERENCE). Null = legacy dérivé.
+  kind            String?
   /// Version courante de la chaîne (1 = initiale).
   version         Int                           @default(1)
   isCurrent       Boolean                       @default(true)

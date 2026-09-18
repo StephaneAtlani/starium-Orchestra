@@ -81,14 +81,30 @@ type PlatformAuditMeta = {
   requestId?: string;
 };
 
-export type ComplianceEvidenceKind = 'URL' | 'OBSERVATION' | 'FILE';
+export type ComplianceEvidenceKind =
+  | 'URL'
+  | 'OBSERVATION'
+  | 'FILE'
+  | 'REFERENCE';
 
-/** Dérive le kind d’une preuve stockée (pas de colonne Prisma en V1). */
+const STORED_KINDS = new Set<ComplianceEvidenceKind>([
+  'URL',
+  'OBSERVATION',
+  'FILE',
+  'REFERENCE',
+]);
+
+/** Résout le kind : colonne persistée si présente, sinon dérivation legacy. */
 export function deriveComplianceEvidenceKind(row: {
+  kind?: string | null;
   url: string | null;
   fileId: string | null;
   description: string | null;
 }): ComplianceEvidenceKind {
+  const stored = row.kind?.trim();
+  if (stored && STORED_KINDS.has(stored as ComplianceEvidenceKind)) {
+    return stored as ComplianceEvidenceKind;
+  }
   if (row.url?.trim()) return 'URL';
   if (row.fileId?.trim()) return 'FILE';
   return 'OBSERVATION';
@@ -694,6 +710,27 @@ export class ComplianceService {
       }),
     ]);
 
+    const creatorIds = [
+      ...new Set(
+        evidences
+          .map((e) => e.createdByUserId)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    const creators =
+      creatorIds.length > 0
+        ? await this.prisma.user.findMany({
+            where: { id: { in: creatorIds } },
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          })
+        : [];
+    const creatorById = new Map(creators.map((u) => [u.id, u]));
+
     return {
       requirement,
       status: status
@@ -710,10 +747,22 @@ export class ComplianceService {
       naRequest: naRequest ?? null,
       contributions: contributions.map((c) => this.mapContribution(c)),
       gaps: gaps.map((g) => this.mapGap(g)),
-      evidences: evidences.map((e) => ({
-        ...e,
-        kind: deriveComplianceEvidenceKind(e),
-      })),
+      evidences: evidences.map((e) => {
+        const creator = e.createdByUserId
+          ? creatorById.get(e.createdByUserId)
+          : undefined;
+        const createdByLabel = creator
+          ? [creator.firstName, creator.lastName]
+              .filter(Boolean)
+              .join(' ')
+              .trim() || creator.email
+          : null;
+        return {
+          ...e,
+          kind: deriveComplianceEvidenceKind(e),
+          createdByLabel,
+        };
+      }),
       linkedRisks,
       linkedRiskCount: linkedRisks.length,
     };
@@ -1781,9 +1830,15 @@ export class ComplianceService {
         'Une référence fichier est requise pour une preuve de type fichier',
       );
     }
-    if (kind === ComplianceEvidenceKindDto.OBSERVATION && !description) {
+    if (
+      (kind === ComplianceEvidenceKindDto.OBSERVATION ||
+        kind === ComplianceEvidenceKindDto.REFERENCE) &&
+      !description
+    ) {
       throw new BadRequestException(
-        'Une observation (description) est requise pour une preuve de type observation',
+        kind === ComplianceEvidenceKindDto.REFERENCE
+          ? 'Une description est requise pour une preuve de type référence'
+          : 'Une observation (description) est requise pour une preuve de type observation',
       );
     }
     if (!url && !fileId && !description) {
@@ -1798,14 +1853,29 @@ export class ComplianceService {
     });
     if (!req) throw new NotFoundException('Exigence introuvable');
 
+    let collectedAt: Date | null = new Date();
+    if (dto.collectedAt) {
+      const parsed = new Date(dto.collectedAt);
+      if (Number.isNaN(parsed.getTime())) {
+        throw new BadRequestException('Date de collecte invalide');
+      }
+      collectedAt = parsed;
+    }
+
     const row = await this.prisma.complianceEvidence.create({
       data: {
         clientId,
         requirementId: dto.requirementId,
         name: dto.name.trim(),
         description: description || null,
-        url: kind === ComplianceEvidenceKindDto.URL ? url : url || null,
+        url:
+          kind === ComplianceEvidenceKindDto.URL ||
+          kind === ComplianceEvidenceKindDto.REFERENCE
+            ? url || null
+            : url || null,
         fileId: kind === ComplianceEvidenceKindDto.FILE ? fileId : fileId || null,
+        kind,
+        collectedAt,
         createdByUserId: actorUserId ?? null,
       },
     });
@@ -1958,6 +2028,7 @@ export class ComplianceService {
           description,
           url,
           fileId,
+          kind: existing.kind ?? deriveComplianceEvidenceKind(existing),
           version: existing.version + 1,
           isCurrent: true,
           supersedesId: existing.id,

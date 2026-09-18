@@ -1,4 +1,5 @@
 import {
+  IsDateString,
   IsEnum,
   IsOptional,
   IsString,
@@ -10,6 +11,7 @@ export enum ComplianceEvidenceKindDto {
   URL = 'URL',
   OBSERVATION = 'OBSERVATION',
   FILE = 'FILE',
+  REFERENCE = 'REFERENCE',
 }
 
 export class CreateComplianceEvidenceDto {
@@ -46,4 +48,8 @@ export class CreateComplianceEvidenceDto {
   @IsOptional()
   @IsString()
   fileId?: string;
+
+  @IsOptional()
+  @IsDateString()
+  collectedAt?: string;
 }

@@ -4,6 +4,7 @@ import { useLayoutEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   AlertTriangle,
+  BookOpen,
   CopyPlus,
   ExternalLink,
   FileText,
@@ -69,6 +70,14 @@ function evidenceKindMeta(kind?: ComplianceEvidenceKindApi | string) {
       Icon: FileText,
     };
   }
+  if (kind === 'REFERENCE') {
+    return {
+      label: 'Réf.',
+      className:
+        'bg-[color:var(--state-success-bg)] text-[color:var(--state-success)]',
+      Icon: BookOpen,
+    };
+  }
   return {
     label: 'Note',
     className:
@@ -107,6 +116,8 @@ export function ComplianceAssessDrawerBody({
   onEvidenceUrlChange,
   evidenceDescription,
   onEvidenceDescriptionChange,
+  evidenceCollectedAt,
+  onEvidenceCollectedAtChange,
   onSubmitEvidence,
   evidencePending,
   onEditEvidence,
@@ -153,6 +164,8 @@ export function ComplianceAssessDrawerBody({
   onEvidenceUrlChange: (v: string) => void;
   evidenceDescription: string;
   onEvidenceDescriptionChange: (v: string) => void;
+  evidenceCollectedAt: string;
+  onEvidenceCollectedAtChange: (v: string) => void;
   onSubmitEvidence: () => void;
   evidencePending: boolean;
   onEditEvidence?: (evidenceId: string) => void;
@@ -344,6 +357,7 @@ export function ComplianceAssessDrawerBody({
                   version: e.version,
                   collectedAt: e.collectedAt,
                   createdAt: e.createdAt,
+                  createdByLabel: e.createdByLabel,
                 });
                 return (
                   <li
@@ -539,9 +553,11 @@ export function ComplianceAssessDrawerBody({
                     <Label htmlFor="comp-ev-name">
                       {evidenceKind === 'URL'
                         ? 'Libellé du lien'
-                        : evidenceKind === 'FILE'
-                          ? 'Nom du fichier'
-                          : 'Titre'}
+                        : evidenceKind === 'REFERENCE'
+                          ? 'Titre de la référence'
+                          : evidenceKind === 'FILE'
+                            ? 'Nom du fichier'
+                            : 'Titre'}
                     </Label>
                     <Input
                       id="comp-ev-name"
@@ -562,9 +578,20 @@ export function ComplianceAssessDrawerBody({
                         placeholder="https://…"
                       />
                     </div>
-                  ) : (
+                  ) : null}
+                  {evidenceKind === 'REFERENCE' ||
+                  evidenceKind === 'OBSERVATION' ? (
                     <div className="space-y-1.5">
-                      <Label htmlFor="comp-ev-desc">Détail</Label>
+                      <Label htmlFor="comp-ev-desc">
+                        {evidenceKind === 'REFERENCE'
+                          ? 'Description / référence'
+                          : 'Détail'}{' '}
+                        {evidenceKind === 'REFERENCE' ? (
+                          <span className="text-destructive" aria-hidden>
+                            *
+                          </span>
+                        ) : null}
+                      </Label>
                       <Textarea
                         id="comp-ev-desc"
                         value={evidenceDescription}
@@ -573,9 +600,35 @@ export function ComplianceAssessDrawerBody({
                         }
                         rows={2}
                         className="min-h-0 text-foreground"
+                        aria-required={evidenceKind === 'REFERENCE'}
                       />
                     </div>
-                  )}
+                  ) : null}
+                  {evidenceKind === 'REFERENCE' ? (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="comp-ev-url-ref">URL (optionnelle)</Label>
+                      <Input
+                        id="comp-ev-url-ref"
+                        type="url"
+                        value={evidenceUrl}
+                        onChange={(e) => onEvidenceUrlChange(e.target.value)}
+                        className="text-foreground"
+                        placeholder="https://… ou lien interne"
+                      />
+                    </div>
+                  ) : null}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="comp-ev-collected">Date de collecte</Label>
+                    <Input
+                      id="comp-ev-collected"
+                      type="date"
+                      value={evidenceCollectedAt}
+                      onChange={(e) =>
+                        onEvidenceCollectedAtChange(e.target.value)
+                      }
+                      className="min-h-11 text-foreground sm:min-h-9"
+                    />
+                  </div>
                   <div className="flex flex-wrap gap-2">
                     <Button
                       type="button"
@@ -591,7 +644,10 @@ export function ComplianceAssessDrawerBody({
                       disabled={
                         evidencePending ||
                         !evidenceName.trim() ||
-                        (evidenceKind === 'URL' && !evidenceUrl.trim())
+                        (evidenceKind === 'URL' && !evidenceUrl.trim()) ||
+                        ((evidenceKind === 'OBSERVATION' ||
+                          evidenceKind === 'REFERENCE') &&
+                          !evidenceDescription.trim())
                       }
                       onClick={onSubmitEvidence}
                     >
