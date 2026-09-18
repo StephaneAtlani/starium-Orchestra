@@ -317,6 +317,49 @@ describe('ComplianceService', () => {
     });
   });
 
+  describe('reuseEvidence', () => {
+    it('copie une preuve vers une autre exigence', async () => {
+      prisma.complianceEvidence.findFirst.mockResolvedValue({
+        id: 'ev-src',
+        clientId: 'c1',
+        requirementId: 'req-a',
+        name: 'POL',
+        description: 'Desc',
+        url: null,
+        fileId: null,
+        kind: 'REFERENCE',
+        isCurrent: true,
+        collectedAt: new Date('2026-01-01'),
+      });
+      prisma.complianceRequirement.findFirst.mockResolvedValue({ id: 'req-b' });
+      prisma.complianceEvidence.create.mockResolvedValue({
+        id: 'ev-new',
+        requirementId: 'req-b',
+        name: 'POL',
+        description: 'Desc',
+        kind: 'REFERENCE',
+        url: null,
+        fileId: null,
+      });
+
+      const out = await service.reuseEvidence(
+        'c1',
+        { sourceEvidenceId: 'ev-src', requirementId: 'req-b' },
+        'u1',
+      );
+      expect(out.id).toBe('ev-new');
+      expect(prisma.complianceEvidence.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            requirementId: 'req-b',
+            name: 'POL',
+            kind: 'REFERENCE',
+          }),
+        }),
+      );
+    });
+  });
+
   describe('archiveEvidence', () => {
     it('passe isCurrent à false et audite', async () => {
       prisma.complianceEvidence.findFirst.mockResolvedValue({

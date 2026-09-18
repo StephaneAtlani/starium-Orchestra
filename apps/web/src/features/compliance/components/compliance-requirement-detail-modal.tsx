@@ -31,6 +31,7 @@ import {
   type CreateProjectRiskPayload,
 } from '@/features/projects/api/projects.api';
 import { ProjectRiskEbiosDialog } from '@/features/projects/components/project-risk-ebios-dialog';
+import { ComplianceEvidenceReuseModal } from './compliance-evidence-reuse-modal';
 import {
   createComplianceContribution,
   createComplianceEvidence,
@@ -42,6 +43,7 @@ import {
   patchComplianceContribution,
   patchComplianceEvidence,
   patchComplianceGap,
+  reuseComplianceEvidence,
   upsertComplianceRequirementStatus,
   type ComplianceEvidenceKindApi,
   type ComplianceRequirementRowApi,
@@ -168,6 +170,7 @@ export function ComplianceRequirementDetailModal({
   const [versioningEvidenceId, setVersioningEvidenceId] = useState<
     string | null
   >(null);
+  const [reuseOpen, setReuseOpen] = useState(false);
 
   const { data: members = [] } = useClientMembers();
 
@@ -359,6 +362,21 @@ export function ComplianceRequirementDetailModal({
     onSuccess: async () => {
       toast.success('Nouvelle version créée');
       setVersioningEvidenceId(null);
+      invalidateComplianceQueries(queryClient, clientId);
+      await q.refetch();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const evidenceReuseMut = useMutation({
+    mutationFn: (sourceEvidenceId: string) =>
+      reuseComplianceEvidence(authFetch, {
+        sourceEvidenceId,
+        requirementId: requirementId!,
+      }),
+    onSuccess: async () => {
+      toast.success('Preuve réutilisée');
+      setReuseOpen(false);
       invalidateComplianceQueries(queryClient, clientId);
       await q.refetch();
     },
@@ -626,6 +644,9 @@ export function ComplianceRequirementDetailModal({
               addEvidenceMenuOpen={addEvidenceMenuOpen}
               onToggleAddEvidenceMenu={() =>
                 setAddEvidenceMenuOpen((o) => !o)
+              }
+              onOpenReuseEvidence={
+                canUpdate ? () => setReuseOpen(true) : undefined
               }
               addEvidenceMenuRef={addEvidenceMenuRef}
               evidenceDraftOpen={evidenceDraftOpen}
@@ -934,6 +955,17 @@ export function ComplianceRequirementDetailModal({
               pending={evidenceVersionMut.isPending}
               onConfirm={() => evidenceVersionMut.mutate()}
             />
+            {requirementId ? (
+              <ComplianceEvidenceReuseModal
+                open={reuseOpen}
+                onOpenChange={setReuseOpen}
+                requirementId={requirementId}
+                pending={evidenceReuseMut.isPending}
+                onReuse={(sourceEvidenceId) =>
+                  evidenceReuseMut.mutate(sourceEvidenceId)
+                }
+              />
+            ) : null}
           </>
         );
       })()}

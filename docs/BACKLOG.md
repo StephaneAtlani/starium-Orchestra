@@ -36,7 +36,8 @@ Liste **uniquement** du travail restant (pas de historique « fait »). Trajecto
 | ~~COMP.EV.3~~ | Appréciation preuve (select labellisé) | COMP-004 — **✅** |
 | ~~COMP.EV.4~~ | Nouvelle version preuve (CTA + confirmation) | COMP-004 — **✅** |
 | ~~COMP.EV.5~~ | Kind REFERENCE + méta collecte / auteur | COMP-004 — **✅** |
-| **COMP.EV.6**…**COMP.EV.7** | Réutilisation / fichier | [RFC-COMP-004](./RFC/RFC-COMP-004%20—%20Gestion%20des%20preuves%20de%20conformité.md) |
+| ~~COMP.EV.6~~ | Réutiliser preuve (search + copie) | COMP-004 — **✅** |
+| COMP.EV.7 | Upload fichier / GED | hors scope immédiat (`fut-evidence-ged`) |
 
 ---
 

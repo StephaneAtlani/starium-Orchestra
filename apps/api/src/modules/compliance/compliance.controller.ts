@@ -26,6 +26,10 @@ import { ComplianceRemindersService } from './compliance-reminders.service';
 import { CreateComplianceFrameworkDto } from './dto/create-compliance-framework.dto';
 import { CreateComplianceRequirementDto } from './dto/create-compliance-requirement.dto';
 import { CreateComplianceEvidenceDto } from './dto/create-compliance-evidence.dto';
+import {
+  ReuseComplianceEvidenceDto,
+  SearchComplianceEvidenceQueryDto,
+} from './dto/reuse-compliance-evidence.dto';
 import { PatchComplianceStatusDto } from './dto/patch-compliance-status.dto';
 import { ListComplianceRequirementsQueryDto } from './dto/list-compliance-requirements.query.dto';
 import { ListComplianceStatusQueryDto } from './dto/list-compliance-status.query.dto';
@@ -463,6 +467,30 @@ export class ComplianceController {
   ) {
     const context: AuditContext = { actorUserId, meta };
     return this.compliance.createEvidence(clientId!, dto, actorUserId, context);
+  }
+
+  @Get('evidence/search')
+  @RequirePermissions('compliance.read')
+  searchEvidence(
+    @ActiveClientId() clientId: string | undefined,
+    @Query() query: SearchComplianceEvidenceQueryDto,
+  ) {
+    return this.compliance.searchEvidence(clientId!, {
+      q: query.q,
+      excludeRequirementId: query.excludeRequirementId,
+    });
+  }
+
+  @Post('evidence/reuse')
+  @RequirePermissions('compliance.update')
+  reuseEvidence(
+    @ActiveClientId() clientId: string | undefined,
+    @Body() dto: ReuseComplianceEvidenceDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.compliance.reuseEvidence(clientId!, dto, actorUserId, context);
   }
 
   @Patch('evidence/:id')

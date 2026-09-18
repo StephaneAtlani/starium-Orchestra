@@ -105,6 +105,7 @@ export function ComplianceAssessDrawerBody({
   evidences,
   addEvidenceMenuOpen,
   onToggleAddEvidenceMenu,
+  onOpenReuseEvidence,
   addEvidenceMenuRef,
   evidenceDraftOpen,
   onPickEvidenceKind,
@@ -153,6 +154,7 @@ export function ComplianceAssessDrawerBody({
   evidences: ComplianceRequirementDetailApi['evidences'];
   addEvidenceMenuOpen: boolean;
   onToggleAddEvidenceMenu: () => void;
+  onOpenReuseEvidence?: () => void;
   addEvidenceMenuRef: React.RefObject<HTMLDivElement | null>;
   evidenceDraftOpen: boolean;
   onPickEvidenceKind: (kind: 'URL' | 'REFERENCE' | 'NOTE') => void;
@@ -547,6 +549,16 @@ export function ComplianceAssessDrawerBody({
                 <Plus className="size-4" aria-hidden />
                 Ajouter une preuve
               </button>
+              {onOpenReuseEvidence ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-2 min-h-11 w-full sm:min-h-9"
+                  onClick={onOpenReuseEvidence}
+                >
+                  Réutiliser une preuve existante
+                </Button>
+              ) : null}
               {evidenceDraftOpen ? (
                 <div className="mt-3 space-y-3 rounded-lg border border-border/70 bg-muted/20 p-3">
                   <div className="space-y-1.5">

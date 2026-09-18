@@ -10,6 +10,7 @@ export const COMPLIANCE_AUDIT_ACTION = {
   EVIDENCE_UPDATED: 'compliance.evidence.updated',
   EVIDENCE_VERSIONED: 'compliance.evidence.versioned',
   EVIDENCE_ARCHIVED: 'compliance.evidence.archived',
+  EVIDENCE_REUSED: 'compliance.evidence.reused',
   CAMPAIGN_CREATED: 'compliance.campaign.created',
   CAMPAIGN_OPENED: 'compliance.campaign.opened',
   CAMPAIGN_CLOSED: 'compliance.campaign.closed',

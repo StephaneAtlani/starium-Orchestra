@@ -3070,6 +3070,8 @@ Guards métier client (`X-Client-Id`, module `compliance`). Isolation : toute le
 - **POST /api/compliance/evidence** — Body :
   - `requirementId`, `name`, `kind?`, `url?`, `fileId?`, `description?`
   - Observation seule (sans URL) **autorisée**. Kind `REFERENCE` (description obligatoire, URL optionnelle) + `collectedAt?`. Détail exigence enrichit `createdByLabel`. Permission **`compliance.update`**.
+- **GET /api/compliance/evidence/search?q=&excludeRequirementId=** — Preuves courantes du client (libellés) pour réutilisation. Permission **`compliance.read`**.
+- **POST /api/compliance/evidence/reuse** — Body `{ sourceEvidenceId, requirementId }` : copie métadonnées vers l’exigence cible ; audit `compliance.evidence.reused`. Permission **`compliance.update`**.
 - **PATCH /api/compliance/evidence/:id** — Body `{ assessment?, name?, description?, collectedAt? }`. Appréciation : `TO_REVIEW` \| `RELEVANT` \| `PARTIAL` \| `INSUFFICIENT`. Permission **`compliance.update`**. Audit `compliance.evidence.updated`.
 - **DELETE /api/compliance/evidence/:id** — Soft-delete (`isCurrent=false`) ; audit `compliance.evidence.archived`. Permission **`compliance.update`**.
 - **POST /api/compliance/evidence/:id/versions** — Crée une nouvelle version courante (ancienne `isCurrent=false`). Body optionnel `{ name?, description?, url?, fileId?, collectedAt? }`. Audit `compliance.evidence.versioned`.

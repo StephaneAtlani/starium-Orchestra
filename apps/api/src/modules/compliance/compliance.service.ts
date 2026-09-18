@@ -1897,6 +1897,111 @@ export class ComplianceService {
     return { ...row, kind: deriveComplianceEvidenceKind(row) };
   }
 
+  async searchEvidence(
+    clientId: string,
+    opts: { q?: string; excludeRequirementId?: string },
+  ) {
+    const q = opts.q?.trim() ?? '';
+    const rows = await this.prisma.complianceEvidence.findMany({
+      where: {
+        clientId,
+        isCurrent: true,
+        ...(opts.excludeRequirementId
+          ? { requirementId: { not: opts.excludeRequirementId } }
+          : {}),
+        ...(q
+          ? {
+              OR: [
+                { name: { contains: q, mode: 'insensitive' } },
+                { description: { contains: q, mode: 'insensitive' } },
+                { url: { contains: q, mode: 'insensitive' } },
+              ],
+            }
+          : {}),
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 30,
+      include: {
+        requirement: { select: { code: true, title: true } },
+      },
+    });
+
+    return rows.map((e) => ({
+      id: e.id,
+      name: e.name,
+      description: e.description,
+      url: e.url,
+      kind: deriveComplianceEvidenceKind(e),
+      collectedAt: e.collectedAt,
+      requirementCode: e.requirement.code,
+      requirementTitle: e.requirement.title,
+    }));
+  }
+
+  async reuseEvidence(
+    clientId: string,
+    dto: { sourceEvidenceId: string; requirementId: string },
+    actorUserId: string | undefined,
+    context?: AuditContext,
+  ) {
+    const source = await this.prisma.complianceEvidence.findFirst({
+      where: {
+        id: dto.sourceEvidenceId,
+        clientId,
+        isCurrent: true,
+      },
+    });
+    if (!source) throw new NotFoundException('Preuve source introuvable');
+
+    const req = await this.prisma.complianceRequirement.findFirst({
+      where: { id: dto.requirementId, framework: { clientId } },
+      select: { id: true },
+    });
+    if (!req) throw new NotFoundException('Exigence introuvable');
+
+    if (source.requirementId === dto.requirementId) {
+      throw new BadRequestException(
+        'Cette preuve est déjà rattachée à cette exigence',
+      );
+    }
+
+    const row = await this.prisma.complianceEvidence.create({
+      data: {
+        clientId,
+        requirementId: dto.requirementId,
+        name: source.name,
+        description: source.description,
+        url: source.url,
+        fileId: source.fileId,
+        kind: source.kind ?? deriveComplianceEvidenceKind(source),
+        collectedAt: source.collectedAt ?? new Date(),
+        version: 1,
+        isCurrent: true,
+        assessment: ComplianceEvidenceAssessment.TO_REVIEW,
+        createdByUserId: actorUserId ?? null,
+      },
+    });
+
+    await this.auditLogs.create({
+      clientId,
+      userId: context?.actorUserId,
+      action: COMPLIANCE_AUDIT_ACTION.EVIDENCE_REUSED,
+      resourceType: COMPLIANCE_AUDIT_RESOURCE_TYPE.COMPLIANCE_EVIDENCE,
+      resourceId: row.id,
+      newValue: {
+        sourceEvidenceId: source.id,
+        requirementId: row.requirementId,
+        name: row.name,
+        kind: deriveComplianceEvidenceKind(row),
+      },
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    });
+
+    return { ...row, kind: deriveComplianceEvidenceKind(row) };
+  }
+
   async patchEvidence(
     clientId: string,
     evidenceId: string,

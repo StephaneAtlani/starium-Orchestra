@@ -653,6 +653,45 @@ export async function deleteComplianceEvidence(
   return res.json();
 }
 
+export type ComplianceEvidenceSearchHitApi = {
+  id: string;
+  name: string;
+  description: string | null;
+  url: string | null;
+  kind: ComplianceEvidenceKindApi;
+  collectedAt: string | null;
+  requirementCode: string;
+  requirementTitle: string;
+};
+
+export async function searchComplianceEvidence(
+  authFetch: AuthFetch,
+  opts?: { q?: string; excludeRequirementId?: string },
+) {
+  const qs = new URLSearchParams();
+  if (opts?.q) qs.set('q', opts.q);
+  if (opts?.excludeRequirementId) {
+    qs.set('excludeRequirementId', opts.excludeRequirementId);
+  }
+  const suffix = qs.toString() ? `?${qs.toString()}` : '';
+  const res = await authFetch(`${BASE}/evidence/search${suffix}`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ComplianceEvidenceSearchHitApi[]>;
+}
+
+export async function reuseComplianceEvidence(
+  authFetch: AuthFetch,
+  payload: { sourceEvidenceId: string; requirementId: string },
+) {
+  const res = await authFetch(`${BASE}/evidence/reuse`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json();
+}
+
 export async function createComplianceEvidenceVersion(
   authFetch: AuthFetch,
   evidenceId: string,
