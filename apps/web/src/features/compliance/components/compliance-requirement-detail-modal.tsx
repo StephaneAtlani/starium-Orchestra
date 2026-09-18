@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { StariumModal } from '@/components/layout/form-dialog-shell';
+import { StariumScrollArea } from '@/components/layout/starium-scroll-area';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -181,9 +182,16 @@ export function ComplianceRequirementDetailModal({
   useEffect(() => {
     if (!addEvidenceMenuOpen) return;
     const onDoc = (e: MouseEvent) => {
-      if (!addEvidenceMenuRef.current?.contains(e.target as Node)) {
-        setAddEvidenceMenuOpen(false);
+      const target = e.target as Node | null;
+      if (!target) return;
+      if (addEvidenceMenuRef.current?.contains(target)) return;
+      if (
+        target instanceof Element &&
+        target.closest('[data-comp-evidence-menu]')
+      ) {
+        return;
       }
+      setAddEvidenceMenuOpen(false);
     };
     document.addEventListener('mousedown', onDoc);
     return () => document.removeEventListener('mousedown', onDoc);
@@ -354,9 +362,9 @@ export function ComplianceRequirementDetailModal({
         headless
         sidePanel
         showCloseButton
-        contentClassName="!max-w-[min(100vw,56rem)] gap-0 p-0"
-        bodyClassName="flex min-h-0 flex-1 flex-col overflow-hidden p-0"
-        footerClassName="!bg-background"
+        contentClassName="!max-w-[min(100vw,56rem)] gap-0 border-border/80 bg-background p-0 sm:rounded-l-2xl"
+        bodyClassName="flex min-h-0 flex-1 flex-col overflow-hidden bg-background p-0"
+        footerClassName="!border-t !border-border/70 !bg-background"
         footer={
           <div className="flex w-full flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-1">
@@ -366,7 +374,7 @@ export function ComplianceRequirementDetailModal({
                     type="button"
                     variant="outline"
                     size="icon"
-                    className="min-h-11 min-w-11 sm:min-h-9 sm:min-w-9"
+                    className="min-h-11 min-w-11 border-border/80 bg-card sm:min-h-9 sm:min-w-9"
                     disabled={!canGoPrev}
                     aria-label="Exigence précédente"
                     onClick={() => {
@@ -377,7 +385,7 @@ export function ComplianceRequirementDetailModal({
                     <ChevronLeft className="size-4" aria-hidden />
                   </Button>
                   <span
-                    className="px-1 text-xs tabular-nums text-muted-foreground"
+                    className="min-w-[3.5rem] px-1 text-center text-xs font-semibold tabular-nums text-muted-foreground"
                     aria-live="polite"
                   >
                     {navIndex >= 0
@@ -388,7 +396,7 @@ export function ComplianceRequirementDetailModal({
                     type="button"
                     variant="outline"
                     size="icon"
-                    className="min-h-11 min-w-11 sm:min-h-9 sm:min-w-9"
+                    className="min-h-11 min-w-11 border-border/80 bg-card sm:min-h-9 sm:min-w-9"
                     disabled={!canGoNext}
                     aria-label="Exigence suivante"
                     onClick={() => {
@@ -407,7 +415,7 @@ export function ComplianceRequirementDetailModal({
               <Button
                 type="button"
                 variant="outline"
-                className="min-h-11 sm:min-h-9"
+                className="min-h-11 bg-card sm:min-h-9"
                 onClick={() => onOpenChange(false)}
               >
                 Annuler
@@ -456,10 +464,15 @@ export function ComplianceRequirementDetailModal({
               localePending={localeMut.isPending}
               onContentLocaleChange={(locale) => localeMut.mutate(locale)}
             />
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+            <StariumScrollArea
+              className="min-h-0 flex-1"
+              layout="fill"
+              reveal="hover"
+              viewportClassName="pb-2"
+            >
               {needsReview ? (
                 <p
-                  className="mx-5 mt-4 rounded-lg border border-border/70 bg-[color:var(--state-warning-bg)] px-3 py-2 text-sm font-semibold text-[color:var(--state-warning)] sm:mx-6"
+                  className="mx-5 mt-4 rounded-[var(--radius-md)] border border-border/70 bg-[color:var(--state-warning-bg)] px-3 py-2.5 text-sm font-semibold text-[color:var(--state-warning)] sm:mx-6"
                   role="status"
                   aria-live="polite"
                 >
@@ -597,7 +610,7 @@ export function ComplianceRequirementDetailModal({
                           <div className="space-y-1.5">
                             <Label htmlFor="comp-contrib-assignee">Destinataire</Label>
                             <Select
-                              value={contribAssigneeId || undefined}
+                              value={contribAssigneeId}
                               onValueChange={(v) => setContribAssigneeId(v ?? '')}
                             >
                               <SelectTrigger id="comp-contrib-assignee" className="w-full">
@@ -677,7 +690,7 @@ export function ComplianceRequirementDetailModal({
                 </details>
               }
             />
-            </div>
+            </StariumScrollArea>
           </>
         ) : (
           <p className="p-5 text-sm text-destructive" role="alert">

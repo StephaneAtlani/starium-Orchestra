@@ -1,9 +1,12 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import {
   AlertCircle,
   BookOpen,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   CirclePlus,
   Clock3,
   FileText,
@@ -139,7 +142,7 @@ export function assessHeadingAndTooltip(
   return { heading, tooltipDescription };
 }
 
-/** Badges + titre court en h2 ; sélecteur de langue optionnel. */
+/** Badges + titre (dépliable avec description) ; sélecteur de langue optionnel. */
 export function ComplianceAssessHeader({
   frameworkName,
   code,
@@ -159,7 +162,19 @@ export function ComplianceAssessHeader({
   onContentLocaleChange?: (locale: string) => void;
   localePending?: boolean;
 }) {
-  const { heading } = assessHeadingAndTooltip(title, description, code);
+  const titleTrim = title.trim();
+  const descTrim = description?.trim() || null;
+  const { heading, tooltipDescription } = assessHeadingAndTooltip(
+    title,
+    description,
+    code,
+  );
+  const canExpand = Boolean(tooltipDescription);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    setExpanded(false);
+  }, [code, titleTrim, descTrim]);
 
   const locales =
     availableLocales && availableLocales.length > 0
@@ -168,42 +183,105 @@ export function ComplianceAssessHeader({
   const activeLocale = contentLocale?.trim().toLowerCase() || 'fr';
   const showLocaleSelect = Boolean(onContentLocaleChange) && locales.length > 1;
 
+  const distinctDescription =
+    expanded &&
+    Boolean(titleTrim) &&
+    Boolean(descTrim) &&
+    titleTrim !== descTrim &&
+    titleTrim.length <= SHORT_TITLE_MAX;
+
+  const headingText = expanded
+    ? distinctDescription
+      ? titleTrim
+      : (tooltipDescription ?? heading)
+    : heading;
+
   return (
-    <header className="relative z-10 shrink-0 overflow-visible border-b border-border/70 bg-background px-5 pr-14 pb-4 pt-5 sm:px-6">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="inline-flex max-w-full truncate rounded-md bg-muted px-2 py-0.5 text-[11px] font-extrabold uppercase tracking-wide text-muted-foreground">
-          {frameworkName}
-        </span>
-        <span className="inline-flex rounded-md bg-muted px-2 py-0.5 text-[11px] font-extrabold tabular-nums text-muted-foreground">
-          {code}
-        </span>
-        {showLocaleSelect ? (
-          <label className="ml-auto flex min-h-11 items-center gap-2 sm:min-h-9">
-            <span className="sr-only">Langue du texte de l’exigence</span>
-            <select
-              className="h-11 min-w-[7.5rem] rounded-[var(--control-radius,999px)] border border-input bg-background px-3 text-sm font-medium text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 sm:h-9"
-              value={locales.includes(activeLocale) ? activeLocale : locales[0]}
-              disabled={localePending}
-              aria-label="Langue du texte de l’exigence"
-              onChange={(e) => onContentLocaleChange?.(e.target.value)}
-            >
-              {locales.map((loc) => (
-                <option key={loc} value={loc}>
-                  {localeOptionLabel(loc)}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
-      </div>
-      <div className="mt-2.5 min-w-0">
-        {heading ? (
-          <h2 className="min-w-0 line-clamp-2 text-lg font-extrabold leading-snug tracking-tight text-foreground sm:text-xl">
-            {heading}
-          </h2>
-        ) : (
-          <h2 className="sr-only">{code}</h2>
-        )}
+    <header className="relative z-10 shrink-0 overflow-visible border-b border-border/70 bg-background px-5 pr-14 pb-5 pt-5 sm:px-6">
+      <div
+        className="pointer-events-none absolute inset-y-0 left-0 w-1 bg-[color:var(--brand-gold)]"
+        aria-hidden
+      />
+      <div className="flex items-start gap-3 sm:gap-3.5">
+        <div
+          className="flex size-11 shrink-0 items-center justify-center rounded-[10px] bg-[color:var(--brand-gold-050)] text-[color:var(--brand-gold-700)] sm:size-10"
+          aria-hidden
+        >
+          <BookOpen className="size-[18px]" strokeWidth={2.25} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+            <span className="starium-overline max-w-full truncate text-muted-foreground">
+              {frameworkName}
+            </span>
+            <span className="inline-flex max-w-full shrink-0 items-center rounded-[var(--radius-pill)] border border-border/70 bg-card px-2.5 py-0.5 text-[11px] font-extrabold tabular-nums tracking-wide text-foreground shadow-[var(--shadow-1)]">
+              {code}
+            </span>
+            {showLocaleSelect ? (
+              <label className="ml-auto flex min-h-11 items-center gap-2 sm:min-h-9">
+                <span className="sr-only">Langue du texte de l’exigence</span>
+                <select
+                  className="h-11 min-w-[7.5rem] rounded-[var(--control-radius,999px)] border border-input bg-background px-3 text-sm font-medium text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 sm:h-9"
+                  value={
+                    locales.includes(activeLocale) ? activeLocale : locales[0]
+                  }
+                  disabled={localePending}
+                  aria-label="Langue du texte de l’exigence"
+                  onChange={(e) => onContentLocaleChange?.(e.target.value)}
+                >
+                  {locales.map((loc) => (
+                    <option key={loc} value={loc}>
+                      {localeOptionLabel(loc)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+          </div>
+          {headingText ? (
+            <div className="mt-2.5 flex min-w-0 items-start gap-2">
+              <div className="min-w-0 flex-1">
+                {expanded && !distinctDescription ? (
+                  <div className="max-h-[min(32dvh,14rem)] overflow-y-auto overscroll-contain [scrollbar-width:thin]">
+                    <h2 className="text-balance text-sm font-normal leading-snug text-foreground">
+                      {headingText}
+                    </h2>
+                  </div>
+                ) : (
+                  <h2 className="text-balance text-sm font-normal leading-snug text-foreground">
+                    {headingText}
+                  </h2>
+                )}
+                {distinctDescription && tooltipDescription ? (
+                  <div className="mt-2 max-h-[min(28dvh,12rem)] overflow-y-auto overscroll-contain text-sm font-medium leading-relaxed text-muted-foreground [scrollbar-width:thin]">
+                    {tooltipDescription}
+                  </div>
+                ) : null}
+              </div>
+              {canExpand ? (
+                <button
+                  type="button"
+                  className="inline-flex size-11 shrink-0 items-center justify-center rounded-[var(--control-radius,999px)] text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 sm:size-9"
+                  aria-expanded={expanded}
+                  aria-label={
+                    expanded
+                      ? 'Replier le titre et la description'
+                      : 'Déplier le titre et la description'
+                  }
+                  onClick={() => setExpanded((o) => !o)}
+                >
+                  {expanded ? (
+                    <ChevronUp className="size-4" aria-hidden />
+                  ) : (
+                    <ChevronDown className="size-4" aria-hidden />
+                  )}
+                </button>
+              ) : null}
+            </div>
+          ) : (
+            <h2 className="sr-only">{code}</h2>
+          )}
+        </div>
       </div>
     </header>
   );
@@ -285,7 +363,7 @@ export function ComplianceMaturityPicker({
     <div
       role="radiogroup"
       aria-label="Niveau de maturité"
-      className="flex flex-wrap gap-1.5 sm:flex-nowrap sm:gap-[7px]"
+      className="grid grid-cols-5 gap-1.5"
     >
       {MATURITY_LEVELS.map((m) => {
         const selected = value === m.level;
@@ -298,7 +376,7 @@ export function ComplianceMaturityPicker({
             disabled={disabled}
             onClick={() => onChange(m.level)}
             className={cn(
-              'min-h-11 min-w-[4.5rem] flex-1 rounded-[var(--radius-md)] border-[1.5px] border-border bg-card px-1 py-2 text-center text-xs font-bold text-muted-foreground transition-[background,border-color,color] duration-150',
+              'flex min-h-11 min-w-0 flex-col items-center justify-center rounded-[var(--radius-md)] border-[1.5px] border-border bg-card px-0.5 py-2 text-center text-[10px] font-bold leading-tight text-muted-foreground transition-[background,border-color,color] duration-150 sm:text-[11px]',
               'hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
               'disabled:pointer-events-none disabled:opacity-50',
               selected &&
@@ -307,13 +385,13 @@ export function ComplianceMaturityPicker({
           >
             <span
               className={cn(
-                'mb-0.5 block text-base font-extrabold text-foreground',
+                'mb-0.5 block text-sm font-extrabold text-foreground sm:text-base',
                 selected && 'text-[color:var(--brand-gold-700)]',
               )}
             >
               {m.level}
             </span>
-            {m.label}
+            <span className="max-w-full truncate px-0.5">{m.label}</span>
           </button>
         );
       })}

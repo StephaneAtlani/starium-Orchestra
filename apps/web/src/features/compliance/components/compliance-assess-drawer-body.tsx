@@ -1,10 +1,9 @@
 'use client';
 
-import { useEffect, useId, useState } from 'react';
+import { useLayoutEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   AlertTriangle,
-  ChevronDown,
-  ChevronUp,
   FileText,
   Link2,
   Pencil,
@@ -23,7 +22,6 @@ import {
 } from '@/components/ui/select';
 import { displayLabel } from '@/lib/display-label';
 import { cn } from '@/lib/utils';
-import { StariumScrollArea } from '@/components/layout/starium-scroll-area';
 import type { ClientMember } from '@/features/client-rbac/api/user-roles';
 import type {
   ComplianceEvidenceKindApi,
@@ -31,7 +29,6 @@ import type {
 } from '../api/compliance.api';
 import type { ComplianceUiStatus } from './compliance-status-display';
 import {
-  assessHeadingAndTooltip,
   ComplianceMaturityPicker,
   ComplianceStatusCards,
   EVIDENCE_ADD_OPTIONS,
@@ -156,60 +153,42 @@ export function ComplianceAssessDrawerBody({
   const ownerMember = members.find((m) => m.id === ownerUserId);
   const historyDate =
     data.status?.updatedAt ?? data.status?.lastAssessmentDate ?? null;
-  const { tooltipDescription } = assessHeadingAndTooltip(
-    data.requirement.title,
-    data.requirement.description,
-    data.requirement.code,
-  );
-  const [descriptionOpen, setDescriptionOpen] = useState(false);
-  const descriptionPanelId = useId();
+  const [menuPos, setMenuPos] = useState<{
+    top: number;
+    left: number;
+    width: number;
+  } | null>(null);
 
-  useEffect(() => {
-    setDescriptionOpen(false);
-  }, [data.requirement.id]);
+  useLayoutEffect(() => {
+    if (!addEvidenceMenuOpen) {
+      setMenuPos(null);
+      return;
+    }
+    const sync = () => {
+      const el = addEvidenceMenuRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      setMenuPos({
+        top: r.bottom + 6,
+        left: r.left,
+        width: r.width,
+      });
+    };
+    sync();
+    window.addEventListener('resize', sync);
+    window.addEventListener('scroll', sync, true);
+    return () => {
+      window.removeEventListener('resize', sync);
+      window.removeEventListener('scroll', sync, true);
+    };
+  }, [addEvidenceMenuOpen, addEvidenceMenuRef]);
 
   return (
     <div className="flex flex-col gap-4 px-5 py-5 sm:px-6">
-      {tooltipDescription ? (
-        <div className="min-w-0">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="min-h-11 w-full justify-between gap-2 px-3 sm:min-h-9"
-            aria-expanded={descriptionOpen}
-            aria-controls={descriptionOpen ? descriptionPanelId : undefined}
-            onClick={() => setDescriptionOpen((o) => !o)}
-          >
-            <span>
-              {descriptionOpen
-                ? 'Replier la description'
-                : 'Déployer la description'}
-            </span>
-            {descriptionOpen ? (
-              <ChevronUp className="size-4 shrink-0" aria-hidden />
-            ) : (
-              <ChevronDown className="size-4 shrink-0" aria-hidden />
-            )}
-          </Button>
-          {descriptionOpen ? (
-            <StariumScrollArea
-              id={descriptionPanelId}
-              className="mt-2 max-h-[min(40dvh,16rem)] rounded-[var(--radius-md)] border border-border/70 bg-muted/30"
-              layout="flow"
-              reveal="hover"
-              viewportClassName="p-4 text-sm font-medium leading-relaxed text-foreground"
-            >
-              {tooltipDescription}
-            </StariumScrollArea>
-          ) : null}
-        </div>
-      ) : null}
-
-    <div className="grid gap-6 md:grid-cols-2 md:gap-8 md:items-start">
-      <div className="flex min-w-0 flex-col gap-5">
+    <div className="grid min-w-0 gap-4 md:grid-cols-2 md:gap-5 md:items-start">
+      <div className="flex min-w-0 flex-col gap-5 rounded-[var(--radius-lg)] border border-border/70 bg-card p-4 shadow-[var(--shadow-1)] sm:p-5">
         <section>
-          <h3 className="starium-modal-seg-title mb-[11px]">
+          <h3 className="starium-modal-seg-title mb-3">
             Statut de conformité
           </h3>
           {canUpdate ? (
@@ -235,7 +214,7 @@ export function ComplianceAssessDrawerBody({
         </section>
 
         <section>
-          <h3 className="starium-modal-seg-title mb-[11px]">
+          <h3 className="starium-modal-seg-title mb-3">
             Niveau de maturité
           </h3>
           <ComplianceMaturityPicker
@@ -249,15 +228,15 @@ export function ComplianceAssessDrawerBody({
           />
         </section>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5">
+        <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5 min-w-0">
             <Label htmlFor="comp-eval-owner">Responsable</Label>
             <Select
-              value={ownerUserId || undefined}
+              value={ownerUserId}
               onValueChange={(v) => onOwnerChange(v ?? '')}
               disabled={!canUpdate}
             >
-              <SelectTrigger id="comp-eval-owner" className="w-full">
+              <SelectTrigger id="comp-eval-owner" className="w-full min-w-0 min-h-11">
                 <SelectValue placeholder="Choisir un responsable">
                   {ownerUserId
                     ? memberLabel(
@@ -296,7 +275,7 @@ export function ComplianceAssessDrawerBody({
         </div>
 
         <section>
-          <h3 className="starium-modal-seg-title mb-[11px]">
+          <h3 className="starium-modal-seg-title mb-3">
             Justification / mise en œuvre
           </h3>
           <Textarea
@@ -320,9 +299,9 @@ export function ComplianceAssessDrawerBody({
         </section>
       </div>
 
-      <div className="flex min-w-0 flex-col gap-5">
+      <div className="flex min-w-0 flex-col gap-5 rounded-[var(--radius-lg)] border border-border/70 bg-card p-4 shadow-[var(--shadow-1)] sm:p-5">
         <section>
-          <h3 className="starium-modal-seg-title mb-[11px]">
+          <h3 className="starium-modal-seg-title mb-3">
             Preuves & documents
           </h3>
           {evidences.length === 0 ? (
@@ -384,35 +363,46 @@ export function ComplianceAssessDrawerBody({
 
           {canUpdate ? (
             <div className="relative" ref={addEvidenceMenuRef}>
-              {addEvidenceMenuOpen ? (
-                <div
-                  className="absolute bottom-[calc(100%+6px)] left-0 right-0 z-10 rounded-[var(--radius-md)] border border-border bg-card p-1 shadow-[var(--shadow-3)]"
-                  role="menu"
-                  aria-label="Type de preuve"
-                >
-                  {EVIDENCE_ADD_OPTIONS.map((opt) => {
-                    const Icon = opt.icon;
-                    return (
-                      <button
-                        key={opt.kind}
-                        type="button"
-                        role="menuitem"
-                        className="flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[12.5px] font-semibold text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 sm:min-h-9"
-                        onClick={() => onPickEvidenceKind(opt.kind)}
-                      >
-                        <Icon
-                          className="size-4 shrink-0 text-muted-foreground"
-                          aria-hidden
-                        />
-                        {opt.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : null}
+              {addEvidenceMenuOpen && menuPos
+                ? createPortal(
+                    <div
+                      data-comp-evidence-menu=""
+                      className="rounded-[var(--radius-md)] border border-border bg-card p-1 shadow-[var(--shadow-3)]"
+                      role="menu"
+                      aria-label="Type de preuve"
+                      style={{
+                        position: 'fixed',
+                        top: menuPos.top,
+                        left: menuPos.left,
+                        width: menuPos.width,
+                        zIndex: 90,
+                      }}
+                    >
+                      {EVIDENCE_ADD_OPTIONS.map((opt) => {
+                        const Icon = opt.icon;
+                        return (
+                          <button
+                            key={opt.kind}
+                            type="button"
+                            role="menuitem"
+                            className="flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[12.5px] font-semibold text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 sm:min-h-9"
+                            onClick={() => onPickEvidenceKind(opt.kind)}
+                          >
+                            <Icon
+                              className="size-4 shrink-0 text-muted-foreground"
+                              aria-hidden
+                            />
+                            {opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>,
+                    document.body,
+                  )
+                : null}
               <button
                 type="button"
-                className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-[var(--radius-md)] border-[1.5px] border-dashed border-border/80 bg-transparent px-3 py-3 text-[12.5px] font-semibold text-muted-foreground transition-colors hover:border-[color:var(--brand-gold)] hover:bg-[color:var(--brand-gold-050)] hover:text-[color:var(--brand-gold-700)] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-[var(--radius-md)] border-[1.5px] border-dashed border-border/80 bg-muted/20 px-3 py-3 text-[12.5px] font-semibold text-muted-foreground transition-colors hover:border-[color:var(--brand-gold)] hover:bg-[color:var(--brand-gold-050)] hover:text-[color:var(--brand-gold-700)] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
                 aria-expanded={addEvidenceMenuOpen}
                 aria-haspopup="menu"
                 onClick={onToggleAddEvidenceMenu}
@@ -557,7 +547,7 @@ export function ComplianceAssessDrawerBody({
         ) : null}
 
         <section>
-          <h3 className="starium-modal-seg-title mb-[11px]">Historique</h3>
+          <h3 className="starium-modal-seg-title mb-3">Historique</h3>
           {historyDate || data.status ? (
             <div className="flex gap-2.5 py-2 text-xs text-muted-foreground">
               <span

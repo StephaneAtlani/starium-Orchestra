@@ -288,7 +288,7 @@ export function ComplianceStartReviewModal({
             <div className="space-y-1.5">
               <Label htmlFor="rv-owner">Responsable de la revue</Label>
               <Select
-                value={ownerUserId || undefined}
+                value={ownerUserId}
                 onValueChange={(v) => setOwnerUserId(v ?? '')}
                 disabled={membersLoading || members.length === 0}
               >
