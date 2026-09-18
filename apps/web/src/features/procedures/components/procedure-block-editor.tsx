@@ -1,6 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+} from 'react';
 import { createPortal } from 'react-dom';
 import {
   ArrowDown,
@@ -216,6 +224,10 @@ function focusBlockBody(index: number) {
   window.requestAnimationFrame(() => tryFocus(12));
 }
 
+function newBlockKey(): string {
+  return `bk-${crypto.randomUUID()}`;
+}
+
 function applyInlineCommand(cmd: string, value?: string) {
   try {
     document.execCommand(cmd, false, value);
@@ -252,6 +264,9 @@ export function ProcedureBlockEditor({
   onOpenDiagram?: (blockIndex: number) => void;
 }) {
   const [doc, setDoc] = useState(() => parseDoc(initialContent));
+  const [blockKeys, setBlockKeys] = useState(() =>
+    parseDoc(initialContent).blocks.map(() => newBlockKey()),
+  );
   const [title, setTitle] = useState(initialTitle);
   const [sel, setSel] = useState<number | null>(null);
   const [planOpen, setPlanOpen] = useState(true);
@@ -309,8 +324,12 @@ export function ProcedureBlockEditor({
   } | null>(null);
   const docRef = useRef(doc);
   docRef.current = doc;
+  const blockKeysRef = useRef(blockKeys);
+  blockKeysRef.current = blockKeys;
   const emitRef = useRef(onChange);
   emitRef.current = onChange;
+  /** Contenu qu’on vient d’émettre — évite de reset les keys sur l’écho parent. */
+  const lastEmittedRef = useRef<unknown>(null);
   const editorRootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -369,24 +388,56 @@ export function ProcedureBlockEditor({
   };
 
   useEffect(() => {
-    setDoc(parseDoc(initialContent));
+    // Écho du onChange parent (même référence) → ne pas remount / defocus.
+    if (initialContent === lastEmittedRef.current) return;
+    const d = parseDoc(initialContent);
+    setDoc(d);
+    setBlockKeys((prev) => {
+      if (prev.length === d.blocks.length) return prev;
+      if (prev.length < d.blocks.length) {
+        return [
+          ...prev,
+          ...Array.from(
+            { length: d.blocks.length - prev.length },
+            () => newBlockKey(),
+          ),
+        ];
+      }
+      return prev.slice(0, d.blocks.length);
+    });
+    lastEmittedRef.current = d;
   }, [initialContent]);
 
   useEffect(() => {
     setTitle(initialTitle);
   }, [initialTitle]);
 
-  const updateBlocks = useCallback((blocks: TextBlock[]) => {
-    const cleaned = blocks.filter((b) => {
+  const updateBlocks = useCallback((blocks: TextBlock[], keys?: string[]) => {
+    const srcKeys = keys ?? blockKeysRef.current;
+    const pairs = blocks.map((b, i) => ({
+      b,
+      k: srcKeys[i] ?? newBlockKey(),
+    }));
+    const kept = pairs.filter(({ b }) => {
       if (b.t === 'img') return Boolean(b.assetId?.trim());
       if (b.t === 'video') return /^https:\/\//i.test(b.src ?? '');
       return true;
     });
-    const next = {
-      schemaVersion: 2 as const,
-      blocks: cleaned.length > 0 ? cleaned : ([{ t: 'p', html: '' }] as TextBlock[]),
-    };
+    const nextBlocks =
+      kept.length > 0
+        ? kept.map((p) => p.b)
+        : ([{ t: 'p', html: '' }] as TextBlock[]);
+    const nextKeys =
+      kept.length > 0 ? kept.map((p) => p.k) : [newBlockKey()];
+    const next = { schemaVersion: 2 as const, blocks: nextBlocks };
+    setBlockKeys((prev) =>
+      prev.length === nextKeys.length &&
+      prev.every((k, i) => k === nextKeys[i])
+        ? prev
+        : nextKeys,
+    );
     setDoc(next);
+    lastEmittedRef.current = next;
     emitRef.current(next);
   }, []);
 
@@ -395,6 +446,77 @@ export function ProcedureBlockEditor({
       .map((b, i) => ({ b, i }))
       .filter(({ b }) => b.t === 'h1' || b.t === 'h2' || b.t === 'h3');
   }, [doc.blocks]);
+
+  const blockKeyDown = (
+    e: ReactKeyboardEvent<HTMLElement>,
+    index: number,
+    type: TextBlock['t'],
+  ) => {
+    if (!editable) return;
+    if (e.key === 'Enter') {
+      if (type === 'ul' || type === 'ol') return;
+      // Paragraphe : Entrée = saut de ligne ; ⇧Entrée = nouveau bloc.
+      if (type === 'p' && !e.shiftKey) {
+        e.preventDefault();
+        try {
+          document.execCommand('insertLineBreak');
+        } catch {
+          document.execCommand('insertHTML', false, '<br>');
+        }
+        const el = e.currentTarget;
+        setHtml(index, el.innerHTML);
+        return;
+      }
+      if (type === 'p' && e.shiftKey) {
+        e.preventDefault();
+        insertAt(index + 1, 'p');
+        return;
+      }
+      if (e.shiftKey) return;
+      e.preventDefault();
+      const nextType: TextBlock['t'] =
+        type === 'h1' || type === 'h2' || type === 'h3'
+          ? 'p'
+          : type === 'step'
+            ? 'step'
+            : type === 'callout'
+              ? 'callout'
+              : 'p';
+      insertAt(index + 1, nextType);
+      return;
+    }
+    if (e.key === 'Backspace') {
+      const el = e.currentTarget;
+      const text = (el.textContent ?? '').replace(/\u00a0/g, '').trim();
+      const selApi = window.getSelection();
+      const atStart =
+        !!selApi?.isCollapsed &&
+        (selApi.anchorOffset === 0 || text === '');
+      if (text === '' && atStart) {
+        e.preventDefault();
+        remove(index);
+        const prev = Math.max(0, index - 1);
+        window.setTimeout(() => {
+          document
+            .querySelector<HTMLElement>(`#pr-blk-${prev} [data-pr-body]`)
+            ?.focus();
+        }, 0);
+        return;
+      }
+    }
+    if ((e.key === 'b' || e.key === 'B') && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      applyInlineCommand('bold');
+    }
+    if ((e.key === 'i' || e.key === 'I') && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      applyInlineCommand('italic');
+    }
+    if ((e.key === 'u' || e.key === 'U') && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      applyInlineCommand('underline');
+    }
+  };
 
   let stepCounter = 0;
 
@@ -411,8 +533,10 @@ export function ProcedureBlockEditor({
       return;
     }
     const blocks = [...doc.blocks];
+    const keys = [...blockKeysRef.current];
     blocks.splice(index, 0, emptyBlock(t));
-    updateBlocks(blocks);
+    keys.splice(index, 0, newBlockKey());
+    updateBlocks(blocks, keys);
     setSel(index);
     if (t === 'diag') {
       window.setTimeout(() => onOpenDiagram?.(index), 0);
@@ -430,27 +554,35 @@ export function ProcedureBlockEditor({
     const j = index + dir;
     if (j < 0 || j >= doc.blocks.length) return;
     const blocks = [...doc.blocks];
+    const keys = [...blockKeysRef.current];
     const [item] = blocks.splice(index, 1);
+    const [k] = keys.splice(index, 1);
     blocks.splice(j, 0, item!);
-    updateBlocks(blocks);
+    keys.splice(j, 0, k!);
+    updateBlocks(blocks, keys);
     setSel(j);
   };
 
   const remove = (index: number) => {
     if (index < 0 || index >= doc.blocks.length) return;
     let blocks = doc.blocks.filter((_, i) => i !== index);
+    let keys = blockKeysRef.current.filter((_, i) => i !== index);
     if (blocks.length === 0) {
       blocks = [{ t: 'p', html: '' }];
+      keys = [newBlockKey()];
     }
-    updateBlocks(blocks);
+    updateBlocks(blocks, keys);
     setSel(null);
   };
 
   const duplicate = (index: number) => {
     const blocks = [...doc.blocks];
+    const keys = [...blockKeysRef.current];
     blocks.splice(index + 1, 0, structuredClone(doc.blocks[index]!));
-    updateBlocks(blocks);
+    keys.splice(index + 1, 0, newBlockKey());
+    updateBlocks(blocks, keys);
     setSel(index + 1);
+    focusBlockBody(index + 1);
   };
 
   const changeType = (index: number, t: (typeof TEXTUAL_TYPES)[number]) => {
@@ -598,7 +730,7 @@ export function ProcedureBlockEditor({
                 const stepN = stepCounter;
                 return (
                   <div
-                    key={i}
+                    key={blockKeys[i] ?? `blk-${i}`}
                     id={`pr-blk-${i}`}
                     className={cn(
                       'group relative -ml-7 py-1 pl-7 sm:-ml-9 sm:pl-9',
@@ -651,12 +783,15 @@ export function ProcedureBlockEditor({
                       clearDrag();
                       if (!Number.isFinite(from) || from === i) return;
                       const blocks = [...doc.blocks];
+                      const keys = [...blockKeysRef.current];
                       const [item] = blocks.splice(from, 1);
+                      const [k] = keys.splice(from, 1);
                       if (!item) return;
                       let dest = edge === 'top' ? i : i + 1;
                       if (from < dest) dest -= 1;
                       blocks.splice(dest, 0, item);
-                      updateBlocks(blocks);
+                      keys.splice(dest, 0, k!);
+                      updateBlocks(blocks, keys);
                       setSel(dest);
                     }}
                   >
@@ -696,9 +831,7 @@ export function ProcedureBlockEditor({
                     ) : null}
                     <div
                       className={cn(
-                        'min-w-0 rounded-[var(--radius-md)]',
-                        sel === i &&
-                          'shadow-[0_0_0_2px_var(--brand-gold-100)]',
+                        'min-w-0 rounded-[var(--radius-md)] focus-within:shadow-[0_0_0_2px_var(--brand-gold-100)]',
                       )}
                       onFocus={() => setSel(i)}
                     >
@@ -713,6 +846,7 @@ export function ProcedureBlockEditor({
                             placeholder="Décrivez cette étape…"
                             className="flex-1 text-[14.5px] leading-[1.65] text-foreground"
                             onInput={(html) => setHtml(i, html)}
+                            onKeyDown={(e) => blockKeyDown(e, i, 'step')}
                           />
                         </div>
                       ) : b.t === 'callout' ? (
@@ -730,6 +864,7 @@ export function ProcedureBlockEditor({
                             placeholder="Point d’attention…"
                             className="flex-1"
                             onInput={(html) => setHtml(i, html)}
+                            onKeyDown={(e) => blockKeyDown(e, i, 'callout')}
                           />
                         </div>
                       ) : b.t === 'img' ? (
@@ -842,65 +977,7 @@ export function ProcedureBlockEditor({
                             b.t === 'ol' && 'list-decimal',
                           )}
                           onInput={(html) => setHtml(i, html)}
-                          onKeyDown={(e) => {
-                            if (!editable) return;
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                              if (b.t === 'ul' || b.t === 'ol') return;
-                              e.preventDefault();
-                              const nextType: TextBlock['t'] =
-                                b.t === 'h1' || b.t === 'h2' || b.t === 'h3'
-                                  ? 'p'
-                                  : b.t === 'step'
-                                    ? 'step'
-                                    : 'p';
-                              insertAt(i + 1, nextType);
-                              return;
-                            }
-                            if (e.key === 'Backspace') {
-                              const el = e.currentTarget;
-                              const text = (el.textContent ?? '')
-                                .replace(/\u00a0/g, '')
-                                .trim();
-                              const selApi = window.getSelection();
-                              const atStart =
-                                !!selApi?.isCollapsed &&
-                                (selApi.anchorOffset === 0 || text === '');
-                              if (text === '' && atStart) {
-                                e.preventDefault();
-                                remove(i);
-                                const prev = Math.max(0, i - 1);
-                                window.setTimeout(() => {
-                                  document
-                                    .querySelector<HTMLElement>(
-                                      `#pr-blk-${prev} [data-pr-body]`,
-                                    )
-                                    ?.focus();
-                                }, 0);
-                                return;
-                              }
-                            }
-                            if (
-                              (e.key === 'b' || e.key === 'B') &&
-                              (e.metaKey || e.ctrlKey)
-                            ) {
-                              e.preventDefault();
-                              applyInlineCommand('bold');
-                            }
-                            if (
-                              (e.key === 'i' || e.key === 'I') &&
-                              (e.metaKey || e.ctrlKey)
-                            ) {
-                              e.preventDefault();
-                              applyInlineCommand('italic');
-                            }
-                            if (
-                              (e.key === 'u' || e.key === 'U') &&
-                              (e.metaKey || e.ctrlKey)
-                            ) {
-                              e.preventDefault();
-                              applyInlineCommand('underline');
-                            }
-                          }}
+                          onKeyDown={(e) => blockKeyDown(e, i, b.t)}
                         />
                       )}
                     </div>
@@ -1246,8 +1323,10 @@ export function ProcedureBlockEditor({
                 const { mode, at } = videoModal;
                 if (mode === 'insert') {
                   const blocks = [...docRef.current.blocks];
+                  const keys = [...blockKeysRef.current];
                   blocks.splice(at, 0, { t: 'video', src, cap: '' });
-                  updateBlocks(blocks);
+                  keys.splice(at, 0, newBlockKey());
+                  updateBlocks(blocks, keys);
                   setSel(at);
                 } else {
                   const blocks = docRef.current.blocks.map((x, j) =>
@@ -1297,8 +1376,10 @@ export function ProcedureBlockEditor({
               };
               if (pending.mode === 'insert') {
                 const blocks = [...docRef.current.blocks];
+                const keys = [...blockKeysRef.current];
                 blocks.splice(pending.at, 0, imgBlock);
-                updateBlocks(blocks);
+                keys.splice(pending.at, 0, newBlockKey());
+                updateBlocks(blocks, keys);
                 setSel(pending.at);
               } else {
                 const blocks = docRef.current.blocks.map((x, j) =>
@@ -1426,7 +1507,7 @@ function BlockBody({
   className?: string;
   tag?: 'div' | 'ul' | 'ol';
   onInput: (html: string) => void;
-  onKeyDown?: (e: React.KeyboardEvent<HTMLElement>) => void;
+  onKeyDown?: (e: ReactKeyboardEvent<HTMLElement>) => void;
 }) {
   const Tag = tag;
   const ref = useRef<HTMLElement | null>(null);

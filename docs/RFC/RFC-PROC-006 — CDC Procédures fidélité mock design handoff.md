@@ -4,7 +4,7 @@ Version : 1.0 — 18 septembre 2026
 
 | Métadonnée | Valeur |
 | --- | --- |
-| **Statut** | 🟡 Implémentée F0–F5 (CDC + API v2 + liste + éditeur blocs + médias + schéma) — polish / release-gate pending |
+| **Statut** | 🟡 Implémentée F0–F5 + polish éditeur (clavier, médias, preview schéma) — release-gate pending |
 | **Priorité** | Haute |
 | **Parent** | [RFC-PROC-001](./RFC-PROC-001%20—%20Module%20Procédures%20(cadrage%20et%20backlog%20user%20stories).md) |
 | **Remplace (cible UX)** | [RFC-PROC-005](./RFC-PROC-005%20—%20Éditeur%20riche%20avancé%20des%20procédures.md) (TipTap / Mermaid) |
@@ -17,16 +17,18 @@ Version : 1.0 — 18 septembre 2026
 
 ## 1. Analyse de l’existant
 
-| Élément | Constat |
-| --- | --- |
-| Prisma `Procedure` / `ProcedureVersion` / `ProcedureAsset` | Présents (PROC-002). Statuts `DRAFT\|PUBLISHED\|ARCHIVED` — **pas** `IN_REVIEW`. Catégories `SECURITY\|OPERATIONS\|HR\|IT_SERVICE\|COMPLIANCE\|OTHER` ≠ mock. |
-| `contentJson` | Document TipTap ProseMirror (`type: 'doc'`) + whitelist nodes/marks (PROC-005 Lots A–B). |
-| API | `GET/POST /procedures`, `GET :id`, `PATCH :id/draft`, archive/unarchive, assets upload/stream. **Pas** de `POST …/transition` / publish. Perm `procedures.publish` seedée. |
-| FE | `/procedures` table + `/procedures/[id]/edit` TipTap. Pas de grille cartes, pas d’éditeur par blocs, pas de schéma SVG. |
-| Usage | **Jamais utilisé en métier / jamais mis en production** → wipe TipTap → blocs v2 **autorisé** sans migration douce. |
-| Handoff | Liste cartes + éditeur blocs + éditeur diagramme plein écran (formes + liens Bézier). |
+> Instantané **avant F1** (historique). Comportement actuel = §8 / §14 / `docs/API.md` §20 quater.
 
-**Verdict** : conserver le socle multi-client / RBAC / assets ; **remplacer** le modèle de contenu et l’UX par le handoff.
+| Élément | Constat (pré-F1) |
+| --- | --- |
+| Prisma `Procedure` / `ProcedureVersion` / `ProcedureAsset` | Présents (PROC-002). Statuts sans `IN_REVIEW` ; catégories ≠ mock. |
+| `contentJson` | TipTap ProseMirror (PROC-005). |
+| API | CRUD draft + assets ; pas de `transition`. |
+| FE | Table + TipTap ; pas de blocs / schéma SVG. |
+| Usage | Jamais en prod → wipe TipTap → blocs v2 autorisé. |
+| Handoff | Liste cartes + éditeur blocs + diagramme plein écran. |
+
+**Verdict** : conserver socle multi-client / RBAC / assets ; **remplacer** modèle de contenu et UX par le handoff (**fait** F1–F5).
 
 ---
 
@@ -203,7 +205,7 @@ Pas de flag `contentMigrationRequired` côté API/UI.
 | CA-E3 | Plan H1–H3 scroll/focus. |
 | CA-E4 | Titre éditable → PATCH. |
 | CA-E5–E7 | Typo blocs, steps auto, callout warn/info. |
-| CA-E8–E10 | Sélection unique, Entrée/⇧Entrée/⌫, ⌘B/I/U. |
+| CA-E8–E10 | Sélection unique ; clavier (§7.1) ; ⌘B/I/U. |
 | CA-E11 | Menu insert ancré. |
 | CA-E12 | Format bar + lien `StariumModal` https. |
 | CA-E13 | Allowlist HTML + sanitize coller/serveur. |
@@ -217,6 +219,27 @@ Pas de flag `contentMigrationRequired` côté API/UI.
 ### Médias — CA-M* · Schéma — CA-D*
 
 Voir handoff README / plan programme (CA-M1…M5, CA-D1…D7) — normatifs.
+
+#### Précisions produit livrées (post-F5 polish)
+
+| ID | Comportement réel |
+| --- | --- |
+| CA-M1 | Insert **Image** : file picker d’abord ; le bloc `img` n’est ajouté au `contentJson` **qu’après** upload OK (`assetId` obligatoire côté API). Annulation du picker = aucun bloc. |
+| CA-M3 | Insert **Vidéo** : modale URL d’abord ; bloc `video` créé seulement après URL `https://` validée. |
+| CA-D* preview | `ProcedureDiagramPreview` : dessin **centré** (fit bbox) ; verrouillé par défaut ; déverrouiller → pan (drag) + zoom (molette / ±) + recentrer ; bouton Modifier au hover. |
+| CA-E focus | Après insert texte / Entrée (hors paragraphe soft-break) : focus + caret dans le nouveau bloc. |
+| CA-E keys | Clés React **stables** par bloc (pas `key={index}`) pour éviter fuite de contenu contentEditable au splice. |
+
+### 7.1 Clavier éditeur (produit)
+
+| Contexte | Entrée | ⇧Entrée | ⌫ (bloc vide, caret début) |
+| --- | --- | --- | --- |
+| Paragraphe (`p`) | Saut de ligne (`<br>`) dans le bloc | Nouveau bloc `p` | Supprime le bloc, focus précédent |
+| Titre H1–H3 | Nouveau bloc `p` | (natif / ignoré) | idem |
+| Étape / encadré | Nouveau bloc même type | (natif / ignoré) | idem |
+| Liste `ul`/`ol` | Comportement natif `<li>` | — | idem |
+
+Écart volontaire vs mock handoff (où Entrée créait toujours un bloc, y compris sur `p`) : sur paragraphe, Entrée = aller à la ligne.
 
 ---
 
@@ -233,10 +256,12 @@ Voir handoff README / plan programme (CA-M1…M5, CA-D1…D7) — normatifs.
 ### Frontend
 
 - `apps/web/src/features/procedures/components/procedures-catalog.tsx` (grille)
-- `procedure-block-editor.tsx`, `procedure-block.tsx`, `procedure-insert-menu.tsx`, `procedure-format-bar.tsx`, `procedure-editor-chrome.tsx`
-- `procedure-diagram-editor.tsx` (F5)
-- `lib/sanitize-procedure-html.ts`, `types/`, `procedure-labels.ts`
-- styles module procédures (tokens)
+- `procedure-block-editor.tsx` (blocs, insert, format bar, clavier, autosave echo-safe)
+- `procedure-diagram-editor.tsx` (overlay schéma)
+- `procedure-diagram-preview.tsx` (aperçu SVG + pan/zoom/lock)
+- `procedure-create-dialog.tsx`
+- `lib/sanitize-procedure-html.ts`, `lib/procedure-content.ts`, `lib/procedure-labels.ts`, `types/`
+- page `/procedures/[id]/edit`
 - Retrait TipTap procédures (F3) ; deps `@tiptap/*` si plus utilisées ailleurs
 
 ### Docs (cette RFC + F1)
@@ -251,11 +276,11 @@ Voir handoff README / plan programme (CA-M1…M5, CA-D1…D7) — normatifs.
 | Feature | Contenu | US |
 | --- | --- | --- |
 | **F0** | Cette RFC + index | — ✅ |
-| **F1** | Prisma wipe + v2 + transition + tests | 22 (API), 26, 30 |
-| **F2** | Liste cartes | 20, 21 |
-| **F3** | Éditeur blocs texte | 22–25 |
-| **F4** | Médias | 27, 28 |
-| **F5** | Schéma SVG | 29 |
+| **F1** | Prisma wipe + v2 + transition + tests | 22 (API), 26, 30 ✅ |
+| **F2** | Liste cartes | 20, 21 ✅ |
+| **F3** | Éditeur blocs texte + clavier polish | 22–25 ✅ |
+| **F4** | Médias (upload/URL gated) | 27, 28 ✅ |
+| **F5** | Schéma SVG + preview pan/zoom/lock | 29 ✅ |
 
 Cycle par feature : `plan → review-plan → implement → conformité → docs → commit` (pas de push auto).
 
@@ -284,10 +309,11 @@ Cycle par feature : `plan → review-plan → implement → conformité → docs
 
 ## 12. Points de vigilance
 
-- contenteditable + caret : état local, pas remount full list à chaque keystroke
-- Sanitize coller Word (mso-*)
-- Overlay schéma : focus trap RGAA ; mobile = preview only
+- contenteditable + caret : clés stables ; **ne pas** resynchroniser `initialContent` écho parent (même référence) sous peine de remount / defocus à chaque frappe
+- Sanitize coller Word (mso-*) ; `<br>` allowlist FE+BE
+- Overlay schéma : focus trap RGAA ; mobile = preview only (+ contrôles zoom si déverrouillé)
 - Permissions dynamiques sur `transition` selon `to`
+- Jamais persister un bloc `img` sans `assetId` ni `video` sans URL https (filtre client avant PATCH)
 
 ---
 
@@ -324,11 +350,16 @@ Cycle par feature : `plan → review-plan → implement → conformité → docs
 
 ---
 
-## 14. Récapitulatif F0
+## 14. Récapitulatif
 
 | Fait | Reste |
 | --- | --- |
-| CDC PROC-006 + US-20…30 + CA + matrice + wipe | Implémentation F1→F5 |
-| Index `_RFC Liste` + notes PROC-001/002/003/005 | `API.md` à F1 |
+| F0 CDC + US-20…30 + CA | Release-gate (lint/typecheck/tests/audits smoke) |
+| F1 API v2 + `IN_REVIEW` + transition + wipe TipTap | Aperçu lecteur / Versions shell (CTA) si hors polish |
+| F2 Liste cartes + create | Export recueil (PROC-004) |
+| F3 Éditeur blocs + clavier (§7.1) + format bar | — |
+| F4 Image upload-gated + vidéo URL-gated | Upload MP4 binaire (hors scope) |
+| F5 Schéma SVG + preview pan/zoom/lock | — |
+| Docs `API.md` §20 quater + index RFC | — |
 
-Commande suivante : `/rfc-pipeline RFC-PROC-006` (démarre F1).
+Commande suivante : release-gate / commit feature si demandé (pas de push auto).

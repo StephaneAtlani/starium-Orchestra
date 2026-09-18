@@ -3123,7 +3123,13 @@ Référence : [RFC-PROC-002](RFC/RFC-PROC-002%20%E2%80%94%20Cr%C3%A9er%20%C3%A9d
 - **DELETE /api/procedures/:id/assets/:assetId** — Refus **400** si référencé dans un bloc `img` du brouillon. Permission **`procedures.update`**.
 - **POST /api/procedures/:id/archive** / **unarchive** — inchangé (unarchive restaure aussi `IN_REVIEW`). Permission **`procedures.archive`**.
 
-UI : `/procedures` (catalogue), `/procedures/[id]/edit` (éditeur blocs — F2–F5).
+UI : `/procedures` (catalogue cartes), `/procedures/[id]/edit` (éditeur blocs F2–F5).
+
+**Notes UI (PROC-006 polish)** :
+- Bloc `img` : upload multipart puis PATCH draft avec `assetId` — jamais de PATCH avec `assetId` vide (sinon **400** `assetId obligatoire`).
+- Bloc `video` : saisie URL https en modale avant insertion dans `contentJson`.
+- Clavier : sur paragraphe, **Entrée** = `<br>` ; **⇧Entrée** = nouveau bloc `p`. Titres / étapes / encadrés : **Entrée** = nouveau bloc. Listes : natif `<li>`.
+- Aperçu schéma : fit/centrage ; lock par défaut ; unlock → pan + zoom.
 
 ---
 

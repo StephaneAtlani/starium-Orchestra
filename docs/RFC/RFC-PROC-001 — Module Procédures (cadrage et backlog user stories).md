@@ -6,7 +6,7 @@ Version : 1.0 — 17 septembre 2026
 | --- | --- |
 | **Statut** | 📝 Draft — cadrage produit |
 | **Priorité** | Haute (gouvernance documentaire / conformité) |
-| **Livraisons** | [PROC-002](./RFC-PROC-002%20—%20Créer%20éditer%20archiver%20procédures%20et%20contenu%20riche.md) · [PROC-006](./RFC-PROC-006%20—%20CDC%20Procédures%20fidélité%20mock%20design%20handoff.md) (**cible UX**) · [PROC-005](./RFC-PROC-005%20—%20Éditeur%20riche%20avancé%20des%20procédures.md) (historique TipTap, supersédé) · [PROC-003](./RFC-PROC-003%20—%20Versioning%20des%20procédures.md) · [PROC-004](./RFC-PROC-004%20—%20Export%20Word%20PDF%20procédures%20avec%20logo.md) |
+| **Livraisons** | [PROC-002](./RFC-PROC-002%20—%20Créer%20éditer%20archiver%20procédures%20et%20contenu%20riche.md) · [PROC-006](./RFC-PROC-006%20—%20CDC%20Procédures%20fidélité%20mock%20design%20handoff.md) (**cible UX**) · [PROC-007](./RFC-PROC-007%20—%20Configuration%20module%20Procédures%20(cycle%20validateurs%20catégories).md) (**config module**) · [PROC-005](./RFC-PROC-005%20—%20Éditeur%20riche%20avancé%20des%20procédures.md) (historique TipTap, supersédé) · [PROC-003](./RFC-PROC-003%20—%20Versioning%20des%20procédures.md) · [PROC-004](./RFC-PROC-004%20—%20Export%20Word%20PDF%20procédures%20avec%20logo.md) |
 | **Dépendances** | Multi-client + RBAC · stockage fichiers (RFC-035) · branding client · Conformité (pont futur preuves / références) |
 | **Hors scope immédiat** | GED universelle · sync SharePoint · portail public · signature électronique · IA de rédaction |
 
@@ -88,6 +88,7 @@ En tant qu’utilisateur autorisé du **client actif**, je gère le cycle de vie
 | **US-PROC-28** | Vidéo URL https | **PROC-006** | P0 |
 | **US-PROC-29** | Éditeur schéma SVG + preview | **PROC-006** | P0 |
 | **US-PROC-30** | contentJson v2 API + isolation client | **PROC-006** | P0 |
+| **US-PROC-31** | Configurer le module (cycle pilotage, validateurs, catégories) | **[PROC-007](./RFC-PROC-007%20—%20Configuration%20module%20Procédures%20(cycle%20validateurs%20catégories).md)** | P0 |
 
 Critères d’acceptation détaillés dans chaque RFC fille.
 
@@ -119,6 +120,7 @@ Invariants :
 | `procedures.create` | Créer une procédure |
 | `procedures.update` | Éditer métadonnées + contenu brouillon |
 | `procedures.publish` | Publier une version |
+| `procedures.configure` | Config module (cycle, validateurs, catégories) — PROC-007 |
 | `procedures.archive` | Archiver / désarchiver |
 | `procedures.export` | Déclencher export Word/PDF |
 
@@ -131,12 +133,13 @@ Seed : rôle CLIENT_ADMIN + profils gouvernance / conformité (à aligner `defau
 | Route | Intention |
 | --- | --- |
 | `/procedures` | Catalogue (filtres statut, recherche titre/code) |
+| `/procedures/configuration` | Config module : cycle pilotage, validateurs, catégories (PROC-007) |
 | `/procedures/new` | Création |
 | `/procedures/[id]` | Lecture + actions (éditer, versions, export, archiver) |
 | `/procedures/[id]/edit` | Éditeur riche |
 | `/procedures/[id]/versions` | Historique versions |
 
-Sidebar : groupe **Gouvernance** ou **Conformité** (hypothèse : sous Conformité / Documentation — à trancher UX).
+Sidebar : groupe **Procédures** avec enfants **Catalogue** + **Configuration** (pattern Budgets).
 
 ---
 
