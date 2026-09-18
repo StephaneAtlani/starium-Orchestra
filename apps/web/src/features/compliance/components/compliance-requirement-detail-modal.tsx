@@ -35,9 +35,11 @@ import {
   createComplianceContribution,
   createComplianceEvidence,
   createComplianceGap,
+  deleteComplianceEvidence,
   getComplianceRequirementDetail,
   listComplianceGaps,
   patchComplianceContribution,
+  patchComplianceEvidence,
   patchComplianceGap,
   upsertComplianceRequirementStatus,
   type ComplianceEvidenceKindApi,
@@ -53,6 +55,10 @@ import {
 } from './compliance-assess-ui';
 import { ComplianceAssessDrawerBody } from './compliance-assess-drawer-body';
 import { ComplianceGapCyclePanel } from './compliance-gap-cycle-panel';
+import {
+  ComplianceEvidenceEditModal,
+  ComplianceEvidenceRemoveModal,
+} from './compliance-evidence-edit-modals';
 import { ComplianceRemediationPlanModal } from './compliance-remediation-plan-modal';
 
 function memberLabel(m: ClientMember): string {
@@ -147,6 +153,12 @@ export function ComplianceRequirementDetailModal({
   const [gapTitle, setGapTitle] = useState('');
   const [gapFinding, setGapFinding] = useState('');
   const [remediationPlanOpen, setRemediationPlanOpen] = useState(false);
+  const [editingEvidenceId, setEditingEvidenceId] = useState<string | null>(
+    null,
+  );
+  const [removingEvidenceId, setRemovingEvidenceId] = useState<string | null>(
+    null,
+  );
 
   const { data: members = [] } = useClientMembers();
 
@@ -294,6 +306,32 @@ export function ComplianceRequirementDetailModal({
       setEvidenceDescription('');
       setEvidenceDraftOpen(false);
       setAddEvidenceMenuOpen(false);
+      invalidateComplianceQueries(queryClient, clientId);
+      await q.refetch();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const evidencePatchMut = useMutation({
+    mutationFn: (payload: { name: string; description: string }) =>
+      patchComplianceEvidence(authFetch, editingEvidenceId!, {
+        name: payload.name,
+        description: payload.description || null,
+      }),
+    onSuccess: async () => {
+      toast.success('Preuve mise à jour');
+      setEditingEvidenceId(null);
+      invalidateComplianceQueries(queryClient, clientId);
+      await q.refetch();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const evidenceDeleteMut = useMutation({
+    mutationFn: () => deleteComplianceEvidence(authFetch, removingEvidenceId!),
+    onSuccess: async () => {
+      toast.success('Preuve retirée du dossier');
+      setRemovingEvidenceId(null);
       invalidateComplianceQueries(queryClient, clientId);
       await q.refetch();
     },
@@ -581,6 +619,12 @@ export function ComplianceRequirementDetailModal({
               onEvidenceDescriptionChange={setEvidenceDescription}
               onSubmitEvidence={() => evidenceMut.mutate()}
               evidencePending={evidenceMut.isPending}
+              onEditEvidence={
+                canUpdate ? (id) => setEditingEvidenceId(id) : undefined
+              }
+              onRemoveEvidence={
+                canUpdate ? (id) => setRemovingEvidenceId(id) : undefined
+              }
               showGapPlan={showGapPlan}
               gapTitle={gapTitle}
               onGapTitleChange={setGapTitle}
@@ -788,6 +832,38 @@ export function ComplianceRequirementDetailModal({
           }}
         />
       ) : null}
+
+      {(() => {
+        const editing = (q.data?.evidences ?? []).find(
+          (e) => e.id === editingEvidenceId,
+        );
+        const removing = (q.data?.evidences ?? []).find(
+          (e) => e.id === removingEvidenceId,
+        );
+        return (
+          <>
+            <ComplianceEvidenceEditModal
+              open={Boolean(editing)}
+              onOpenChange={(o) => {
+                if (!o) setEditingEvidenceId(null);
+              }}
+              evidenceName={editing?.name ?? ''}
+              evidenceDescription={editing?.description}
+              pending={evidencePatchMut.isPending}
+              onSave={(payload) => evidencePatchMut.mutate(payload)}
+            />
+            <ComplianceEvidenceRemoveModal
+              open={Boolean(removing)}
+              onOpenChange={(o) => {
+                if (!o) setRemovingEvidenceId(null);
+              }}
+              evidenceName={removing?.name ?? ''}
+              pending={evidenceDeleteMut.isPending}
+              onConfirm={() => evidenceDeleteMut.mutate()}
+            />
+          </>
+        );
+      })()}
 
       <ComplianceRemediationPlanModal
         open={remediationPlanOpen}

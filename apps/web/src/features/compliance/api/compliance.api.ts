@@ -620,12 +620,28 @@ export async function createComplianceEvidence(
 export async function patchComplianceEvidence(
   authFetch: AuthFetch,
   evidenceId: string,
-  payload: { assessment?: ComplianceEvidenceAssessmentApi; name?: string },
+  payload: {
+    assessment?: ComplianceEvidenceAssessmentApi;
+    name?: string;
+    description?: string | null;
+    collectedAt?: string | null;
+  },
 ) {
   const res = await authFetch(`${BASE}/evidence/${evidenceId}`, {
     method: 'PATCH',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json();
+}
+
+export async function deleteComplianceEvidence(
+  authFetch: AuthFetch,
+  evidenceId: string,
+) {
+  const res = await authFetch(`${BASE}/evidence/${evidenceId}`, {
+    method: 'DELETE',
   });
   if (!res.ok) throw await parseApiFormError(res);
   return res.json();

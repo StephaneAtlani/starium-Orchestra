@@ -4,10 +4,12 @@ import { useLayoutEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   AlertTriangle,
+  ExternalLink,
   FileText,
   Link2,
   Pencil,
   Plus,
+  Trash2,
 } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,7 +38,6 @@ import {
 } from './compliance-assess-ui';
 import { formatComplianceEvidenceMeta } from '../lib/compliance-evidence-display';
 import { EmptyState } from '@/components/feedback/empty-state';
-import { ExternalLink } from 'lucide-react';
 
 function memberLabel(m: ClientMember): string {
   const name = [m.firstName, m.lastName].filter(Boolean).join(' ').trim();
@@ -102,6 +103,8 @@ export function ComplianceAssessDrawerBody({
   onEvidenceDescriptionChange,
   onSubmitEvidence,
   evidencePending,
+  onEditEvidence,
+  onRemoveEvidence,
   showGapPlan,
   gapTitle,
   onGapTitleChange,
@@ -143,6 +146,8 @@ export function ComplianceAssessDrawerBody({
   onEvidenceDescriptionChange: (v: string) => void;
   onSubmitEvidence: () => void;
   evidencePending: boolean;
+  onEditEvidence?: (evidenceId: string) => void;
+  onRemoveEvidence?: (evidenceId: string) => void;
   showGapPlan: boolean;
   gapTitle: string;
   onGapTitleChange: (v: string) => void;
@@ -376,6 +381,30 @@ export function ComplianceAssessDrawerBody({
                         <ExternalLink className="size-3.5" aria-hidden />
                         Ouvrir
                       </a>
+                    ) : null}
+                    {canUpdate && onEditEvidence ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="min-h-11 min-w-11 sm:min-h-9 sm:min-w-9"
+                        aria-label={`Modifier ${displayLabel(e.name, 'la preuve')}`}
+                        onClick={() => onEditEvidence(e.id)}
+                      >
+                        <Pencil className="size-3.5" aria-hidden />
+                      </Button>
+                    ) : null}
+                    {canUpdate && onRemoveEvidence ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="min-h-11 min-w-11 sm:min-h-9 sm:min-w-9"
+                        aria-label={`Retirer ${displayLabel(e.name, 'la preuve')}`}
+                        onClick={() => onRemoveEvidence(e.id)}
+                      >
+                        <Trash2 className="size-3.5" aria-hidden />
+                      </Button>
                     ) : null}
                   </li>
                 );

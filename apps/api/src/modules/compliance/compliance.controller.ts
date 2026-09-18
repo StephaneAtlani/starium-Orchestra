@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Header,
   Param,
@@ -475,6 +476,18 @@ export class ComplianceController {
   ) {
     const context: AuditContext = { actorUserId, meta };
     return this.compliance.patchEvidence(clientId!, id, dto, context);
+  }
+
+  @Delete('evidence/:id')
+  @RequirePermissions('compliance.update')
+  archiveEvidence(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.compliance.archiveEvidence(clientId!, id, context);
   }
 
   @Post('evidence/:id/versions')

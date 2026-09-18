@@ -1876,6 +1876,45 @@ export class ComplianceService {
     return { ...updated, kind: deriveComplianceEvidenceKind(updated) };
   }
 
+  /** Soft-delete : retire la preuve du dossier courant (`isCurrent=false`). */
+  async archiveEvidence(
+    clientId: string,
+    evidenceId: string,
+    context?: AuditContext,
+  ) {
+    const existing = await this.prisma.complianceEvidence.findFirst({
+      where: { id: evidenceId, clientId },
+    });
+    if (!existing) throw new NotFoundException('Preuve introuvable');
+    if (!existing.isCurrent) {
+      throw new BadRequestException('Cette preuve est déjà retirée du dossier');
+    }
+
+    const updated = await this.prisma.complianceEvidence.update({
+      where: { id: evidenceId },
+      data: { isCurrent: false },
+    });
+
+    await this.auditLogs.create({
+      clientId,
+      userId: context?.actorUserId,
+      action: COMPLIANCE_AUDIT_ACTION.EVIDENCE_ARCHIVED,
+      resourceType: COMPLIANCE_AUDIT_RESOURCE_TYPE.COMPLIANCE_EVIDENCE,
+      resourceId: updated.id,
+      oldValue: {
+        name: existing.name,
+        isCurrent: true,
+        requirementId: existing.requirementId,
+      },
+      newValue: { isCurrent: false },
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    });
+
+    return { ...updated, kind: deriveComplianceEvidenceKind(updated) };
+  }
+
   async createEvidenceVersion(
     clientId: string,
     evidenceId: string,

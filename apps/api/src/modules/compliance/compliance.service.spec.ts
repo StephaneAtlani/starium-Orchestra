@@ -35,7 +35,9 @@ describe('ComplianceService', () => {
       complianceEvidence: {
         groupBy: jest.fn(),
         findMany: jest.fn(),
+        findFirst: jest.fn(),
         create: jest.fn(),
+        update: jest.fn(),
       },
       projectRisk: { count: jest.fn(), groupBy: jest.fn() },
       complianceCampaign: {
@@ -248,6 +250,61 @@ describe('ComplianceService', () => {
           'u1',
         ),
       ).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
+
+  describe('archiveEvidence', () => {
+    it('passe isCurrent à false et audite', async () => {
+      prisma.complianceEvidence.findFirst.mockResolvedValue({
+        id: 'ev-1',
+        clientId: 'c1',
+        requirementId: 'req-1',
+        name: 'Preuve',
+        isCurrent: true,
+        url: 'https://example.com',
+        fileId: null,
+        description: null,
+      });
+      prisma.complianceEvidence.update.mockResolvedValue({
+        id: 'ev-1',
+        name: 'Preuve',
+        isCurrent: false,
+        url: 'https://example.com',
+        fileId: null,
+        description: null,
+      });
+
+      const out = await service.archiveEvidence('c1', 'ev-1', {
+        actorUserId: 'u1',
+      });
+      expect(out.isCurrent).toBe(false);
+      expect(prisma.complianceEvidence.update).toHaveBeenCalledWith({
+        where: { id: 'ev-1' },
+        data: { isCurrent: false },
+      });
+      expect(auditLogs.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'compliance.evidence.archived',
+        }),
+      );
+    });
+
+    it('refuse une preuve hors client', async () => {
+      prisma.complianceEvidence.findFirst.mockResolvedValue(null);
+      await expect(service.archiveEvidence('c1', 'ev-x')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+
+    it('refuse une preuve déjà retirée', async () => {
+      prisma.complianceEvidence.findFirst.mockResolvedValue({
+        id: 'ev-1',
+        clientId: 'c1',
+        isCurrent: false,
+      });
+      await expect(service.archiveEvidence('c1', 'ev-1')).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
     });
   });
 

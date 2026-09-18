@@ -73,7 +73,7 @@ La V1 (001-A) a volontairement borné les preuves à « créer URL/observation p
 | Lot | Contenu | État |
 | --- | --- | --- |
 | **COMP.EV.1** | UX liste fidèle mock : méta, empty, ouvrir ; FILE masqué | ✅ 2026-09-18 (retirer → EV.2) |
-| **COMP.EV.2** | CRUD UI : éditer métadonnées ; DELETE soft ou hard selon H3 ; confirmation accessible | 📝 |
+| **COMP.EV.2** | CRUD UI : éditer métadonnées ; DELETE soft (`isCurrent=false`) ; confirmation accessible | ✅ 2026-09-18 |
 | **COMP.EV.3** | Appréciation (`assessment`) + libellés métier ; impact sur « preuve justifiable » pour conforme | 📝 |
 | **COMP.EV.4** | Versionnage UI (`POST …/versions`) + historique des versions courante / archivées | 📝 |
 | **COMP.EV.5** | Kind REFERENCE + date de collecte + auteur affiché (libellé, jamais ID) | 📝 |
