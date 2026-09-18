@@ -14,11 +14,20 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { PERMISSIONS_QUERY_KEY } from '@/hooks/use-permissions';
 import { useAuth } from '@/context/auth-context';
+import type { UserRoleAssignment } from '../types';
+
+/** Référence stable — éviter `data ?? []` qui recrée un tableau à chaque render. */
+const EMPTY_USER_ROLES: UserRoleAssignment[] = [];
 
 export interface UserRolesDialogProps {
   userId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+}
+
+function sameRoleIdSet(a: Set<string>, ids: string[]): boolean {
+  if (a.size !== ids.length) return false;
+  return ids.every((id) => a.has(id));
 }
 
 export function UserRolesDialog({
@@ -28,10 +37,11 @@ export function UserRolesDialog({
 }: UserRolesDialogProps) {
   const { data: roles = [], isLoading: rolesLoading, error: rolesError } = useRoles();
   const {
-    data: userRoles = [],
+    data: userRolesData,
     isLoading: userRolesLoading,
     error: userRolesError,
   } = useUserRoles(open ? userId : undefined);
+  const userRoles = userRolesData ?? EMPTY_USER_ROLES;
   const queryClient = useQueryClient();
   const { user: authUser } = useAuth();
   const { activeClient } = useActiveClient();
@@ -44,10 +54,12 @@ export function UserRolesDialog({
   const clientRoles = roles.filter((role) => role.scope === 'CLIENT');
 
   useEffect(() => {
-    if (userRoles.length >= 0) {
-      setSelectedRoleIds(new Set(userRoles.map((r) => r.id)));
-    }
-  }, [userRoles]);
+    if (!open || userRolesLoading) return;
+    const nextIds = userRoles.map((r) => r.id);
+    setSelectedRoleIds((prev) =>
+      sameRoleIdSet(prev, nextIds) ? prev : new Set(nextIds),
+    );
+  }, [open, userRolesLoading, userRoles]);
 
   const handleToggle = (roleId: string) => {
     setSelectedRoleIds((prev) => {

@@ -182,56 +182,78 @@ export function ProceduresCatalog() {
         </FilterBarField>
 
         <FilterBarField id="procedures-status" label="Statut">
-          {({ controlId }) => (
-            <Select
-              value={status}
-              onValueChange={(v) => {
-                setStatus(v ?? '__all__');
-                setOffset(0);
-              }}
-            >
-              <SelectTrigger id={controlId} className="min-h-11">
-                <SelectValue placeholder="Tous" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__all__">Actives (hors archivées)</SelectItem>
-                <SelectItem value="__all_inc__">Toutes (y compris archivées)</SelectItem>
-                {(
-                  Object.keys(PROCEDURE_STATUS_LABELS) as ProcedureStatusApi[]
-                ).map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {PROCEDURE_STATUS_LABELS[s]}
+          {({ controlId }) => {
+            const statusLabel =
+              status === '__all__'
+                ? 'Actives (hors archivées)'
+                : status === '__all_inc__'
+                  ? 'Toutes (y compris archivées)'
+                  : PROCEDURE_STATUS_LABELS[status as ProcedureStatusApi] ??
+                    'Statut';
+            return (
+              <Select
+                value={status}
+                onValueChange={(v) => {
+                  setStatus(v ?? '__all__');
+                  setOffset(0);
+                }}
+              >
+                <SelectTrigger id={controlId} className="min-h-11 w-full">
+                  <SelectValue placeholder="Statut">{statusLabel}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">Actives (hors archivées)</SelectItem>
+                  <SelectItem value="__all_inc__">
+                    Toutes (y compris archivées)
                   </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
+                  {(
+                    Object.keys(PROCEDURE_STATUS_LABELS) as ProcedureStatusApi[]
+                  ).map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {PROCEDURE_STATUS_LABELS[s]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            );
+          }}
         </FilterBarField>
 
         <FilterBarField id="procedures-category" label="Catégorie">
-          {({ controlId }) => (
-            <Select
-              value={category}
-              onValueChange={(v) => {
-                setCategory(v ?? '__all__');
-                setOffset(0);
-              }}
-            >
-              <SelectTrigger id={controlId} className="min-h-11">
-                <SelectValue placeholder="Toutes" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__all__">Toutes</SelectItem>
-                {(
-                  Object.keys(PROCEDURE_CATEGORY_LABELS) as ProcedureCategoryApi[]
-                ).map((c) => (
-                  <SelectItem key={c} value={c}>
-                    {PROCEDURE_CATEGORY_LABELS[c]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
+          {({ controlId }) => {
+            const categoryLabel =
+              category === '__all__'
+                ? 'Toutes'
+                : PROCEDURE_CATEGORY_LABELS[category as ProcedureCategoryApi] ??
+                  'Catégorie';
+            return (
+              <Select
+                value={category}
+                onValueChange={(v) => {
+                  setCategory(v ?? '__all__');
+                  setOffset(0);
+                }}
+              >
+                <SelectTrigger id={controlId} className="min-h-11 w-full">
+                  <SelectValue placeholder="Catégorie">
+                    {categoryLabel}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">Toutes</SelectItem>
+                  {(
+                    Object.keys(
+                      PROCEDURE_CATEGORY_LABELS,
+                    ) as ProcedureCategoryApi[]
+                  ).map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {PROCEDURE_CATEGORY_LABELS[c]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            );
+          }}
         </FilterBarField>
       </FilterBar>
 

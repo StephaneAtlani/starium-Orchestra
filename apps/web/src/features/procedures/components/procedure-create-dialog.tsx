@@ -167,14 +167,21 @@ export function ProcedureCreateDialog({
           <Label htmlFor="procedure-category">Catégorie</Label>
           <Select
             value={form.watch('category')}
-            onValueChange={(v) =>
+            onValueChange={(v) => {
+              if (!v) return;
               form.setValue('category', v as ProcedureCategoryApi, {
                 shouldValidate: true,
-              })
-            }
+              });
+            }}
           >
-            <SelectTrigger id="procedure-category" className="min-h-11">
-              <SelectValue placeholder="Choisir une catégorie" />
+            <SelectTrigger id="procedure-category" className="min-h-11 w-full">
+              <SelectValue placeholder="Choisir une catégorie">
+                {
+                  PROCEDURE_CATEGORY_LABELS[
+                    form.watch('category') as ProcedureCategoryApi
+                  ]
+                }
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {CATEGORY_OPTIONS.map(([value, label]) => (
@@ -196,12 +203,21 @@ export function ProcedureCreateDialog({
             }}
             disabled={membersLoading}
           >
-            <SelectTrigger id="procedure-owner" className="min-h-11">
+            <SelectTrigger id="procedure-owner" className="min-h-11 w-full">
               <SelectValue
                 placeholder={
                   membersLoading ? 'Chargement…' : 'Aucun propriétaire'
                 }
-              />
+              >
+                {(() => {
+                  const ownerId = form.watch('ownerUserId');
+                  if (!ownerId) return 'Aucun propriétaire';
+                  const member = members.find((m) => m.id === ownerId);
+                  return member
+                    ? displayLabel(memberLabel(member), 'Membre')
+                    : 'Membre';
+                })()}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="__none__">Aucun propriétaire</SelectItem>
