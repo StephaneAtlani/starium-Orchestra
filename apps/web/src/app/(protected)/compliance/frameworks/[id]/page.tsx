@@ -98,6 +98,7 @@ export default function ComplianceFrameworkDetailPage() {
     <RequireActiveClient>
       <PageContainer className="flex flex-col gap-4">
         <PageHeader
+          backHref="/compliance/dashboard"
           eyebrow="Gouvernance › Conformité"
           title={
             overviewQ.data

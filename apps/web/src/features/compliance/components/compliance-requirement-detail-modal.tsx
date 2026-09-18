@@ -499,7 +499,7 @@ export function ComplianceRequirementDetailModal({
         headless
         sidePanel
         showCloseButton
-        contentClassName="!max-w-[min(100vw,56rem)] gap-0 border-border/80 bg-background p-0 sm:rounded-l-2xl"
+        contentClassName="!max-w-[min(100vw,56rem)] gap-0 border-border/80 bg-background p-0 sm:rounded-l-[var(--radius-2xl)]"
         bodyClassName="flex min-h-0 flex-1 flex-col overflow-hidden bg-background p-0"
         footerClassName="!border-t !border-border/70 !bg-background"
         footer={
