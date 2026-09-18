@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -8,7 +9,6 @@ import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { EmptyState } from '@/components/feedback/empty-state';
 import { ErrorState } from '@/components/feedback/error-state';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -22,12 +22,15 @@ import {
   archiveProcedure,
   getProcedure,
   unarchiveProcedure,
+  updateProcedureDraft,
 } from '@/features/procedures/api/procedures.api';
 import { procedureQueryKeys } from '@/features/procedures/lib/procedure-query-keys';
 import {
   procedureCategoryLabel,
   procedureStatusLabel,
 } from '@/features/procedures/lib/procedure-labels';
+import { EMPTY_PROCEDURE_DOC } from '@/features/procedures/lib/procedure-content';
+import { ProcedureRichEditor } from '@/features/procedures/components/procedure-rich-editor';
 
 export default function ProcedureEditPage() {
   const params = useParams();
@@ -37,6 +40,7 @@ export default function ProcedureEditPage() {
   const clientId = activeClient?.id ?? '';
   const { has } = usePermissions();
   const canArchive = has('procedures.archive');
+  const canUpdate = has('procedures.update');
   const queryClient = useQueryClient();
 
   const q = useQuery({
@@ -44,6 +48,24 @@ export default function ProcedureEditPage() {
     queryFn: () => getProcedure(authFetch, procedureId),
     enabled: Boolean(clientId) && Boolean(procedureId),
   });
+
+  const [draftJson, setDraftJson] = useState<Record<string, unknown> | null>(
+    null,
+  );
+  const [saveMessage, setSaveMessage] = useState('');
+
+  useEffect(() => {
+    if (!q.data?.currentDraft) {
+      setDraftJson(null);
+      return;
+    }
+    const content = q.data.currentDraft.contentJson;
+    setDraftJson(
+      content && typeof content === 'object'
+        ? (content as Record<string, unknown>)
+        : { ...EMPTY_PROCEDURE_DOC },
+    );
+  }, [q.data?.currentDraft?.id, q.data?.currentDraft?.updatedAt]);
 
   const archiveMut = useMutation({
     mutationFn: () => archiveProcedure(authFetch, procedureId),
@@ -67,7 +89,27 @@ export default function ProcedureEditPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const saveMut = useMutation({
+    mutationFn: () =>
+      updateProcedureDraft(authFetch, procedureId, {
+        contentJson: draftJson ?? { ...EMPTY_PROCEDURE_DOC },
+        expectedUpdatedAt: q.data?.updatedAt,
+      }),
+    onSuccess: async () => {
+      setSaveMessage('Enregistré');
+      toast.success('Brouillon enregistré');
+      await queryClient.invalidateQueries({
+        queryKey: procedureQueryKeys.detail(clientId, procedureId),
+      });
+    },
+    onError: (e: Error) => {
+      setSaveMessage('');
+      toast.error(e.message);
+    },
+  });
+
   const isArchived = q.data?.status === 'ARCHIVED';
+  const editable = Boolean(canUpdate && !isArchived && q.isSuccess);
 
   return (
     <RequireActiveClient>
@@ -85,6 +127,17 @@ export default function ProcedureEditPage() {
           }
           actions={
             <div className="flex flex-wrap gap-2">
+              {editable ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="min-h-11 sm:min-h-9"
+                  disabled={saveMut.isPending || !draftJson}
+                  onClick={() => saveMut.mutate()}
+                >
+                  {saveMut.isPending ? 'Enregistrement…' : 'Enregistrer'}
+                </Button>
+              ) : null}
               {canArchive && q.isSuccess ? (
                 isArchived ? (
                   <Button
@@ -133,6 +186,10 @@ export default function ProcedureEditPage() {
           }
         />
 
+        <p className="sr-only" aria-live="polite">
+          {saveMessage}
+        </p>
+
         {q.isLoading ? <LoadingState rows={3} /> : null}
         {q.isError ? (
           <ErrorState
@@ -148,8 +205,7 @@ export default function ProcedureEditPage() {
                 <AlertCircle className="size-4" />
                 <AlertTitle>Procédure archivée</AlertTitle>
                 <AlertDescription>
-                  Lecture seule jusqu&apos;à désarchivage. Les versions et assets
-                  sont conservés.
+                  Contenu en lecture seule jusqu&apos;à désarchivage.
                 </AlertDescription>
               </Alert>
             ) : null}
@@ -191,21 +247,23 @@ export default function ProcedureEditPage() {
                   </dd>
                 </div>
               </dl>
-              {q.data.description ? (
-                <p className="text-sm text-muted-foreground">
-                  {displayLabel(q.data.description, 'Sans description')}
-                </p>
-              ) : null}
             </section>
 
-            <EmptyState
-              title="Éditeur de contenu riche"
-              description={
-                isArchived
-                  ? 'Contenu en lecture seule (procédure archivée).'
-                  : 'La rédaction TipTap (texte, médias, liens) arrive avec US-PROC-02. Les métadonnées et le brouillon v1 sont déjà créés.'
-              }
-            />
+            <section className="space-y-2" aria-labelledby="procedure-body">
+              <h2 id="procedure-body" className="text-base font-semibold">
+                Contenu
+              </h2>
+              {draftJson ? (
+                <ProcedureRichEditor
+                  key={`${q.data.currentDraft?.id ?? 'empty'}-${q.data.currentDraft?.updatedAt ?? ''}`}
+                  content={draftJson}
+                  editable={editable}
+                  onChange={setDraftJson}
+                />
+              ) : (
+                <LoadingState rows={2} />
+              )}
+            </section>
           </div>
         ) : null}
       </PageContainer>

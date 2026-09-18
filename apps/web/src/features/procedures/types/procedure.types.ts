@@ -37,6 +37,7 @@ export type ProcedureDetail = {
     versionNumber: number;
     lifecycle: 'DRAFT' | 'PUBLISHED';
     title: string;
+    contentJson?: Record<string, unknown>;
     updatedAt: string;
   } | null;
 };

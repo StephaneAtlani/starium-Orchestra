@@ -4,7 +4,7 @@ Version : 1.0 — 17 septembre 2026
 
 | Métadonnée | Valeur |
 | --- | --- |
-| **Statut** | 🟡 En cours — **US-01 / 03 / 04** ✅ · **US-02** éditeur riche restant |
+| **Statut** | 🟡 En cours — **US-01 / 02 (TipTap) / 03 / 04** ✅ · **US-02b** assets/liens internes restant |
 | **Parent** | [RFC-PROC-001](./RFC-PROC-001%20—%20Module%20Procédures%20(cadrage%20et%20backlog%20user%20stories).md) |
 | **Suite** | [PROC-003](./RFC-PROC-003%20—%20Versioning%20des%20procédures.md) · [PROC-004](./RFC-PROC-004%20—%20Export%20Word%20PDF%20procédures%20avec%20logo.md) |
 

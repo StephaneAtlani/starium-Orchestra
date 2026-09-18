@@ -81,3 +81,18 @@ export function unarchiveProcedure(
     (r: Response) => parseJson<ProcedureDetail>(r),
   );
 }
+
+export function updateProcedureDraft(
+  authFetch: AuthFetch,
+  id: string,
+  input: {
+    contentJson: Record<string, unknown>;
+    expectedUpdatedAt?: string;
+  },
+): Promise<ProcedureDetail> {
+  return authFetch(`${BASE}/${id}/draft`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(input),
+  }).then((r: Response) => parseJson<ProcedureDetail>(r));
+}

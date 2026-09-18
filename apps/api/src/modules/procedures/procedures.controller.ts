@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ActiveClientId } from '../../common/decorators/active-client.decorator';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
 import { RequestMeta } from '../../common/decorators/request-meta.decorator';
@@ -9,6 +18,7 @@ import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CreateProcedureDto } from './dto/create-procedure.dto';
 import { ListProceduresQueryDto } from './dto/list-procedures.query.dto';
+import { UpdateProcedureDraftDto } from './dto/update-procedure-draft.dto';
 import { ProceduresService } from './procedures.service';
 
 @Controller('procedures')
@@ -44,6 +54,25 @@ export class ProceduresController {
     @Param('id') id: string,
   ) {
     return this.proceduresService.getById(clientId!, id);
+  }
+
+  @Patch(':id/draft')
+  @RequirePermissions('procedures.update')
+  updateDraft(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+    @Body() dto: UpdateProcedureDraftDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta()
+    meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    return this.proceduresService.updateDraft(
+      clientId!,
+      id,
+      dto,
+      actorUserId,
+      meta,
+    );
   }
 
   @Post(':id/archive')

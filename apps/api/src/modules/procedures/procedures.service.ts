@@ -14,6 +14,11 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { CreateProcedureDto } from './dto/create-procedure.dto';
 import { ListProceduresQueryDto } from './dto/list-procedures.query.dto';
+import { UpdateProcedureDraftDto } from './dto/update-procedure-draft.dto';
+import {
+  assertProcedureContentJson,
+  EMPTY_PROCEDURE_DOC,
+} from './lib/procedure-content.util';
 
 type AuditMeta = {
   ipAddress?: string;
@@ -21,10 +26,7 @@ type AuditMeta = {
   requestId?: string;
 };
 
-const EMPTY_DOC = {
-  type: 'doc',
-  content: [{ type: 'paragraph' }],
-} as const;
+const EMPTY_DOC = EMPTY_PROCEDURE_DOC;
 
 function isPrismaUniqueConstraintError(error: unknown): boolean {
   return (
@@ -136,10 +138,81 @@ export class ProceduresService {
             versionNumber: draft.versionNumber,
             lifecycle: draft.lifecycle,
             title: draft.title,
+            contentJson: draft.contentJson,
             updatedAt: draft.updatedAt.toISOString(),
           }
         : null,
     };
+  }
+
+  async updateDraft(
+    clientId: string,
+    id: string,
+    dto: UpdateProcedureDraftDto,
+    actorUserId?: string,
+    meta?: AuditMeta,
+  ) {
+    const procedure = await this.prisma.procedure.findFirst({
+      where: { id, clientId },
+    });
+    if (!procedure) throw new NotFoundException('Procédure introuvable');
+    if (procedure.status === ProcedureStatus.ARCHIVED) {
+      throw new BadRequestException(
+        'Procédure archivée — désarchiver pour modifier le contenu',
+      );
+    }
+    if (!procedure.currentDraftVersionId) {
+      throw new BadRequestException('Aucun brouillon courant');
+    }
+    if (dto.expectedUpdatedAt) {
+      const expected = new Date(dto.expectedUpdatedAt).getTime();
+      if (procedure.updatedAt.getTime() !== expected) {
+        throw new ConflictException(
+          'La procédure a été modifiée entre-temps — rechargez puis réessayez',
+        );
+      }
+    }
+
+    const contentJson = assertProcedureContentJson(dto.contentJson);
+
+    const draft = await this.prisma.procedureVersion.findFirst({
+      where: {
+        id: procedure.currentDraftVersionId,
+        clientId,
+        procedureId: id,
+        lifecycle: ProcedureVersionLifecycle.DRAFT,
+      },
+    });
+    if (!draft) throw new NotFoundException('Brouillon introuvable');
+
+    await this.prisma.$transaction([
+      this.prisma.procedureVersion.update({
+        where: { id: draft.id },
+        data: { contentJson: contentJson as Prisma.InputJsonValue },
+      }),
+      this.prisma.procedure.update({
+        where: { id },
+        data: { updatedAt: new Date() },
+      }),
+    ]);
+
+    await this.auditLogs.create({
+      clientId,
+      userId: actorUserId,
+      action: 'procedure.draft.updated',
+      resourceType: 'procedure',
+      resourceId: id,
+      newValue: {
+        versionId: draft.id,
+        versionNumber: draft.versionNumber,
+        contentBytes: JSON.stringify(contentJson).length,
+      },
+      ipAddress: meta?.ipAddress,
+      userAgent: meta?.userAgent,
+      requestId: meta?.requestId,
+    });
+
+    return this.getById(clientId, id);
   }
 
   async create(
