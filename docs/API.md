@@ -3001,10 +3001,10 @@ Guards métier client (`X-Client-Id`, module `compliance`).
 - **POST /campaigns** — Body `{ frameworkId, name?, reviewFrequencyMonths?, openImmediately?, createSnapshot?, scopeDomainKeys?, modality?, ownerUserId?, dueAt? }`.
   - `scopeDomainKeys` : clés de domaine (`category`) à inclure ; au moins une si fourni ; invalide → **400**. Instantané initial **filtré** sur ce périmètre.
   - `modality` : `SELF_ASSESSMENT` \| `INTERNAL_AUDIT` \| `EXTERNAL_AUDIT` (défaut auto-évaluation).
-  - `ownerUserId` : membre actif du client ; `dueAt` : échéance ISO.
+  - `ownerUserId` : membre actif du client ; **obligatoire** si `openImmediately: true` (sinon **400**) ; `dueAt` : échéance ISO.
   - Fige `frozenFrameworkName` / `frozenFrameworkVersion`. Permission **`compliance.update`**. Audit `compliance.campaign.created` (+ `opened` / `snapshot` si demandé).
 - **GET /campaigns/:id** — Détail (+ `scopeDomainKeys`, `modality`, `owner`, `dueAt`) + liste légère des instantanés.
-- **POST /campaigns/:id/open** — Brouillon → ouverte (re-fige name/version du référentiel courant).
+- **POST /campaigns/:id/open** — Brouillon → ouverte (re-fige name/version du référentiel courant). Exige un `ownerUserId` déjà posé sur la campagne (**400** sinon).
 - **POST /campaigns/:id/close** — Body `{ closeNote?, createSnapshot? }` (snapshot de clôture par défaut).
 - **GET|POST /campaigns/:id/snapshots** — Liste / création d’instantané (payload JSON exigences + totaux `C/A`).
 - **GET /campaigns/:campaignId/snapshots/:snapshotId** — Instantané complet.

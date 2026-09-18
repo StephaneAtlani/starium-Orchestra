@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| **Statut** | ✅ COMP.UX.0–3 livrés · **COMP.V2 launch** (Lancer une revue) + pont remédiation ↔ plans d’actions (2026-09-18) |
+| **Statut** | ✅ COMP.UX.0–3 livrés · **COMP.V2 launch** + remédiation ActionPlan · **owner obligatoire** au lancement (2026-09-18) |
 | **Date** | 2026-09-17 · amendé 2026-09-18 |
 | **Parents** | [RFC-COMP-001](./RFC-COMP-001%20—%20Pilotage%20de%20la%20conformité.md) · [RFC-COMP-001-A](./RFC-COMP-001-A%20—%20Évaluation%20opérationnelle%20(V1).md) · [RFC-COMP-002](./RFC-COMP-002%20—%20Campagnes%20et%20dossier%20d'audit.md) · [écarts MVP](./RFC-COMP-001-ecarts-mvp.md) |
 | **Source design** | Export autonome *Conformité* + module portail |
@@ -142,6 +142,7 @@
 | V2-05 | Plan d’actions depuis remédiation | ensure gap + CREATE/LINK + lien `/action-plans/[id]` | ✅ |
 | V2-06 | Permissions | `compliance.update` + `projects.update` sur remediation-plan | ✅ |
 | V2-07 | Audits UI | `audit:modals` / `audit:ui-ids` verts | ✅ |
+| V2-08 | Owner obligatoire au launch | `openImmediately` / `openCampaign` sans `ownerUserId` → 400 ; UI modale `*` + CTA | ✅ |
 
 ---
 

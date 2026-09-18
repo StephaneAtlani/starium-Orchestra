@@ -669,12 +669,14 @@ describe('ComplianceService', () => {
         label: 'Instantané initial',
       });
 
+      prisma.clientUser.findFirst.mockResolvedValue({ id: 'cu-1' });
       const out = await service.createCampaign(
         'c1',
         {
           frameworkId: 'fw-1',
           openImmediately: true,
           createSnapshot: true,
+          ownerUserId: 'u1',
         },
         { actorUserId: 'u1' },
       );
@@ -793,6 +795,65 @@ describe('ComplianceService', () => {
       ).rejects.toBeInstanceOf(BadRequestException);
     });
 
+    it('refuse openImmediately sans responsable', async () => {
+      prisma.complianceFramework.findFirst.mockResolvedValue({
+        id: 'fw-1',
+        clientId: 'c1',
+        name: 'NIS2',
+        version: '3',
+      });
+      await expect(
+        service.createCampaign('c1', {
+          frameworkId: 'fw-1',
+          openImmediately: true,
+        }),
+      ).rejects.toThrow(/responsable de la revue/i);
+    });
+
+    it('autorise un brouillon sans responsable', async () => {
+      prisma.complianceFramework.findFirst.mockResolvedValue({
+        id: 'fw-1',
+        clientId: 'c1',
+        name: 'NIS2',
+        version: '3',
+      });
+      prisma.complianceCampaign.create.mockResolvedValue({
+        id: 'camp-draft',
+        clientId: 'c1',
+        frameworkId: 'fw-1',
+        name: 'Brouillon',
+        status: 'DRAFT',
+        frozenFrameworkName: 'NIS2',
+        frozenFrameworkVersion: '3',
+        ownerUserId: null,
+      });
+      prisma.complianceCampaign.findFirst.mockResolvedValue({
+        id: 'camp-draft',
+        clientId: 'c1',
+        frameworkId: 'fw-1',
+        name: 'Brouillon',
+        status: 'DRAFT',
+        frozenFrameworkName: 'NIS2',
+        frozenFrameworkVersion: '3',
+        _count: { snapshots: 0 },
+        framework: { id: 'fw-1', name: 'NIS2', version: '3' },
+        owner: null,
+        snapshots: [],
+      });
+
+      const out = await service.createCampaign('c1', {
+        frameworkId: 'fw-1',
+        name: 'Brouillon',
+      });
+      expect(out.id).toBe('camp-draft');
+      expect(prisma.complianceCampaign.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          status: 'DRAFT',
+          ownerUserId: null,
+        }),
+      });
+    });
+
     it('refuse d’évaluer une exigence hors périmètre d’une revue OPEN', async () => {
       prisma.complianceRequirement.findFirst.mockResolvedValue({
         id: 'req-1',
@@ -817,9 +878,23 @@ describe('ComplianceService', () => {
         clientId: 'c1',
         status: 'OPEN',
         frameworkId: 'fw-1',
+        ownerUserId: 'u1',
       });
       await expect(service.openCampaign('c1', 'camp-1')).rejects.toBeInstanceOf(
         BadRequestException,
+      );
+    });
+
+    it('refuse d’ouvrir un brouillon sans responsable', async () => {
+      prisma.complianceCampaign.findFirst.mockResolvedValue({
+        id: 'camp-1',
+        clientId: 'c1',
+        status: 'DRAFT',
+        frameworkId: 'fw-1',
+        ownerUserId: null,
+      });
+      await expect(service.openCampaign('c1', 'camp-1')).rejects.toThrow(
+        /responsable de la revue/i,
       );
     });
 

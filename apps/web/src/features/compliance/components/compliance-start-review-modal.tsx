@@ -139,6 +139,8 @@ export function ComplianceStartReviewModal({
     name.trim().length > 0 &&
     selectedDomainKeys.size > 0 &&
     selectedCount > 0 &&
+    Boolean(ownerUserId) &&
+    !membersLoading &&
     !overviewQ.isLoading;
 
   const invalidate = async () => {
@@ -286,13 +288,23 @@ export function ComplianceStartReviewModal({
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="rv-owner">Responsable de la revue</Label>
+              <Label htmlFor="rv-owner">
+                Responsable de la revue{' '}
+                <span className="text-destructive" aria-hidden>
+                  *
+                </span>
+              </Label>
               <Select
                 value={ownerUserId}
                 onValueChange={(v) => setOwnerUserId(v ?? '')}
                 disabled={membersLoading || members.length === 0}
               >
-                <SelectTrigger id="rv-owner" className="w-full min-h-11">
+                <SelectTrigger
+                  id="rv-owner"
+                  className="w-full min-h-11"
+                  aria-required
+                  aria-invalid={!ownerUserId}
+                >
                   <SelectValue placeholder="Choisir un responsable">
                     {ownerUserId
                       ? memberLabel(
@@ -316,6 +328,15 @@ export function ComplianceStartReviewModal({
                   ))}
                 </SelectContent>
               </Select>
+              {!membersLoading && members.length === 0 ? (
+                <p
+                  className="text-xs text-destructive"
+                  role="alert"
+                  aria-live="assertive"
+                >
+                  Aucun membre client disponible pour assigner un responsable.
+                </p>
+              ) : null}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="rv-due">Échéance</Label>

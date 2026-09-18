@@ -2561,6 +2561,11 @@ export class ComplianceService {
       scopeDomainKeys = cleaned;
     }
 
+    if (openImmediately && !dto.ownerUserId?.trim()) {
+      throw new BadRequestException(
+        'Un responsable de la revue est obligatoire pour lancer la campagne',
+      );
+    }
     if (dto.ownerUserId) {
       await this.assertAssigneeOnClient(clientId, dto.ownerUserId);
     }
@@ -2646,6 +2651,11 @@ export class ComplianceService {
     if (campaign.status !== ComplianceCampaignStatus.DRAFT) {
       throw new BadRequestException(
         'Seule une campagne en brouillon peut être ouverte',
+      );
+    }
+    if (!campaign.ownerUserId) {
+      throw new BadRequestException(
+        'Un responsable de la revue est obligatoire pour ouvrir la campagne',
       );
     }
     const framework = await this.prisma.complianceFramework.findFirst({

@@ -57,7 +57,7 @@ Prérequis : V1 évaluation opérationnelle livrée et stable.
 
 ## 5. Backlog restant
 
-Item `COMP.V2` partiellement clos dans [`docs/BACKLOG.md`](../BACKLOG.md). Reste éventuel : score pondéré mock, preuve fichier GED (`fut-evidence-ged`), owner obligatoire à la création de campagne (hors scope actuel).
+Item `COMP.V2` partiellement clos dans [`docs/BACKLOG.md`](../BACKLOG.md). **Owner obligatoire** à l’ouverture (`openImmediately` / `openCampaign`) livré. Reste éventuel : score pondéré mock, preuve fichier GED (`fut-evidence-ged`), cycle de vie preuves UI → [RFC-COMP-004](./RFC-COMP-004%20—%20Gestion%20des%20preuves%20de%20conformité.md).
 
 ---
 
