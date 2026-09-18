@@ -10,6 +10,7 @@ import {
   type CreateAuditLogInput,
 } from '../audit-logs/audit-logs.service';
 import { UpdateProcedureSettingsDto } from './dto/update-procedure-settings.dto';
+import { personDisplayLabel } from './lib/procedure-display.util';
 
 export type ProcedureSettingsResponse = {
   usePilotageCycle: boolean;
@@ -154,26 +155,37 @@ export class ProcedureSettingsService {
               email: true,
             },
           });
+    const activeMemberships =
+      ids.length === 0
+        ? []
+        : await this.prisma.clientUser.findMany({
+            where: {
+              clientId,
+              userId: { in: ids },
+              status: ClientUserStatus.ACTIVE,
+            },
+            select: { userId: true },
+          });
+    const activeSet = new Set(activeMemberships.map((m) => m.userId));
     const byId = new Map(users.map((u) => [u.id, u]));
     const validators = ids.map((userId) => {
+      if (!activeSet.has(userId)) {
+        return { userId, label: 'Membre retiré' };
+      }
       const u = byId.get(userId);
-      const name = [u?.firstName, u?.lastName].filter(Boolean).join(' ').trim();
-      const label = name || (u?.email ? maskEmail(u.email) : 'Membre retiré');
-      return { userId, label };
+      return {
+        userId,
+        label: personDisplayLabel({
+          firstName: u?.firstName,
+          lastName: u?.lastName,
+          email: u?.email,
+        }),
+      };
     });
-    // Ensure membership still active — drop labels for removed but keep id for config repair
-    void clientId;
     return {
       usePilotageCycle: row.usePilotageCycle,
       validators,
       updatedAt: row.updatedAt.toISOString(),
     };
   }
-}
-
-function maskEmail(email: string): string {
-  const [local, domain] = email.split('@');
-  if (!local || !domain) return 'Utilisateur';
-  const head = local.slice(0, 1);
-  return `${head}***@${domain}`;
 }

@@ -32,6 +32,7 @@ import {
 import { ProcedureAssetsService } from './procedure-assets.service';
 import { ProcedureCategoriesService } from './procedure-categories.service';
 import { ProcedureSettingsService } from './procedure-settings.service';
+import { personDisplayLabel } from './lib/procedure-display.util';
 
 type AuditMeta = {
   ipAddress?: string;
@@ -723,11 +724,7 @@ export class ProceduresService {
     email: string;
   } | null): string | null {
     if (!owner) return null;
-    const name = [owner.firstName, owner.lastName]
-      .filter(Boolean)
-      .join(' ')
-      .trim();
-    return name || owner.email;
+    return personDisplayLabel(owner);
   }
 
   private toListItem(

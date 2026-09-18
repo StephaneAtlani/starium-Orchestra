@@ -207,6 +207,7 @@ export function MembersList() {
         key: 'member',
         header: 'Membre',
         mobilePriority: 'primary',
+        className: 'w-[32%] min-w-0 max-w-0',
         cell: (member) => {
           const name = memberDisplayName(member);
           const subtitle =
@@ -236,14 +237,16 @@ export function MembersList() {
         key: 'directory',
         header: 'Annuaire',
         mobilePriority: 'secondary',
+        className: 'w-[14%] min-w-0',
         cell: (member) => <DirectoryCell member={member} />,
       },
       {
         key: 'humanResource',
         header: 'Fiche Humaine',
         mobilePriority: 'secondary',
+        className: 'w-[18%] min-w-0',
         cell: (member) => (
-          <span className="text-sm text-muted-foreground">
+          <span className="block truncate text-sm text-muted-foreground">
             {member.humanResourceSummary?.displayName ?? '—'}
           </span>
         ),
@@ -252,8 +255,9 @@ export function MembersList() {
         key: 'role',
         header: 'Rôle',
         mobilePriority: 'secondary',
+        className: 'w-[14%] min-w-0',
         cell: (member) => (
-          <span className="text-sm">
+          <span className="block truncate text-sm">
             {member.role ? (CLIENT_ROLE_LABEL[member.role] ?? member.role) : '—'}
           </span>
         ),
@@ -262,6 +266,7 @@ export function MembersList() {
         key: 'status',
         header: 'Statut',
         mobilePriority: 'secondary',
+        className: 'w-[10%] min-w-0',
         cell: (member) => {
           const meta = STATUS_META[member.status] ?? {
             label: member.status,
@@ -276,6 +281,8 @@ export function MembersList() {
         key: 'actions',
         header: 'Actions',
         mobilePriority: 'actions',
+        className: 'w-[12%] min-w-0',
+        headerClassName: 'w-[12%]',
         cell: (member) => (
           <div className="flex flex-wrap items-center gap-1">
             <Button
@@ -306,8 +313,15 @@ export function MembersList() {
   );
 
   return (
-    <PageContainer>
+    <PageContainer
+      className={cn(
+        'flex w-full min-w-0 flex-col gap-4',
+        /* Viewport utile : topbar + padding workspace (py-6/8) */
+        'md:h-[calc(100dvh-var(--topbar-height,56px)-5rem)] md:min-h-0 md:overflow-hidden',
+      )}
+    >
       <PageHeader
+        className="shrink-0"
         title="Membres"
         description="Comptes du client, rôles métier et rattachement ADDS / compte (SSO)."
         actions={
@@ -318,7 +332,7 @@ export function MembersList() {
         }
       />
 
-      <div className="starium-module mb-4">
+      <div className="starium-module shrink-0">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <KpiCard
             variant="dense"
@@ -369,20 +383,23 @@ export function MembersList() {
 
       <Card
         size="sm"
-        className="starium-panel overflow-hidden max-md:border-0 max-md:bg-transparent max-md:shadow-none"
+        className={cn(
+          'starium-panel flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden',
+          'max-md:max-h-[min(70dvh,32rem)] max-md:border-0 max-md:bg-transparent max-md:shadow-none',
+        )}
       >
-        <div className="border-b border-border/60 px-3 py-3 sm:px-4">
+        <div className="shrink-0 border-b border-border/60 px-3 py-3 sm:px-4">
           <FilterBar aria-label="Recherche membres" asSearch desktopColumns="auto">
             <FilterBarField id="members-search" label="Rechercher">
               {({ controlId }) => (
-                <div className="relative">
+                <div className="relative w-full min-w-0">
                   <Search
                     className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
                     aria-hidden
                   />
                   <Input
                     id={controlId}
-                    className="min-h-11 pl-9"
+                    className="min-h-11 w-full pl-9"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Nom, email, poste, département…"
@@ -392,7 +409,16 @@ export function MembersList() {
             </FilterBarField>
           </FilterBar>
         </div>
-        <CardContent className="p-0 group-data-[size=sm]/card:px-0 group-data-[size=sm]/card:pt-0 group-data-[size=sm]/card:pb-0">
+        <CardContent
+          className={cn(
+            'min-h-0 flex-1 overflow-hidden p-0',
+            'group-data-[size=sm]/card:px-0 group-data-[size=sm]/card:pt-0 group-data-[size=sm]/card:pb-0',
+            'starium-scroll-hover overflow-y-auto overflow-x-hidden overscroll-contain',
+            /* Pleine largeur utile : colonnes réparties, pas de bande vide à droite */
+            '[&_[data-slot=table]]:w-full [&_[data-slot=table]]:table-fixed',
+            '[&_[data-slot=table-container]]:w-full',
+          )}
+        >
           <DataTable
             columns={columns}
             data={filtered}

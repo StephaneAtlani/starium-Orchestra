@@ -76,7 +76,7 @@
   },
   {
     "name": "Chef de projet",
-    "description": "Pilotage complet du portefeuille projets (CRUD, tâches, risques, jalons) — inclut le menu Risques (/risks) et les registres par projet",
+    "description": "Pilotage projets (CRUD, risques, jalons) + procédures (édition, publication, configuration module)",
     "isSystem": true,
     "permissionCodes": [
       "notifications.read",
@@ -91,6 +91,9 @@
       "procedures.read",
       "procedures.create",
       "procedures.update",
+      "procedures.publish",
+      "procedures.configure",
+      "procedures.archive",
       "governance_cycles.read",
       "governance_cycles.propose",
       "project_requests.read",
@@ -103,6 +106,33 @@
       "meetings.create",
       "meetings.update",
       "meetings.conduct"
+    ]
+  },
+  {
+    "name": "Lecteur procédures",
+    "description": "Consultation du catalogue et des procédures publiées (lecture seule)",
+    "isSystem": true,
+    "permissionCodes": [
+      "notifications.read",
+      "notifications.update",
+      "alerts.read",
+      "procedures.read",
+      "procedures.export"
+    ]
+  },
+  {
+    "name": "Contributeur procédures",
+    "description": "Rédaction et mise à jour des procédures (brouillons, soumission) — sans configuration module ni publication finale",
+    "isSystem": true,
+    "permissionCodes": [
+      "notifications.read",
+      "notifications.update",
+      "alerts.read",
+      "procedures.read",
+      "procedures.create",
+      "procedures.update",
+      "procedures.archive",
+      "procedures.export"
     ]
   },
   {

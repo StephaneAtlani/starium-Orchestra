@@ -4191,11 +4191,15 @@ async function ensurePlatformUiBadgeDefaultsFromFile(): Promise<void> {
  * - `SupplierContractKindType` globaux (`clientId` null) manquants ;
  * - `Role` scope GLOBAL depuis `default-profiles.json` + **remplacement** des `RolePermission`
  *   de ces rôles par le contenu du fichier (deleteMany puis createMany par rôle) ;
+ *   inclut **Lecteur procédures** / **Contributeur procédures** / **Chef de projet** (procédures) ;
  *   suppression éventuelle du rôle legacy « Responsable Stratégie » ;
  * - `BudgetSnapshotOccasionType` globaux manquants (CODIR, workflow, etc.) ;
- * - rôles globaux « Client admin — taxonomie risques / équipes métier / contrats / organisation » + leurs
- *   `RolePermission` ; **liaisons `UserRole`** (upsert) pour chaque `ClientUser` CLIENT_ADMIN actif
- *   → élargit les droits métier des admins client, **sans** toucher aux mots de passe ;
+ * - rôles globaux « Client admin — taxonomie risques / équipes métier / contrats / organisation /
+ *   procédures » + leurs `RolePermission` ; **liaisons `UserRole`** (upsert) pour chaque
+ *   `ClientUser` CLIENT_ADMIN actif → élargit les droits métier des admins client, **sans** toucher
+ *   aux mots de passe ;
+ * - `ClientModule` : active tous les modules plateforme (`isActive`) pour **chaque client**
+ *   (dont `procedures`) — requis pour la navigation / ModuleAccessGuard ;
  * - `ActivityType` : pour chaque client, une ligne par `kind` **seulement** si aucune ligne n’existe
  *   déjà pour ce kind (pas de modification des types existants).
  *

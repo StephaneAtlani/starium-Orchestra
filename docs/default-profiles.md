@@ -26,7 +26,9 @@ Le catalogue est défini dans **`apps/api/prisma/default-profiles.json`**. Chaqu
 | **Directeur** | Visualisation budget, reporting, collaborateurs et risques (lecture seule) | `budgets.read`, `projects.read`, `compliance.read`, `collaborators.read` |
 | **Responsable Budgets** | Pilotage complet des budgets | `budgets.*`, procurement, `projects.*`, référentiels budgétaires (voir JSON) |
 | **Contributeur Budgets** | Saisie et consultation | `budgets.read/create`, procurement lecture & création, `projects.read/create`, référentiels en lecture |
-| **Chef de projet** | Portefeuille et fiches projets (cockpit) | `projects.read`, `projects.create`, `projects.update`, `projects.delete` |
+| **Chef de projet** | Portefeuille projets + procédures (édition / publication / config) | `projects.*`, `procedures.read/create/update/publish/configure/archive` |
+| **Lecteur procédures** | Catalogue procédures en lecture | `procedures.read`, `procedures.export` |
+| **Contributeur procédures** | Rédaction procédures (sans publish / configure) | `procedures.read/create/update/archive/export` |
 | **Gestionnaire Procurement** | Fournisseurs / commandes / factures | `budgets.read`, `procurement.*`, `projects.read` |
 | **Lecteur Équipes** | Référentiel collaborateurs (module Équipes) | `collaborators.read` |
 | **Gestionnaire Équipes** | CRUD collaborateurs | `collaborators.read`, `collaborators.create`, `collaborators.update`, `collaborators.delete` |

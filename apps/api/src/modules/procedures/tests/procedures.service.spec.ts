@@ -271,6 +271,78 @@ describe('ProceduresService', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
+  it('transition — mode Non : CLIENT_ADMIN hors liste peut forcer', async () => {
+    settings.getOrCreate.mockResolvedValueOnce({
+      usePilotageCycle: false,
+      validators: [{ userId: 'val-1', label: 'Val' }],
+      updatedAt: new Date().toISOString(),
+    });
+    const draftRow = {
+      id: 'ver-1',
+      versionNumber: 1,
+      title: 'T',
+      lifecycle: ProcedureVersionLifecycle.DRAFT,
+      contentJson: {
+        schemaVersion: 2,
+        blocks: [{ t: 'p', html: 'contenu' }],
+      },
+      updatedAt: new Date(),
+    };
+    const prisma = {
+      clientUser: {
+        findFirst: jest.fn().mockResolvedValue({ role: 'CLIENT_ADMIN' }),
+      },
+      user: {
+        findUnique: jest.fn(),
+        findFirst: jest.fn(),
+      },
+      procedure: {
+        findFirst: jest
+          .fn()
+          .mockResolvedValueOnce({
+            id: 'proc-1',
+            clientId: 'c1',
+            status: ProcedureStatus.IN_REVIEW,
+            currentDraftVersionId: 'ver-1',
+            currentPublishedVersionId: null,
+            title: 'T',
+            updatedAt: new Date(),
+          })
+          .mockResolvedValueOnce({
+            id: 'proc-1',
+            clientId: 'c1',
+            code: 'X',
+            title: 'T',
+            description: null,
+            categoryId: 'cat',
+            category: { id: 'cat', code: 'PILOTAGE', label: 'Pilotage' },
+            status: ProcedureStatus.PUBLISHED,
+            ownerUserId: null,
+            currentDraftVersionId: 'ver-2',
+            currentPublishedVersionId: 'ver-1',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          }),
+      },
+      procedureVersion: {
+        findFirst: jest.fn().mockResolvedValue(draftRow),
+      },
+      $transaction: jest.fn().mockResolvedValue({
+        published: { id: 'ver-1', versionNumber: 1, title: 'T' },
+        newDraft: { id: 'ver-2' },
+      }),
+    };
+    const service = buildService(prisma);
+    const result = await service.transition(
+      'c1',
+      'proc-1',
+      { to: 'PUBLISHED' as any },
+      'admin-1',
+    );
+    expect(result.status).toBe(ProcedureStatus.PUBLISHED);
+    expect(prisma.clientUser.findFirst).toHaveBeenCalled();
+  });
+
   it('transition — mode Non : validateur autorisé (passe le gate publish)', async () => {
     settings.getOrCreate.mockResolvedValueOnce({
       usePilotageCycle: false,

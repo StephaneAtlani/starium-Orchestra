@@ -186,7 +186,9 @@ export default function ProcedureEditPage() {
       settingsQ.data?.validators.some((v) => v.userId === user.id),
   );
   const isClientAdmin = activeClient?.role === 'CLIENT_ADMIN';
-  const canApproveNonCycle = isValidator || isClientAdmin;
+  const isPlatformAdmin = user?.platformRole === 'PLATFORM_ADMIN';
+  const canApproveNonCycle =
+    canUpdate && (isValidator || isClientAdmin || isPlatformAdmin);
 
   const primaryTransition =
     status === 'DRAFT' && canUpdate
@@ -208,7 +210,7 @@ export default function ProcedureEditPage() {
         <div className="flex flex-wrap items-center gap-3 sm:gap-3.5">
           <Link
             href="/procedures"
-            className="inline-flex min-h-11 items-center gap-1.5 rounded-[var(--radius-md)] px-2 text-[13px] font-bold text-muted-foreground hover:bg-muted sm:min-h-0 sm:py-1.5"
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-[var(--radius-md)] px-2 text-[13px] font-bold text-muted-foreground hover:bg-muted sm:min-h-9 sm:py-1.5"
           >
             <ChevronLeft className="size-[15px]" aria-hidden />
             Procédures
@@ -287,6 +289,7 @@ export default function ProcedureEditPage() {
                 size="sm"
                 className="min-h-11 sm:min-h-9"
                 disabled={transitionMut.isPending}
+                aria-busy={transitionMut.isPending}
                 onClick={() => transitionMut.mutate(primaryTransition.to)}
               >
                 <Check className="size-4" aria-hidden />
@@ -305,6 +308,11 @@ export default function ProcedureEditPage() {
                 Renvoyer en brouillon
               </Button>
             ) : null}
+            <p className="sr-only" aria-live="polite">
+              {transitionMut.isPending
+                ? `${primaryTransition?.label ?? 'Transition'} en cours…`
+                : ''}
+            </p>
           </div>
         </div>
 

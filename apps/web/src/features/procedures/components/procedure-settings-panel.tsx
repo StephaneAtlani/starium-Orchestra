@@ -19,8 +19,9 @@ import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { usePermissions } from '@/hooks/use-permissions';
 import { toast } from '@/lib/toast';
-import { displayLabel, firstDisplayLabel } from '@/lib/display-label';
+import { displayLabel } from '@/lib/display-label';
 import { getClientMembers } from '@/features/client-rbac/api/user-roles';
+import type { ClientMember } from '@/features/client-rbac/api/user-roles';
 import {
   getProcedureSettings,
   updateProcedureSettings,
@@ -31,6 +32,16 @@ import {
 import { procedureQueryKeys } from '../lib/procedure-query-keys';
 import { procedureCategoryLabel } from '../lib/procedure-labels';
 import { Input } from '@/components/ui/input';
+
+function memberOptionLabel(m: ClientMember): string {
+  const name = [m.firstName, m.lastName].filter(Boolean).join(' ').trim();
+  if (name) return name;
+  if (m.email) {
+    const [local, domain] = m.email.split('@');
+    if (local && domain) return `${local.slice(0, 1)}***@${domain}`;
+  }
+  return 'Membre';
+}
 
 export function ProcedureSettingsPanel() {
   const authFetch = useAuthenticatedFetch();
@@ -192,9 +203,25 @@ export function ProcedureSettingsPanel() {
           </p>
         ) : (
           <>
-            <ul className="divide-y divide-border/60 rounded-[var(--radius-md)] border border-border/70">
+            {canConfigure && membersQ.isLoading ? (
+              <LoadingState rows={2} />
+            ) : null}
+            {canConfigure && membersQ.isError ? (
+              <ErrorState
+                message="Impossible de charger les membres du client."
+                onRetry={() => void membersQ.refetch()}
+              />
+            ) : null}
+            <ul
+              className="divide-y divide-border/60 rounded-[var(--radius-md)] border border-border/70"
+              role="list"
+            >
               {settings.validators.length === 0 ? (
-                <li className="px-3 py-4 text-[13px] text-muted-foreground">
+                <li
+                  className="px-3 py-4 text-[13px] text-muted-foreground"
+                  role="status"
+                  aria-live="polite"
+                >
                   Aucun validateur — ajoutez-en un pour enregistrer ce mode.
                 </li>
               ) : (
@@ -217,7 +244,7 @@ export function ProcedureSettingsPanel() {
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="size-9 text-muted-foreground hover:text-[var(--state-danger)]"
+                        className="text-muted-foreground hover:text-[var(--state-danger)]"
                         aria-label={`Retirer ${displayLabel(v.label, 'le validateur')}`}
                         disabled={saveMut.isPending}
                         onClick={() => {
@@ -242,7 +269,7 @@ export function ProcedureSettingsPanel() {
               )}
             </ul>
 
-            {canConfigure ? (
+            {canConfigure && !membersQ.isError ? (
               <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
                 <div className="starium-form-field min-w-0 flex-1">
                   <Label htmlFor="pr-add-validator">Ajouter un validateur</Label>
@@ -252,7 +279,15 @@ export function ProcedureSettingsPanel() {
                     disabled={membersQ.isLoading || saveMut.isPending}
                   >
                     <SelectTrigger id="pr-add-validator" className="min-h-11">
-                      <SelectValue placeholder="Choisir un membre…" />
+                      <SelectValue placeholder="Choisir un membre…">
+                        {(() => {
+                          if (!pickUserId) return 'Choisir un membre…';
+                          const m = availableToAdd.find((x) => x.id === pickUserId)
+                            ?? activeMembers.find((x) => x.id === pickUserId);
+                          if (!m) return 'Membre';
+                          return memberOptionLabel(m);
+                        })()}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {availableToAdd.length === 0 ? (
@@ -262,16 +297,7 @@ export function ProcedureSettingsPanel() {
                       ) : (
                         availableToAdd.map((m) => (
                           <SelectItem key={m.id} value={m.id}>
-                            {firstDisplayLabel(
-                              [
-                                [m.firstName, m.lastName]
-                                  .filter(Boolean)
-                                  .join(' ')
-                                  .trim(),
-                                m.email,
-                              ],
-                              'Membre',
-                            )}
+                            {memberOptionLabel(m)}
                           </SelectItem>
                         ))
                       )}

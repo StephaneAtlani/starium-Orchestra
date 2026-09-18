@@ -166,7 +166,7 @@ Version : 0.1 — 18 septembre 2026
 | US-PROC-31 + CA-C1…C10 | ✅ Rédigé |
 | Décisions B1–B4 figées | ✅ GO 2026-09-18 |
 | F1 settings + nav + UI cycle/validateurs | ✅ |
-| F2 catégories table | ❌ |
-| F3 transition mode Non | ❌ |
+| F2 catégories table | ✅ |
+| F3 transition mode Non | ✅ |
 
-**Suite** : plan F2 catégories.
+**Livré** 2026-09-18 (commits F1–F3).

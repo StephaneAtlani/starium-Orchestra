@@ -96,12 +96,18 @@ export function ProcedureCreateDialog({
       contentClassName="sm:max-w-lg"
       footer={
         <>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-11 sm:min-h-9"
+            onClick={() => onOpenChange(false)}
+          >
             Annuler
           </Button>
           <Button
             type="submit"
             form={formId}
+            className="min-h-11 sm:min-h-9"
             disabled={isSubmitting || categoriesLoading || !categories.length}
           >
             {isSubmitting ? 'Création…' : 'Créer'}
@@ -111,7 +117,7 @@ export function ProcedureCreateDialog({
     >
       <form
         id={formId}
-        className="space-y-4"
+        className="starium-form space-y-4"
         onSubmit={form.handleSubmit((values) => {
           onSubmit({
             code: values.code,
@@ -122,14 +128,19 @@ export function ProcedureCreateDialog({
           });
         })}
       >
-        <div className="space-y-2">
-          <Label htmlFor="procedure-code">
+        {!categoriesLoading && categories.length === 0 ? (
+          <p className="text-sm text-muted-foreground" role="status" aria-live="polite">
+            Aucune catégorie active — créez-en une dans Configuration.
+          </p>
+        ) : null}
+        <div className="starium-form-field space-y-2">
+          <Label htmlFor="procedure-code" className="starium-form-label">
             Code <span className="text-[var(--state-danger)]">*</span>
           </Label>
           <Input
             id="procedure-code"
             autoComplete="off"
-            className="min-h-11"
+            className="starium-form-input min-h-11"
             required
             aria-required
             {...form.register('code')}
@@ -139,42 +150,48 @@ export function ProcedureCreateDialog({
             }
           />
           {form.formState.errors.code ? (
-            <p id="procedure-code-error" className="text-sm text-destructive">
+            <p id="procedure-code-error" className="starium-form-hint text-destructive">
               {form.formState.errors.code.message}
             </p>
           ) : null}
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="procedure-title">
+        <div className="starium-form-field space-y-2">
+          <Label htmlFor="procedure-title" className="starium-form-label">
             Titre <span className="text-[var(--state-danger)]">*</span>
           </Label>
           <Input
             id="procedure-title"
-            className="min-h-11"
+            className="starium-form-input min-h-11"
             required
             aria-required
             {...form.register('title')}
             aria-invalid={Boolean(form.formState.errors.title)}
+            aria-describedby={
+              form.formState.errors.title ? 'procedure-title-error' : undefined
+            }
           />
           {form.formState.errors.title ? (
-            <p className="text-sm text-destructive">
+            <p id="procedure-title-error" className="starium-form-hint text-destructive">
               {form.formState.errors.title.message}
             </p>
           ) : null}
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="procedure-description">Description</Label>
+        <div className="starium-form-field space-y-2">
+          <Label htmlFor="procedure-description" className="starium-form-label">
+            Description
+          </Label>
           <Textarea
             id="procedure-description"
+            className="starium-form-textarea"
             rows={3}
             {...form.register('description')}
           />
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="procedure-category">
+        <div className="starium-form-field space-y-2">
+          <Label htmlFor="procedure-category" className="starium-form-label">
             Catégorie <span className="text-[var(--state-danger)]">*</span>
           </Label>
           <Select
@@ -187,7 +204,7 @@ export function ProcedureCreateDialog({
           >
             <SelectTrigger
               id="procedure-category"
-              className="min-h-11 w-full"
+              className="starium-form-select min-h-11 w-full"
               aria-required
             >
               <SelectValue placeholder="Choisir une catégorie">
@@ -208,8 +225,10 @@ export function ProcedureCreateDialog({
           </Select>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="procedure-owner">Propriétaire</Label>
+        <div className="starium-form-field space-y-2">
+          <Label htmlFor="procedure-owner" className="starium-form-label">
+            Propriétaire
+          </Label>
           <Select
             value={form.watch('ownerUserId') || '__none__'}
             onValueChange={(v) => {
@@ -218,7 +237,10 @@ export function ProcedureCreateDialog({
             }}
             disabled={membersLoading}
           >
-            <SelectTrigger id="procedure-owner" className="min-h-11 w-full">
+            <SelectTrigger
+              id="procedure-owner"
+              className="starium-form-select min-h-11 w-full"
+            >
               <SelectValue
                 placeholder={
                   membersLoading ? 'Chargement…' : 'Aucun propriétaire'
