@@ -206,6 +206,8 @@ export default function ProcedureEditPage() {
 
         {q.isSuccess && doc ? (
           <ProcedureBlockEditor
+            procedureId={procedureId}
+            authFetch={authFetch}
             initialContent={doc}
             initialTitle={title}
             category={category}
@@ -215,6 +217,9 @@ export default function ProcedureEditPage() {
             editable={editable}
             saveState={saveState}
             canPublish={canPublish}
+            onOpenDiagram={() =>
+              toast.success('Éditeur de schéma — prochaine livraison (F5)')
+            }
             onChange={(next) => {
               setDoc(next);
               if (editable) scheduleSave({ contentJson: next });

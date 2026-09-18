@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { GripVertical, Link, Plus, Trash2 } from 'lucide-react';
+import { GripVertical, ImageIcon, Link, Play, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -22,11 +22,33 @@ import {
 } from '../lib/procedure-labels';
 import type { ProcedureCategoryApi, ProcedureStatusApi } from '../types/procedure.types';
 import { EMPTY_PROCEDURE_DOC } from '../lib/procedure-content';
+import { toast } from '@/lib/toast';
+import type { AuthFetch } from '@/features/budgets/api/budget-management.api';
+import {
+  downloadProcedureAssetBlob,
+  uploadProcedureAsset,
+} from '../api/procedures.api';
 import { sanitizeProcedureHtml } from '../lib/sanitize-procedure-html';
 
 export type TextBlock =
   | { t: 'h1' | 'h2' | 'h3' | 'p' | 'ul' | 'ol' | 'step'; html: string }
-  | { t: 'callout'; html: string; kind: 'warn' | 'info' };
+  | { t: 'callout'; html: string; kind: 'warn' | 'info' }
+  | { t: 'img'; assetId: string; alt: string; cap: string }
+  | { t: 'video'; src: string; cap: string }
+  | {
+      t: 'diag';
+      title: string;
+      cap: string;
+      nodes: Array<{
+        id: string;
+        k: string;
+        x: number;
+        y: number;
+        label: string;
+        desc?: string;
+      }>;
+      edges: Array<{ from: string; to: string; label?: string }>;
+    };
 
 export type ProcedureBlocksDoc = {
   schemaVersion: 2;
@@ -44,8 +66,19 @@ const TEXT_INSERT: { t: TextBlock['t']; label: string }[] = [
   { t: 'callout', label: 'Encadré' },
 ];
 
+const MEDIA_INSERT: { t: 'img' | 'video' | 'diag'; label: string }[] = [
+  { t: 'img', label: 'Image' },
+  { t: 'video', label: 'Vidéo' },
+  { t: 'diag', label: 'Schéma' },
+];
+
 function emptyBlock(t: TextBlock['t']): TextBlock {
   if (t === 'callout') return { t: 'callout', html: '', kind: 'warn' };
+  if (t === 'img')
+    return { t: 'img', assetId: '', alt: 'Image de la procédure', cap: '' };
+  if (t === 'video') return { t: 'video', src: '', cap: '' };
+  if (t === 'diag')
+    return { t: 'diag', title: '', cap: '', nodes: [], edges: [] };
   return { t, html: '' } as TextBlock;
 }
 
@@ -58,14 +91,15 @@ function parseDoc(raw: unknown): ProcedureBlocksDoc {
   ) {
     return {
       schemaVersion: 2,
-      blocks: (raw as ProcedureBlocksDoc).blocks.filter((b) =>
-        TEXT_INSERT.some((x) => x.t === b.t),
-      ),
+      blocks: (raw as ProcedureBlocksDoc).blocks,
     };
   }
   return {
     schemaVersion: 2,
-    blocks: [...EMPTY_PROCEDURE_DOC.blocks] as TextBlock[],
+    blocks: [
+      { t: 'h1', html: '' },
+      { t: 'p', html: '' },
+    ],
   };
 }
 
@@ -82,6 +116,8 @@ function applyInlineCommand(cmd: string, value?: string) {
 }
 
 export function ProcedureBlockEditor({
+  procedureId,
+  authFetch,
   initialContent,
   initialTitle,
   category,
@@ -95,7 +131,10 @@ export function ProcedureBlockEditor({
   onCategoryChange,
   onTransition,
   canPublish,
+  onOpenDiagram,
 }: {
+  procedureId: string;
+  authFetch: AuthFetch;
   initialContent: unknown;
   initialTitle: string;
   category: ProcedureCategoryApi;
@@ -109,6 +148,7 @@ export function ProcedureBlockEditor({
   onCategoryChange: (cat: ProcedureCategoryApi) => void;
   onTransition: (to: 'DRAFT' | 'IN_REVIEW' | 'PUBLISHED') => void;
   canPublish: boolean;
+  onOpenDiagram?: (blockIndex: number) => void;
 }) {
   const [doc, setDoc] = useState(() => parseDoc(initialContent));
   const [title, setTitle] = useState(initialTitle);
@@ -116,6 +156,10 @@ export function ProcedureBlockEditor({
   const [menuAt, setMenuAt] = useState<number | null>(null);
   const [linkOpen, setLinkOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState('https://');
+  const [videoOpen, setVideoOpen] = useState<number | null>(null);
+  const [videoUrl, setVideoUrl] = useState('https://');
+  const fileRef = useRef<HTMLInputElement>(null);
+  const pendingImgIndex = useRef<number | null>(null);
   const emitRef = useRef(onChange);
   emitRef.current = onChange;
 
@@ -147,6 +191,17 @@ export function ProcedureBlockEditor({
     updateBlocks(blocks);
     setMenuAt(null);
     setSel(index);
+    if (t === 'diag') {
+      window.setTimeout(() => onOpenDiagram?.(index), 0);
+    }
+    if (t === 'video') {
+      setVideoUrl('https://');
+      setVideoOpen(index);
+    }
+    if (t === 'img') {
+      pendingImgIndex.current = index;
+      window.setTimeout(() => fileRef.current?.click(), 0);
+    }
   };
 
   const move = (index: number, dir: -1 | 1) => {
@@ -268,7 +323,10 @@ export function ProcedureBlockEditor({
                         ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     }}
                   >
-                    {displayLabel(stripHtml(b.html), 'Sans titre')}
+                    {displayLabel(
+                      'html' in b ? stripHtml(b.html) : '',
+                      'Sans titre',
+                    )}
                   </button>
                 ))
               )}
@@ -378,6 +436,104 @@ export function ProcedureBlockEditor({
                             className="flex-1"
                             onInput={(html) => setHtml(i, html)}
                           />
+                        </div>
+                      ) : b.t === 'img' ? (
+                        <MediaImageBlock
+                          block={b}
+                          editable={editable}
+                          procedureId={procedureId}
+                          authFetch={authFetch}
+                          onPick={() => {
+                            pendingImgIndex.current = i;
+                            fileRef.current?.click();
+                          }}
+                          onCap={(cap) => {
+                            const blocks = doc.blocks.map((x, j) =>
+                              j === i && x.t === 'img'
+                                ? { ...x, cap: sanitizeProcedureHtml(cap) }
+                                : x,
+                            );
+                            updateBlocks(blocks);
+                          }}
+                        />
+                      ) : b.t === 'video' ? (
+                        <MediaVideoBlock
+                          block={b}
+                          editable={editable}
+                          onPick={() => {
+                            setVideoUrl(b.src || 'https://');
+                            setVideoOpen(i);
+                          }}
+                          onCap={(cap) => {
+                            const blocks = doc.blocks.map((x, j) =>
+                              j === i && x.t === 'video'
+                                ? { ...x, cap: sanitizeProcedureHtml(cap) }
+                                : x,
+                            );
+                            updateBlocks(blocks);
+                          }}
+                        />
+                      ) : b.t === 'diag' ? (
+                        <div className="rounded-[var(--radius-md)] border border-border/70 bg-muted/30 p-6 text-center">
+                          {b.nodes.length === 0 ? (
+                            <>
+                              <p className="font-bold">Schéma vide</p>
+                              {editable ? (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  className="mt-3 min-h-11"
+                                  onClick={() => onOpenDiagram?.(i)}
+                                >
+                                  Ouvrir l&apos;éditeur de schéma
+                                </Button>
+                              ) : null}
+                            </>
+                          ) : (
+                            <>
+                              <p className="text-sm font-semibold">
+                                {displayLabel(b.title, 'Schéma')}
+                              </p>
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                {b.nodes.length} formes · {b.edges.length} liens
+                              </p>
+                              {editable ? (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  className="mt-3 min-h-11"
+                                  onClick={() => onOpenDiagram?.(i)}
+                                >
+                                  Modifier le schéma
+                                </Button>
+                              ) : null}
+                            </>
+                          )}
+                          {editable ? (
+                            <div
+                              className="mt-2 text-center text-xs text-muted-foreground outline-none"
+                              contentEditable
+                              suppressContentEditableWarning
+                              data-ph="Ajouter une légende…"
+                              onBlur={(e) => {
+                                const cap = sanitizeProcedureHtml(
+                                  e.currentTarget.innerHTML,
+                                );
+                                const blocks = doc.blocks.map((x, j) =>
+                                  j === i && x.t === 'diag' ? { ...x, cap } : x,
+                                );
+                                updateBlocks(blocks);
+                              }}
+                              dangerouslySetInnerHTML={{ __html: b.cap || '' }}
+                            />
+                          ) : b.cap ? (
+                            <p
+                              className="mt-2 text-xs text-muted-foreground"
+                              dangerouslySetInnerHTML={{
+                                __html: sanitizeProcedureHtml(b.cap),
+                              }}
+                            />
+                          ) : null}
                         </div>
                       ) : (
                         <BlockBody
@@ -662,6 +818,82 @@ export function ProcedureBlockEditor({
           />
         </div>
       </StariumModal>
+
+      <StariumModal
+        open={videoOpen != null}
+        onOpenChange={(o) => {
+          if (!o) setVideoOpen(null);
+        }}
+        title="Ajouter une vidéo"
+        description="Collez un lien https (Stream, YouTube, Vimeo)."
+        icon={Play}
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setVideoOpen(null)}
+            >
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                const src = videoUrl.trim();
+                if (!/^https:\/\//i.test(src) || videoOpen == null) return;
+                const blocks = doc.blocks.map((x, j) =>
+                  j === videoOpen && x.t === 'video' ? { ...x, src } : x,
+                );
+                updateBlocks(blocks);
+                setVideoOpen(null);
+              }}
+            >
+              Ajouter
+            </Button>
+          </>
+        }
+      >
+        <div className="starium-form-field">
+          <Label htmlFor="pr-video-url">URL vidéo</Label>
+          <Input
+            id="pr-video-url"
+            value={videoUrl}
+            onChange={(e) => setVideoUrl(e.target.value)}
+            placeholder="https://"
+            className="min-h-11"
+          />
+        </div>
+      </StariumModal>
+
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/png,image/jpeg,image/jpg,image/webp,image/gif,image/svg+xml"
+        className="sr-only"
+        aria-hidden
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = '';
+          const idx = pendingImgIndex.current;
+          pendingImgIndex.current = null;
+          if (!file || idx == null) return;
+          void uploadProcedureAsset(authFetch, procedureId, file)
+            .then((asset) => {
+              const blocks = doc.blocks.map((x, j) =>
+                j === idx && x.t === 'img'
+                  ? {
+                      ...x,
+                      assetId: asset.id,
+                      alt: displayLabel(asset.label, 'Image de la procédure'),
+                    }
+                  : x,
+              );
+              updateBlocks(blocks);
+              toast.success('Image ajoutée');
+            })
+            .catch((err: Error) => toast.error(err.message));
+        }}
+      />
     </div>
   );
 }
@@ -717,10 +949,7 @@ function InsertMenu({
   onClose: () => void;
 }) {
   useEffect(() => {
-    const onDoc = (e: MouseEvent) => {
-      if (!(e.target instanceof Node)) return;
-      onClose();
-    };
+    const onDoc = () => onClose();
     const t = window.setTimeout(
       () => document.addEventListener('click', onDoc),
       0,
@@ -751,6 +980,146 @@ function InsertMenu({
           </button>
         ))}
       </div>
+      <p className="mt-2 px-2 py-1 text-[10.5px] font-bold uppercase text-muted-foreground">
+        Média & schémas
+      </p>
+      <div className="grid grid-cols-2 gap-1">
+        {MEDIA_INSERT.map((item) => (
+          <button
+            key={item.t}
+            type="button"
+            className="rounded-[var(--radius-md)] px-2 py-2 text-left text-[12.5px] font-semibold hover:bg-[var(--brand-gold-050)]"
+            onClick={() => onPick(item.t)}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MediaImageBlock({
+  block,
+  editable,
+  procedureId,
+  authFetch,
+  onPick,
+  onCap,
+}: {
+  block: Extract<TextBlock, { t: 'img' }>;
+  editable: boolean;
+  procedureId: string;
+  authFetch: AuthFetch;
+  onPick: () => void;
+  onCap: (cap: string) => void;
+}) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!block.assetId) {
+      setUrl(null);
+      return;
+    }
+    let revoked: string | null = null;
+    void downloadProcedureAssetBlob(authFetch, procedureId, block.assetId)
+      .then((blob) => {
+        const u = URL.createObjectURL(blob);
+        revoked = u;
+        setUrl(u);
+      })
+      .catch(() => setUrl(null));
+    return () => {
+      if (revoked) URL.revokeObjectURL(revoked);
+    };
+  }, [block.assetId, authFetch, procedureId]);
+
+  return (
+    <div className="pr-media">
+      {url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={url}
+          alt={displayLabel(block.alt, 'Image de la procédure')}
+          className="max-h-[360px] w-full rounded-[var(--radius-md)] object-contain"
+        />
+      ) : (
+        <button
+          type="button"
+          disabled={!editable}
+          onClick={onPick}
+          className="flex min-h-[180px] w-full flex-col items-center justify-center gap-2 rounded-[var(--radius-md)] border border-dashed border-border bg-muted/40 px-4 text-center"
+        >
+          <ImageIcon className="size-7 text-muted-foreground" aria-hidden />
+          <span className="font-bold">Déposer une image</span>
+          <span className="text-xs text-muted-foreground">
+            PNG, JPG, SVG · 10 Mo max
+          </span>
+        </button>
+      )}
+      {editable ? (
+        <div
+          className="mt-2 text-center text-xs text-muted-foreground outline-none"
+          contentEditable
+          suppressContentEditableWarning
+          onBlur={(e) => onCap(e.currentTarget.innerHTML)}
+          dangerouslySetInnerHTML={{ __html: block.cap || '' }}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function MediaVideoBlock({
+  block,
+  editable,
+  onPick,
+  onCap,
+}: {
+  block: Extract<TextBlock, { t: 'video' }>;
+  editable: boolean;
+  onPick: () => void;
+  onCap: (cap: string) => void;
+}) {
+  return (
+    <div>
+      {block.src ? (
+        <a
+          href={block.src}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="relative flex aspect-video items-center justify-center rounded-[var(--radius-md)] bg-[var(--brand-ink)] text-white"
+        >
+          <span className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent rounded-[var(--radius-md)]" />
+          <span className="relative inline-flex size-[58px] items-center justify-center rounded-full bg-[var(--brand-gold)] text-[var(--brand-ink)]">
+            <Play className="size-6 fill-current" aria-hidden />
+          </span>
+          <span className="absolute bottom-3 left-3 right-3 truncate text-xs">
+            Ouvrir la vidéo
+          </span>
+        </a>
+      ) : (
+        <button
+          type="button"
+          disabled={!editable}
+          onClick={onPick}
+          className="flex min-h-[180px] w-full flex-col items-center justify-center gap-2 rounded-[var(--radius-md)] border border-dashed border-border bg-muted/40 px-4"
+        >
+          <Play className="size-7 text-muted-foreground" aria-hidden />
+          <span className="font-bold">Ajouter une vidéo</span>
+          <span className="text-xs text-muted-foreground">
+            Lien Stream, YouTube, Vimeo (https)
+          </span>
+        </button>
+      )}
+      {editable ? (
+        <div
+          className="mt-2 text-center text-xs text-muted-foreground outline-none"
+          contentEditable
+          suppressContentEditableWarning
+          onBlur={(e) => onCap(e.currentTarget.innerHTML)}
+          dangerouslySetInnerHTML={{ __html: block.cap || '' }}
+        />
+      ) : null}
     </div>
   );
 }
