@@ -265,11 +265,15 @@ Détail : `docs/design-system/MODALES.md` et la skill `starium-modales`.
 | RFC (une par feature) + index | `docs/RFC/`, `docs/RFC/_RFC Liste.md` |
 | Specs modules | `docs/modules/` |
 | Exploitation | `docs/runbooks/`, `docs/security/` |
+| Mode opératoire pipeline RFC | `docs/runbooks/mode-operatoire-pipeline-rfc.md` |
 | Manuels utilisateur | `docs/MANUEL-*.md` |
 
 ---
 
 ## 8. Outillage Claude Code de ce repo
+
+**Mode opératoire** (lancement, reprise, pilotage, debug) :
+`docs/runbooks/mode-operatoire-pipeline-rfc.md`.
 
 **Skills** (`.claude/skills/`) — invoquées automatiquement selon le contexte :
 
