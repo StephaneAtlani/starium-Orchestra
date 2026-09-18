@@ -107,6 +107,7 @@ export function ComplianceAssessDrawerBody({
   onCreateGap,
   gapPending,
   onOpenRemediationPlan,
+  gapCycleSlot,
   advancedSlot,
 }: {
   data: ComplianceRequirementDetailApi;
@@ -147,6 +148,7 @@ export function ComplianceAssessDrawerBody({
   onCreateGap: () => void;
   gapPending: boolean;
   onOpenRemediationPlan?: () => void;
+  gapCycleSlot?: React.ReactNode;
   /** Slot colonne droite (actions avancées) — évite bandeau blanc hors grille. */
   advancedSlot?: React.ReactNode;
 }) {
@@ -545,6 +547,8 @@ export function ComplianceAssessDrawerBody({
             )}
           </section>
         ) : null}
+
+        {gapCycleSlot}
 
         <section>
           <h3 className="starium-modal-seg-title mb-3">Historique</h3>

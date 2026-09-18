@@ -465,14 +465,54 @@ export async function createComplianceGap(
     body: JSON.stringify(payload),
   });
   if (!res.ok) throw await parseApiFormError(res);
-  return res.json();
+  return res.json() as Promise<ComplianceGapApi>;
+}
+
+export type ComplianceGapStatusApi =
+  | 'OPEN'
+  | 'IN_PROGRESS'
+  | 'TO_VERIFY'
+  | 'CLOSED'
+  | 'CANCELLED';
+
+export type ComplianceGapApi = {
+  id: string;
+  requirementId: string;
+  title: string;
+  finding: string;
+  criticality: string;
+  status: ComplianceGapStatusApi;
+  ownerUserId: string | null;
+  ownerLabel: string | null;
+  dueAt: string | null;
+  businessImpact: string | null;
+  rootCause: string | null;
+  verificationNote: string | null;
+  closedAt: string | null;
+  cancelReason: string | null;
+  projectRiskId: string | null;
+  createdAt: string;
+  requirementCode?: string;
+  requirementTitle?: string;
+};
+
+export async function listComplianceGaps(
+  authFetch: AuthFetch,
+  opts?: { requirementId?: string },
+) {
+  const qs = new URLSearchParams();
+  if (opts?.requirementId) qs.set('requirementId', opts.requirementId);
+  const suffix = qs.toString() ? `?${qs.toString()}` : '';
+  const res = await authFetch(`${BASE}/gaps${suffix}`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ComplianceGapApi[]>;
 }
 
 export async function patchComplianceGap(
   authFetch: AuthFetch,
   gapId: string,
   payload: {
-    status?: string;
+    status?: ComplianceGapStatusApi | string;
     verificationNote?: string;
     cancelReason?: string;
   },
@@ -483,7 +523,7 @@ export async function patchComplianceGap(
     body: JSON.stringify(payload),
   });
   if (!res.ok) throw await parseApiFormError(res);
-  return res.json();
+  return res.json() as Promise<ComplianceGapApi>;
 }
 
 export type ComplianceRemediationPlanModeApi = 'CREATE' | 'LINK';

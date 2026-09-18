@@ -36,6 +36,7 @@ import {
   createComplianceEvidence,
   createComplianceGap,
   getComplianceRequirementDetail,
+  listComplianceGaps,
   patchComplianceContribution,
   patchComplianceGap,
   upsertComplianceRequirementStatus,
@@ -51,6 +52,7 @@ import {
   isSavableAssessmentStatus,
 } from './compliance-assess-ui';
 import { ComplianceAssessDrawerBody } from './compliance-assess-drawer-body';
+import { ComplianceGapCyclePanel } from './compliance-gap-cycle-panel';
 import { ComplianceRemediationPlanModal } from './compliance-remediation-plan-modal';
 
 function memberLabel(m: ClientMember): string {
@@ -90,6 +92,7 @@ function invalidateComplianceQueries(
 ) {
   void queryClient.invalidateQueries({ queryKey: ['compliance', 'requirements', clientId] });
   void queryClient.invalidateQueries({ queryKey: ['compliance', 'requirement', clientId] });
+  void queryClient.invalidateQueries({ queryKey: ['compliance', 'gaps', clientId] });
   void queryClient.invalidateQueries({ queryKey: ['compliance', clientId, 'dashboard'] });
   void queryClient.invalidateQueries({ queryKey: ['compliance', clientId, 'statuses'] });
   void queryClient.invalidateQueries({
@@ -150,6 +153,13 @@ export function ComplianceRequirementDetailModal({
   const q = useQuery({
     queryKey: ['compliance', 'requirement', clientId, requirementId],
     queryFn: () => getComplianceRequirementDetail(authFetch, requirementId!),
+    enabled: open && Boolean(clientId) && Boolean(requirementId),
+  });
+
+  const gapsQ = useQuery({
+    queryKey: ['compliance', 'gaps', clientId, requirementId],
+    queryFn: () =>
+      listComplianceGaps(authFetch, { requirementId: requirementId! }),
     enabled: open && Boolean(clientId) && Boolean(requirementId),
   });
 
@@ -331,11 +341,40 @@ export function ComplianceRequirementDetailModal({
       setGapTitle('');
       setGapFinding('');
       invalidateComplianceQueries(queryClient, clientId);
-      await q.refetch();
+      await Promise.all([q.refetch(), gapsQ.refetch()]);
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const gapPatchMut = useMutation({
+    mutationFn: ({
+      gapId,
+      status: nextStatus,
+      verificationNote,
+    }: {
+      gapId: string;
+      status: string;
+      verificationNote?: string;
+    }) =>
+      patchComplianceGap(authFetch, gapId, {
+        status: nextStatus,
+        verificationNote,
+      }),
+    onSuccess: async (_data, vars) => {
+      if (vars.status === 'TO_VERIFY') {
+        toast.success('Écart soumis à vérification');
+      } else if (vars.status === 'CLOSED') {
+        toast.success('Écart clôturé');
+      } else if (vars.status === 'IN_PROGRESS') {
+        toast.success('Écart remis en traitement (non efficace)');
+      } else {
+        toast.success('Écart mis à jour');
+      }
+      invalidateComplianceQueries(queryClient, clientId);
+      await gapsQ.refetch();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const createRiskMut = useMutation({
     mutationFn: (payload: CreateProjectRiskPayload) => createClientRisk(authFetch, payload),
@@ -347,7 +386,6 @@ export function ComplianceRequirementDetailModal({
     },
     onError: (e: Error) => toast.error(e.message),
   });
-
 
   const projectList = projectsQ.data?.items ?? [];
   const showGapPlan =
@@ -557,6 +595,39 @@ export function ComplianceRequirementDetailModal({
               gapPending={gapCreateMut.isPending}
               onOpenRemediationPlan={
                 canUpdate ? () => setRemediationPlanOpen(true) : undefined
+              }
+              gapCycleSlot={
+                <ComplianceGapCyclePanel
+                  gaps={gapsQ.data ?? []}
+                  loading={gapsQ.isLoading}
+                  error={
+                    gapsQ.isError
+                      ? gapsQ.error instanceof Error
+                        ? gapsQ.error.message
+                        : 'Impossible de charger les écarts.'
+                      : null
+                  }
+                  onRetry={() => void gapsQ.refetch()}
+                  canUpdate={canUpdate}
+                  pendingGapId={
+                    gapPatchMut.isPending
+                      ? (gapPatchMut.variables?.gapId ?? null)
+                      : null
+                  }
+                  onSubmitVerify={(gapId) =>
+                    gapPatchMut.mutate({ gapId, status: 'TO_VERIFY' })
+                  }
+                  onClose={(gapId, verificationNote) =>
+                    gapPatchMut.mutate({
+                      gapId,
+                      status: 'CLOSED',
+                      verificationNote,
+                    })
+                  }
+                  onRejectIneffective={(gapId) =>
+                    gapPatchMut.mutate({ gapId, status: 'IN_PROGRESS' })
+                  }
+                />
               }
               advancedSlot={
                 <details className="group">

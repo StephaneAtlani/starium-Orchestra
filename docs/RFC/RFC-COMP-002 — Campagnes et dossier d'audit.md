@@ -48,7 +48,8 @@ Prérequis : V1 évaluation opérationnelle livrée et stable.
 | --- | --- |
 | Modale **Lancer une revue** | `/compliance/frameworks/[id]` → `ComplianceStartReviewModal` |
 | Workspace campagne | `/compliance/campaigns/[id]` — bandeau modalité / owner / échéance / **libellés** domaines |
-| API campagne | `POST /api/compliance/campaigns` (+ `scopeDomainKeys`, `modality`, `ownerUserId`, `dueAt`) |
+| API campagne | `POST /api/compliance/campaigns` (+ `scopeDomainKeys`, `modality`, `ownerUserId` **obligatoire si openImmediately**, `dueAt`) |
+| Cycle efficacité écarts | UI tiroir exigence — liste `GET /gaps`, submit `TO_VERIFY`, clôture + note, rejet → `IN_PROGRESS` |
 | Remédiation → plan | `POST …/requirements/:id/remediation-plan` (ensure gap) · `POST …/gaps/:id/remediation-plan` · `GET …/gaps/:id/action-plan-tasks` |
 | Pont Prisma | `ProjectTask.complianceGapId` → `ComplianceGap` |
 | Liaison doc | `compliance-action-plan` dans [LIAISONS-MODULES.md](../LIAISONS-MODULES.md) |
