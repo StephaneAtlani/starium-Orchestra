@@ -120,11 +120,15 @@ export function ProcedureCreateDialog({
         })}
       >
         <div className="space-y-2">
-          <Label htmlFor="procedure-code">Code</Label>
+          <Label htmlFor="procedure-code">
+            Code <span className="text-[var(--state-danger)]">*</span>
+          </Label>
           <Input
             id="procedure-code"
             autoComplete="off"
             className="min-h-11"
+            required
+            aria-required
             {...form.register('code')}
             aria-invalid={Boolean(form.formState.errors.code)}
             aria-describedby={
@@ -139,10 +143,14 @@ export function ProcedureCreateDialog({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="procedure-title">Titre</Label>
+          <Label htmlFor="procedure-title">
+            Titre <span className="text-[var(--state-danger)]">*</span>
+          </Label>
           <Input
             id="procedure-title"
             className="min-h-11"
+            required
+            aria-required
             {...form.register('title')}
             aria-invalid={Boolean(form.formState.errors.title)}
           />
@@ -163,7 +171,9 @@ export function ProcedureCreateDialog({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="procedure-category">Catégorie</Label>
+          <Label htmlFor="procedure-category">
+            Catégorie <span className="text-[var(--state-danger)]">*</span>
+          </Label>
           <Select
             value={form.watch('category')}
             onValueChange={(v) => {
@@ -173,7 +183,11 @@ export function ProcedureCreateDialog({
               });
             }}
           >
-            <SelectTrigger id="procedure-category" className="min-h-11 w-full">
+            <SelectTrigger
+              id="procedure-category"
+              className="min-h-11 w-full"
+              aria-required
+            >
               <SelectValue placeholder="Choisir une catégorie">
                 {
                   PROCEDURE_CATEGORY_LABELS[
