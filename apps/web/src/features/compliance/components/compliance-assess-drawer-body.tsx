@@ -37,7 +37,12 @@ import {
   defaultMaturityForStatus,
 } from './compliance-assess-ui';
 import { formatComplianceEvidenceMeta } from '../lib/compliance-evidence-display';
+import {
+  COMPLIANCE_EVIDENCE_ASSESSMENT_OPTIONS,
+  complianceEvidenceAssessmentLabel,
+} from '../lib/compliance-evidence-assessment';
 import { EmptyState } from '@/components/feedback/empty-state';
+import type { ComplianceEvidenceAssessmentApi } from '../api/compliance.api';
 
 function memberLabel(m: ClientMember): string {
   const name = [m.firstName, m.lastName].filter(Boolean).join(' ').trim();
@@ -105,6 +110,8 @@ export function ComplianceAssessDrawerBody({
   evidencePending,
   onEditEvidence,
   onRemoveEvidence,
+  onAssessmentChange,
+  assessmentPendingId,
   showGapPlan,
   gapTitle,
   onGapTitleChange,
@@ -148,6 +155,11 @@ export function ComplianceAssessDrawerBody({
   evidencePending: boolean;
   onEditEvidence?: (evidenceId: string) => void;
   onRemoveEvidence?: (evidenceId: string) => void;
+  onAssessmentChange?: (
+    evidenceId: string,
+    assessment: import('../api/compliance.api').ComplianceEvidenceAssessmentApi,
+  ) => void;
+  assessmentPendingId?: string | null;
   showGapPlan: boolean;
   gapTitle: string;
   onGapTitleChange: (v: string) => void;
@@ -365,7 +377,52 @@ export function ComplianceAssessDrawerBody({
                       </p>
                       <p className="text-[11px] text-muted-foreground">
                         {metaLine}
+                        {' · '}
+                        <span className="font-semibold text-foreground">
+                          {complianceEvidenceAssessmentLabel(e.assessment)}
+                        </span>
                       </p>
+                      {canUpdate && onAssessmentChange ? (
+                        <div className="mt-2 max-w-xs">
+                          <Label
+                            htmlFor={`ev-assess-${e.id}`}
+                            className="sr-only"
+                          >
+                            Appréciation de {displayLabel(e.name, 'la preuve')}
+                          </Label>
+                          <Select
+                            value={e.assessment ?? 'TO_REVIEW'}
+                            onValueChange={(v) =>
+                              onAssessmentChange(
+                                e.id,
+                                (v ??
+                                  'TO_REVIEW') as ComplianceEvidenceAssessmentApi,
+                              )
+                            }
+                            disabled={assessmentPendingId === e.id}
+                          >
+                            <SelectTrigger
+                              id={`ev-assess-${e.id}`}
+                              className="min-h-11 w-full sm:min-h-9"
+                            >
+                              <SelectValue>
+                                {complianceEvidenceAssessmentLabel(
+                                  e.assessment,
+                                )}
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {COMPLIANCE_EVIDENCE_ASSESSMENT_OPTIONS.map(
+                                (opt) => (
+                                  <SelectItem key={opt.value} value={opt.value}>
+                                    {opt.label}
+                                  </SelectItem>
+                                ),
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      ) : null}
                     </div>
                     {e.url ? (
                       <a

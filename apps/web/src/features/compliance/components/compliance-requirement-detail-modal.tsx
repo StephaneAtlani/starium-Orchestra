@@ -338,6 +338,22 @@ export function ComplianceRequirementDetailModal({
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const evidenceAssessmentMut = useMutation({
+    mutationFn: ({
+      evidenceId,
+      assessment,
+    }: {
+      evidenceId: string;
+      assessment: import('../api/compliance.api').ComplianceEvidenceAssessmentApi;
+    }) => patchComplianceEvidence(authFetch, evidenceId, { assessment }),
+    onSuccess: async () => {
+      toast.success('Appréciation enregistrée');
+      invalidateComplianceQueries(queryClient, clientId);
+      await q.refetch();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const contribCreateMut = useMutation({
     mutationFn: () =>
       createComplianceContribution(authFetch, {
@@ -624,6 +640,17 @@ export function ComplianceRequirementDetailModal({
               }
               onRemoveEvidence={
                 canUpdate ? (id) => setRemovingEvidenceId(id) : undefined
+              }
+              onAssessmentChange={
+                canUpdate
+                  ? (evidenceId, assessment) =>
+                      evidenceAssessmentMut.mutate({ evidenceId, assessment })
+                  : undefined
+              }
+              assessmentPendingId={
+                evidenceAssessmentMut.isPending
+                  ? (evidenceAssessmentMut.variables?.evidenceId ?? null)
+                  : null
               }
               showGapPlan={showGapPlan}
               gapTitle={gapTitle}

@@ -33,7 +33,8 @@ Liste **uniquement** du travail restant (pas de historique « fait »). Trajecto
 | COMP.V2.reste score | Score pondéré mock optionnel (`part=0.5`) — garder `C/A` tant que non tranché | COMP-003 |
 | ~~COMP.EV.1~~ | Liste preuves fidèle mock (méta, empty, ouvrir, FILE masqué) | COMP-004 — **✅** |
 | ~~COMP.EV.2~~ | Édition + soft-delete preuves (`DELETE /evidence/:id`) | COMP-004 — **✅** |
-| **COMP.EV.3**…**COMP.EV.7** | Appréciation / versions / REFERENCE / réutilisation / fichier | [RFC-COMP-004](./RFC/RFC-COMP-004%20—%20Gestion%20des%20preuves%20de%20conformité.md) |
+| ~~COMP.EV.3~~ | Appréciation preuve (select labellisé) | COMP-004 — **✅** |
+| **COMP.EV.4**…**COMP.EV.7** | Versions / REFERENCE / réutilisation / fichier | [RFC-COMP-004](./RFC/RFC-COMP-004%20—%20Gestion%20des%20preuves%20de%20conformité.md) |
 
 ---
 
