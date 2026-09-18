@@ -6,7 +6,7 @@ Liste **uniquement** du travail restant (pas de historique « fait »). Trajecto
 
 | Tag | Horizon |
 | --- | --- |
-| **COMP** | Conformité — V1 + COMP.V2 launch/remédiation **livrés** ; reste score pondéré / GED preuves |
+| **COMP** | Conformité — V1 + COMP.V2 launch/remédiation **livrés** ; preuves = **COMP-004** Draft ; reste GED / score pondéré |
 | **B0–B3** | V1 Beta (vagues) |
 | **NTH** | Nice-to-have beta |
 | **BUF** | Buffer pendant beta |
@@ -29,7 +29,8 @@ Liste **uniquement** du travail restant (pas de historique « fait »). Trajecto
 | ~~COMP.UX.2~~ | Rail donut / maturité domaine (API) | COMP-003 — **✅** |
 | ~~COMP.UX.3~~ | Plan remédiation (filtre écarts + actions) | COMP-003 — **✅** |
 | ~~COMP.V2~~ | Campagnes / Lancer une revue / snapshot scopé / remédiation ↔ ActionPlan | COMP-002 / COMP-003 — **✅ 2026-09-18** |
-| COMP.V2.reste | Score pondéré mock optionnel ; owner obligatoire launch ; preuve fichier GED | COMP-003 / `fut-evidence-ged` |
+| COMP.V2.reste | Score pondéré mock optionnel ; owner obligatoire launch | COMP-003 |
+| **COMP.EV.1**…**COMP.EV.7** | Preuves : liste/CRUD/appréciation/versions/réutilisation/fichier | [RFC-COMP-004](./RFC/RFC-COMP-004%20—%20Gestion%20des%20preuves%20de%20conformité.md) |
 
 ---
 

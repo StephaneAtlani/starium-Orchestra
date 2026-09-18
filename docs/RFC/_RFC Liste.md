@@ -1,6 +1,6 @@
 # Index des RFC (Starium Orchestra)
 
-> Dernière révision documentaire : **2026-09-18** — **RFC-COMP-002 / COMP-003** : Lancer une revue (scope, write-scope, snapshot filtré) + pont remédiation ↔ plans d’actions (`ProjectTask.complianceGapId`) ; **RFC-PROJ-ARB-001** Draft (grille arbitrage) ; **RFC-PROC-001…004** Draft. Antérieur **2026-09-17** — **RFC-COMP-001-A** ✅ MVP ; COMP.UX.0–3 ; **RFC-ADM-002**.
+> Dernière révision documentaire : **2026-09-18** — **RFC-COMP-004** Draft (gestion preuves) ; **RFC-COMP-002 / COMP-003** : revue + remédiation ActionPlan ; **RFC-PROJ-ARB-001** Draft ; **RFC-PROC-001…004** Draft. Antérieur **2026-09-17** — **RFC-COMP-001-A** ✅ MVP ; COMP.UX.0–3 ; **RFC-ADM-002**.
 >
 > **Collision de numéro** : deux fichiers distincts portent **RFC-PROJ-012** — [Project Sheet (fiche décisionnelle)](./RFC-PROJ-012%20%E2%80%94%20Project%20Sheet.md) et [Gantt Tâches et Jalons (UI planning)](./RFC-PROJ-012%20%E2%80%94%20Gantt%20T%C3%A2ches%20et%20Jalons.md). Ne pas les fusionner dans les tableaux ci-dessous.
 >
@@ -378,6 +378,7 @@ Module `meetings` en **surcouche** : il orchestre le rituel (template, périmèt
 | **RFC-COMP-001-A** | Évaluation opérationnelle (V1) | ✅ Implémentée (MVP) | Modale évaluer + preuves + N/A + KPI `A` + pont risque — [RFC](./RFC-COMP-001-A%20%E2%80%94%20%C3%89valuation%20op%C3%A9rationnelle%20(V1).md) · `COMP.0`–`COMP.5` clos |
 | **RFC-COMP-002** | Campagnes et dossier d’audit (V2) | ✅ V2.8 (launch + remédiation plans) | Campagnes, snapshot scopé, write-scope, UI « Lancer une revue », `POST …/remediation-plan` — [RFC](./RFC-COMP-002%20%E2%80%94%20Campagnes%20et%20dossier%20d'audit.md) |
 | **RFC-COMP-003** | CDC Conformité (fidélité mock) | ✅ UX.0–3 + COMP.V2 launch | Fiche FW, remédiation, revue, pont ActionPlan — [RFC](./RFC-COMP-003%20%E2%80%94%20CDC%20Conformit%C3%A9%20(fid%C3%A9lit%C3%A9%20mock).md) |
+| **RFC-COMP-004** | Gestion des preuves de conformité | 📝 Draft | Cycle de vie preuves (liste/CRUD/appréciation/versions/réutilisation) ; FILE/GED conditionnel — [RFC](./RFC-COMP-004%20%E2%80%94%20Gestion%20des%20preuves%20de%20conformit%C3%A9.md) |
 | **RFC-PROC-001** | Module Procédures — cadrage & backlog US | 📝 Draft | Cadrage produit, modèle, RBAC, index US — [RFC](./RFC-PROC-001%20%E2%80%94%20Module%20Proc%C3%A9dures%20(cadrage%20et%20backlog%20user%20stories).md) |
 | **RFC-PROC-002** | Créer / éditer / archiver + contenu riche | 📝 Draft | US-PROC-01…04 — texte, médias, liens internes/externes — [RFC](./RFC-PROC-002%20%E2%80%94%20Cr%C3%A9er%20%C3%A9diter%20archiver%20proc%C3%A9dures%20et%20contenu%20riche.md) |
 | **RFC-PROC-003** | Versioning des procédures | 📝 Draft | US-PROC-05…06 — publish immuable, historique, restore draft — [RFC](./RFC-PROC-003%20%E2%80%94%20Versioning%20des%20proc%C3%A9dures.md) |

@@ -87,7 +87,7 @@
 | Lancer une revue / campagne | **COMP.V2** | ✅ Modale + campagne OPEN + snapshot scopé + write-scope |
 | Remédiation → plan d’actions | **COMP.V2** | ✅ `ProjectTask.complianceGapId` + POST remediation-plan |
 | Score pondéré optionnel | Décision produit | Ouvert |
-| Preuve fichier GED | `fut-evidence-ged` | 2027 |
+| Preuve fichier GED | `fut-evidence-ged` | 2027 — voir aussi [RFC-COMP-004](./RFC-COMP-004%20—%20Gestion%20des%20preuves%20de%20conformité.md) (cycle de vie UI) |
 
 ---
 
