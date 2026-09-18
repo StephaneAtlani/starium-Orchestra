@@ -1,19 +1,15 @@
+import Highlight from '@tiptap/extension-highlight';
 import { Content, EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
-import type { ReactNode } from 'react';
-import {
-  Bold,
-  Heading2,
-  Italic,
-  Link2,
-  List,
-  ListOrdered,
-  Quote,
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import Underline from '@tiptap/extension-underline';
+import { TextStyle } from '@tiptap/extension-text-style';
+import { LoadingState } from '@/components/feedback/loading-state';
 import { cn } from '@/lib/utils';
 import { EMPTY_PROCEDURE_DOC } from '../lib/procedure-content';
+import { PROCEDURE_HIGHLIGHT_COLOR_CSS } from '../lib/procedure-color-tokens';
+import { ProcedureTextColor } from '../lib/procedure-text-color-extension';
+import { ProcedureEditorToolbar } from './procedure-editor-toolbar';
 
 type Props = {
   content: Content | null | undefined;
@@ -21,6 +17,30 @@ type Props = {
   onChange?: (json: Record<string, unknown>) => void;
   className?: string;
 };
+
+const ProcedureHighlight = Highlight.extend({
+  addAttributes() {
+    return {
+      color: {
+        default: null,
+        parseHTML: (element) =>
+          element.getAttribute('data-color') ||
+          element.getAttribute('data-color-token'),
+        renderHTML: (attributes) => {
+          const token = attributes.color as string | null;
+          if (!token || !PROCEDURE_HIGHLIGHT_COLOR_CSS[token]) {
+            return {};
+          }
+          return {
+            'data-color': token,
+            'data-color-token': token,
+            style: `background-color: ${PROCEDURE_HIGHLIGHT_COLOR_CSS[token]}`,
+          };
+        },
+      },
+    };
+  },
+}).configure({ multicolor: true });
 
 export function ProcedureRichEditor({
   content,
@@ -31,8 +51,12 @@ export function ProcedureRichEditor({
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
-        heading: { levels: [1, 2, 3] },
+        heading: { levels: [1, 2, 3, 4, 5, 6] },
       }),
+      TextStyle,
+      Underline,
+      ProcedureTextColor,
+      ProcedureHighlight,
       Link.configure({
         openOnClick: false,
         autolink: true,
@@ -49,8 +73,9 @@ export function ProcedureRichEditor({
     immediatelyRender: false,
     editorProps: {
       attributes: {
+        id: 'procedure-rich-editor-content',
         class:
-          'prose prose-sm max-w-none min-h-[12rem] px-3 py-3 focus:outline-none text-foreground',
+          'prose prose-sm max-w-none min-h-[12rem] px-3 py-3 focus:outline-none text-foreground prose-headings:font-semibold prose-headings:tracking-tight',
         'aria-label': 'Contenu de la procédure',
       },
     },
@@ -63,11 +88,12 @@ export function ProcedureRichEditor({
     return (
       <div
         className={cn(
-          'rounded-[var(--radius-lg)] border border-border/70 bg-card p-4 text-sm text-muted-foreground',
+          'rounded-[var(--radius-lg)] border border-border/70 bg-card p-4',
           className,
         )}
+        aria-live="polite"
       >
-        Chargement de l&apos;éditeur…
+        <LoadingState rows={2} />
       </div>
     );
   }
@@ -102,84 +128,9 @@ export function ProcedureRichEditor({
       )}
     >
       {editable ? (
-        <div
-          className="flex flex-wrap gap-1 border-b border-border/70 bg-muted/30 p-2"
-          role="toolbar"
-          aria-label="Mise en forme"
-        >
-          <ToolbarButton
-            label="Gras"
-            pressed={editor.isActive('bold')}
-            onClick={() => editor.chain().focus().toggleBold().run()}
-            icon={<Bold className="size-4" aria-hidden />}
-          />
-          <ToolbarButton
-            label="Italique"
-            pressed={editor.isActive('italic')}
-            onClick={() => editor.chain().focus().toggleItalic().run()}
-            icon={<Italic className="size-4" aria-hidden />}
-          />
-          <ToolbarButton
-            label="Titre"
-            pressed={editor.isActive('heading', { level: 2 })}
-            onClick={() =>
-              editor.chain().focus().toggleHeading({ level: 2 }).run()
-            }
-            icon={<Heading2 className="size-4" aria-hidden />}
-          />
-          <ToolbarButton
-            label="Liste à puces"
-            pressed={editor.isActive('bulletList')}
-            onClick={() => editor.chain().focus().toggleBulletList().run()}
-            icon={<List className="size-4" aria-hidden />}
-          />
-          <ToolbarButton
-            label="Liste numérotée"
-            pressed={editor.isActive('orderedList')}
-            onClick={() => editor.chain().focus().toggleOrderedList().run()}
-            icon={<ListOrdered className="size-4" aria-hidden />}
-          />
-          <ToolbarButton
-            label="Citation"
-            pressed={editor.isActive('blockquote')}
-            onClick={() => editor.chain().focus().toggleBlockquote().run()}
-            icon={<Quote className="size-4" aria-hidden />}
-          />
-          <ToolbarButton
-            label="Lien"
-            pressed={editor.isActive('link')}
-            onClick={setLink}
-            icon={<Link2 className="size-4" aria-hidden />}
-          />
-        </div>
+        <ProcedureEditorToolbar editor={editor} onRequestLink={setLink} />
       ) : null}
       <EditorContent editor={editor} />
     </div>
-  );
-}
-
-function ToolbarButton({
-  label,
-  pressed,
-  onClick,
-  icon,
-}: {
-  label: string;
-  pressed: boolean;
-  onClick: () => void;
-  icon: ReactNode;
-}) {
-  return (
-    <Button
-      type="button"
-      variant={pressed ? 'default' : 'outline'}
-      size="icon"
-      className="min-h-11 min-w-11 sm:min-h-9 sm:min-w-9"
-      aria-label={label}
-      aria-pressed={pressed}
-      onClick={onClick}
-    >
-      {icon}
-    </Button>
   );
 }

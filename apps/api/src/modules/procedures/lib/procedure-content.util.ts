@@ -8,17 +8,60 @@ const ALLOWED_NODES = new Set([
   'orderedList',
   'listItem',
   'blockquote',
+  'codeBlock',
+  'horizontalRule',
   'text',
   'hardBreak',
 ]);
 
-const ALLOWED_MARKS = new Set(['bold', 'italic', 'link']);
+const ALLOWED_MARKS = new Set([
+  'bold',
+  'italic',
+  'underline',
+  'strike',
+  'link',
+  'textStyle',
+  'highlight',
+]);
+
+/** Tokens texte (mark textStyle.colorToken). */
+export const PROCEDURE_TEXT_COLOR_TOKENS = new Set([
+  'ink',
+  'muted',
+  'brand',
+  'danger',
+  'success',
+  'warning',
+  'info',
+]);
+
+/** Tokens surlignage (mark highlight.colorToken ou highlight.color). */
+export const PROCEDURE_HIGHLIGHT_COLOR_TOKENS = new Set([
+  'brandSoft',
+  'dangerSoft',
+  'successSoft',
+  'warningSoft',
+  'infoSoft',
+]);
+
+const CODE_LANGUAGE_RE = /^[a-zA-Z0-9_-]{0,32}$/;
 
 function assertHttpsHref(href: unknown): void {
   if (typeof href !== 'string' || !/^https:\/\//i.test(href)) {
     throw new BadRequestException(
       'Les liens doivent utiliser une URL https://',
     );
+  }
+}
+
+function assertColorToken(
+  raw: unknown,
+  allowed: Set<string>,
+  kind: string,
+): void {
+  if (raw == null || raw === '') return;
+  if (typeof raw !== 'string' || !allowed.has(raw)) {
+    throw new BadRequestException(`Jeton de couleur ${kind} non autorisé`);
   }
 }
 
@@ -36,8 +79,16 @@ function walk(node: unknown, depth: number): void {
   }
   if (type === 'heading') {
     const level = (n.attrs as { level?: number } | undefined)?.level;
-    if (level != null && (level < 1 || level > 3)) {
-      throw new BadRequestException('Niveau de titre hors plage (1–3)');
+    if (level != null && (level < 1 || level > 6)) {
+      throw new BadRequestException('Niveau de titre hors plage (1–6)');
+    }
+  }
+  if (type === 'codeBlock') {
+    const language = (n.attrs as { language?: unknown } | undefined)?.language;
+    if (language != null && language !== '') {
+      if (typeof language !== 'string' || !CODE_LANGUAGE_RE.test(language)) {
+        throw new BadRequestException('Langage de codeBlock invalide');
+      }
     }
   }
   if (Array.isArray(n.marks)) {
@@ -51,8 +102,26 @@ function walk(node: unknown, depth: number): void {
           `Marque non autorisée: ${String(m.type)}`,
         );
       }
+      const attrs = (m.attrs ?? {}) as Record<string, unknown>;
       if (m.type === 'link') {
-        assertHttpsHref((m.attrs as { href?: unknown } | undefined)?.href);
+        assertHttpsHref(attrs.href);
+      }
+      if (m.type === 'textStyle') {
+        // Refuse hex / CSS libre ; seul colorToken allowlisté.
+        if (attrs.color != null && attrs.color !== '') {
+          throw new BadRequestException(
+            'Couleur texte libre interdite — utilisez colorToken',
+          );
+        }
+        assertColorToken(
+          attrs.colorToken,
+          PROCEDURE_TEXT_COLOR_TOKENS,
+          'texte',
+        );
+      }
+      if (m.type === 'highlight') {
+        const token = attrs.colorToken ?? attrs.color;
+        assertColorToken(token, PROCEDURE_HIGHLIGHT_COLOR_TOKENS, 'surlignage');
       }
     }
   }

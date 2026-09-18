@@ -4,7 +4,7 @@ Version : 1.0 — 18 septembre 2026
 
 | Métadonnée | Valeur |
 | --- | --- |
-| **Statut** | 📝 Draft — cadrage produit / spec d’implémentation |
+| **Statut** | 🟡 En cours — **Lot A** ✅ (H1–H6, styles/couleur, toolbar) · Lots B–D pending |
 | **Priorité** | Haute (qualité documentaire gouvernance / audit) |
 | **Parent** | [RFC-PROC-001](./RFC-PROC-001%20—%20Module%20Procédures%20(cadrage%20et%20backlog%20user%20stories).md) |
 | **Dépend de** | [RFC-PROC-002](./RFC-PROC-002%20—%20Créer%20éditer%20archiver%20procédures%20et%20contenu%20riche.md) (socle CRUD + TipTap MVP + `contentJson`) |

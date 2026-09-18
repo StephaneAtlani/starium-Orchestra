@@ -3108,18 +3108,18 @@ Création via **`POST /api/risks`** (scope client) avec `complianceRequirementId
 
 ---
 
-## 20 quater. Module Procédures (RFC-PROC-002 US-01) — `/api/procedures`
+## 20 quater. Module Procédures (RFC-PROC-002 + PROC-005) — `/api/procedures`
 
-Référence : [RFC-PROC-002](RFC/RFC-PROC-002%20%E2%80%94%20Cr%C3%A9er%20%C3%A9diter%20archiver%20proc%C3%A9dures%20et%20contenu%20riche.md). Module `procedures` client-scopé. Guards : JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard.
+Référence : [RFC-PROC-002](RFC/RFC-PROC-002%20%E2%80%94%20Cr%C3%A9er%20%C3%A9diter%20archiver%20proc%C3%A9dures%20et%20contenu%20riche.md) · [RFC-PROC-005](RFC/RFC-PROC-005%20%E2%80%94%20%C3%89diteur%20riche%20avanc%C3%A9%20des%20proc%C3%A9dures.md). Module `procedures` client-scopé. Guards : JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard.
 
 - **GET /api/procedures** — Liste paginée `{ items, total, limit, offset }`. Query : `limit`, `offset`, `status?`, `category?`, `q?`, `includeArchived?`. Items : `code`, `title`, `status`, `category`, `ownerLabel` (jamais d’ID propriétaire), version publiée si présente. Permission **`procedures.read`**. Archivées masquées par défaut.
 - **POST /api/procedures** — Création brouillon. Body : `{ code, title, description?, category?, ownerUserId? }`. Crée `Procedure` `DRAFT` + `ProcedureVersion` n°1 `DRAFT` (`contentJson` doc TipTap vide). Code unique par client → **409**. Owner doit être membre du client. Audit `procedure.created`. Permission **`procedures.create`**.
 - **GET /api/procedures/:id** — Détail + résumé brouillon courant (`currentDraft`). Permission **`procedures.read`**.
-- **PATCH /api/procedures/:id/draft** — Body `{ contentJson, expectedUpdatedAt? }`. Met à jour le brouillon TipTap (whitelist nodes/marks ; liens `https` only). Optimistic lock → **409**. Archivée → **400**. Audit `procedure.draft.updated` (taille, pas le corps). Permission **`procedures.update`**.
+- **PATCH /api/procedures/:id/draft** — Body `{ contentJson, expectedUpdatedAt? }`. Met à jour le brouillon TipTap. Whitelist **PROC-005 Lot A** : nodes `heading` (niveaux **1–6**), `horizontalRule`, `codeBlock`, listes, blockquote… ; marks `bold`/`italic`/`underline`/`strike`/`link` (https only) / `textStyle.colorToken` / `highlight.color|colorToken` (jetons DS fermés — hex libre → **400**). Optimistic lock → **409**. Archivée → **400**. Audit `procedure.draft.updated` (taille, pas le corps). Permission **`procedures.update`**.
 - **POST /api/procedures/:id/archive** — `status=ARCHIVED`, conserve `statusBeforeArchive`. Audit `procedure.archived`. Permission **`procedures.archive`**.
 - **POST /api/procedures/:id/unarchive** — restaure `DRAFT` ou `PUBLISHED` selon `statusBeforeArchive`. Audit `procedure.unarchived`. Permission **`procedures.archive`**.
 
-UI : `/procedures` (catalogue + création), `/procedures/[id]/edit` (métadonnées + éditeur TipTap + archive).
+UI : `/procedures` (catalogue + création), `/procedures/[id]/edit` (métadonnées + éditeur TipTap avancé Lot A + archive).
 
 ---
 
