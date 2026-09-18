@@ -157,6 +157,7 @@ function emptyBlock(t: TextBlock['t']): TextBlock {
   if (t === 'video') return { t: 'video', src: '', cap: '' };
   if (t === 'diag')
     return { t: 'diag', title: '', cap: '', nodes: [], edges: [] };
+  if (t === 'ul' || t === 'ol') return { t, html: '<li><br></li>' };
   return { t, html: '' } as TextBlock;
 }
 
@@ -167,9 +168,14 @@ function parseDoc(raw: unknown): ProcedureBlocksDoc {
     (raw as { schemaVersion?: number }).schemaVersion === 2 &&
     Array.isArray((raw as { blocks?: unknown }).blocks)
   ) {
+    const blocks = (raw as ProcedureBlocksDoc).blocks.filter((b) => {
+      if (b.t === 'img') return Boolean(b.assetId?.trim());
+      if (b.t === 'video') return /^https:\/\//i.test(b.src);
+      return true;
+    });
     return {
       schemaVersion: 2,
-      blocks: (raw as ProcedureBlocksDoc).blocks,
+      blocks: blocks.length > 0 ? blocks : [{ t: 'p', html: '' }],
     };
   }
   return {
@@ -183,6 +189,31 @@ function parseDoc(raw: unknown): ProcedureBlocksDoc {
 
 function stripHtml(html: string): string {
   return html.replace(/<[^>]+>/g, '').trim();
+}
+
+/** Place le caret dans le corps éditable du bloc (après insert / Entrée). */
+function focusBlockBody(index: number) {
+  const tryFocus = (left: number) => {
+    const el = document.querySelector(
+      `#pr-blk-${index} [data-pr-body]`,
+    ) as HTMLElement | null;
+    if (!el) {
+      if (left > 0) window.setTimeout(() => tryFocus(left - 1), 20);
+      return;
+    }
+    el.focus();
+    try {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      range.collapse(false);
+      const sel = window.getSelection();
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+    } catch {
+      /* ignore */
+    }
+  };
+  window.requestAnimationFrame(() => tryFocus(12));
 }
 
 function applyInlineCommand(cmd: string, value?: string) {
@@ -252,8 +283,11 @@ export function ProcedureBlockEditor({
   };
   const [linkOpen, setLinkOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState('https://');
-  const [videoOpen, setVideoOpen] = useState<number | null>(null);
   const [videoUrl, setVideoUrl] = useState('https://');
+  const [videoModal, setVideoModal] = useState<{
+    mode: 'insert' | 'replace';
+    at: number;
+  } | null>(null);
   const [dragFrom, setDragFrom] = useState<number | null>(null);
   const [dropHint, setDropHint] = useState<{
     i: number;
@@ -268,7 +302,13 @@ export function ProcedureBlockEditor({
     strike: boolean;
   } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  const pendingImgIndex = useRef<number | null>(null);
+  /** Insert image only after upload — empty assetId triggers API toast. */
+  const pendingImg = useRef<{
+    mode: 'insert' | 'replace';
+    at: number;
+  } | null>(null);
+  const docRef = useRef(doc);
+  docRef.current = doc;
   const emitRef = useRef(onChange);
   emitRef.current = onChange;
   const editorRootRef = useRef<HTMLDivElement>(null);
@@ -337,7 +377,15 @@ export function ProcedureBlockEditor({
   }, [initialTitle]);
 
   const updateBlocks = useCallback((blocks: TextBlock[]) => {
-    const next = { schemaVersion: 2 as const, blocks };
+    const cleaned = blocks.filter((b) => {
+      if (b.t === 'img') return Boolean(b.assetId?.trim());
+      if (b.t === 'video') return /^https:\/\//i.test(b.src ?? '');
+      return true;
+    });
+    const next = {
+      schemaVersion: 2 as const,
+      blocks: cleaned.length > 0 ? cleaned : ([{ t: 'p', html: '' }] as TextBlock[]),
+    };
     setDoc(next);
     emitRef.current(next);
   }, []);
@@ -351,22 +399,26 @@ export function ProcedureBlockEditor({
   let stepCounter = 0;
 
   const insertAt = (index: number, t: TextBlock['t']) => {
-    const blocks = [...doc.blocks];
-    blocks.splice(index, 0, emptyBlock(t));
-    updateBlocks(blocks);
     setMenuAt(null);
-    setSel(index);
-    if (t === 'diag') {
-      window.setTimeout(() => onOpenDiagram?.(index), 0);
+    if (t === 'img') {
+      pendingImg.current = { mode: 'insert', at: index };
+      window.setTimeout(() => fileRef.current?.click(), 0);
+      return;
     }
     if (t === 'video') {
       setVideoUrl('https://');
-      setVideoOpen(index);
+      setVideoModal({ mode: 'insert', at: index });
+      return;
     }
-    if (t === 'img') {
-      pendingImgIndex.current = index;
-      window.setTimeout(() => fileRef.current?.click(), 0);
+    const blocks = [...doc.blocks];
+    blocks.splice(index, 0, emptyBlock(t));
+    updateBlocks(blocks);
+    setSel(index);
+    if (t === 'diag') {
+      window.setTimeout(() => onOpenDiagram?.(index), 0);
+      return;
     }
+    focusBlockBody(index);
   };
 
   const clearDrag = () => {
@@ -420,6 +472,7 @@ export function ProcedureBlockEditor({
     const blocks = doc.blocks.map((b, i) => (i === index ? next : b));
     updateBlocks(blocks);
     setSel(index);
+    focusBlockBody(index);
   };
 
   const setHtml = (index: number, html: string) => {
@@ -686,7 +739,7 @@ export function ProcedureBlockEditor({
                           procedureId={procedureId}
                           authFetch={authFetch}
                           onPick={() => {
-                            pendingImgIndex.current = i;
+                            pendingImg.current = { mode: 'replace', at: i };
                             fileRef.current?.click();
                           }}
                           onCap={(cap) => {
@@ -704,7 +757,7 @@ export function ProcedureBlockEditor({
                           editable={editable}
                           onPick={() => {
                             setVideoUrl(b.src || 'https://');
-                            setVideoOpen(i);
+                            setVideoModal({ mode: 'replace', at: i });
                           }}
                           onCap={(cap) => {
                             const blocks = doc.blocks.map((x, j) =>
@@ -1169,9 +1222,9 @@ export function ProcedureBlockEditor({
       </StariumModal>
 
       <StariumModal
-        open={videoOpen != null}
+        open={videoModal != null}
         onOpenChange={(o) => {
-          if (!o) setVideoOpen(null);
+          if (!o) setVideoModal(null);
         }}
         title="Ajouter une vidéo"
         description="Collez un lien https (Stream, YouTube, Vimeo)."
@@ -1181,7 +1234,7 @@ export function ProcedureBlockEditor({
             <Button
               type="button"
               variant="outline"
-              onClick={() => setVideoOpen(null)}
+              onClick={() => setVideoModal(null)}
             >
               Annuler
             </Button>
@@ -1189,12 +1242,20 @@ export function ProcedureBlockEditor({
               type="button"
               onClick={() => {
                 const src = videoUrl.trim();
-                if (!/^https:\/\//i.test(src) || videoOpen == null) return;
-                const blocks = doc.blocks.map((x, j) =>
-                  j === videoOpen && x.t === 'video' ? { ...x, src } : x,
-                );
-                updateBlocks(blocks);
-                setVideoOpen(null);
+                if (!/^https:\/\//i.test(src) || videoModal == null) return;
+                const { mode, at } = videoModal;
+                if (mode === 'insert') {
+                  const blocks = [...docRef.current.blocks];
+                  blocks.splice(at, 0, { t: 'video', src, cap: '' });
+                  updateBlocks(blocks);
+                  setSel(at);
+                } else {
+                  const blocks = docRef.current.blocks.map((x, j) =>
+                    j === at && x.t === 'video' ? { ...x, src } : x,
+                  );
+                  updateBlocks(blocks);
+                }
+                setVideoModal(null);
               }}
             >
               Ajouter
@@ -1223,21 +1284,37 @@ export function ProcedureBlockEditor({
         onChange={(e) => {
           const file = e.target.files?.[0];
           e.target.value = '';
-          const idx = pendingImgIndex.current;
-          pendingImgIndex.current = null;
-          if (!file || idx == null) return;
+          const pending = pendingImg.current;
+          pendingImg.current = null;
+          if (!file || !pending) return;
           void uploadProcedureAsset(authFetch, procedureId, file)
             .then((asset) => {
-              const blocks = doc.blocks.map((x, j) =>
-                j === idx && x.t === 'img'
-                  ? {
-                      ...x,
-                      assetId: asset.id,
-                      alt: displayLabel(asset.label, 'Image de la procédure'),
-                    }
-                  : x,
-              );
-              updateBlocks(blocks);
+              const imgBlock: TextBlock = {
+                t: 'img',
+                assetId: asset.id,
+                alt: displayLabel(asset.label, 'Image de la procédure'),
+                cap: '',
+              };
+              if (pending.mode === 'insert') {
+                const blocks = [...docRef.current.blocks];
+                blocks.splice(pending.at, 0, imgBlock);
+                updateBlocks(blocks);
+                setSel(pending.at);
+              } else {
+                const blocks = docRef.current.blocks.map((x, j) =>
+                  j === pending.at && x.t === 'img'
+                    ? {
+                        ...x,
+                        assetId: asset.id,
+                        alt: displayLabel(
+                          asset.label,
+                          'Image de la procédure',
+                        ),
+                      }
+                    : x,
+                );
+                updateBlocks(blocks);
+              }
               toast.success('Image ajoutée');
             })
             .catch((err: Error) => toast.error(err.message));
