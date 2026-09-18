@@ -5,7 +5,6 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
-  ProcedureCategory,
   ProcedureStatus,
   ProcedureVersionLifecycle,
 } from '@prisma/client';
@@ -18,6 +17,10 @@ describe('ProceduresService', () => {
       .fn()
       .mockResolvedValue(new Set(['procedures.publish', 'procedures.update'])),
   };
+  const categories = {
+    resolveActiveCategoryId: jest.fn().mockResolvedValue('cat-sec'),
+    ensureDefaults: jest.fn().mockResolvedValue(undefined),
+  };
 
   function buildService(prisma: Record<string, unknown>) {
     const assets = {
@@ -28,21 +31,25 @@ describe('ProceduresService', () => {
       auditLogs as any,
       assets as any,
       effectivePermissions as any,
+      categories as any,
     );
   }
 
   beforeEach(() => {
     jest.clearAllMocks();
+    categories.resolveActiveCategoryId.mockResolvedValue('cat-sec');
   });
 
   it('create — happy path : DRAFT + version 1 + EMPTY_V2', async () => {
+    const category = { id: 'cat-sec', code: 'SECURITY', label: 'Sécurité' };
     const procedure = {
       id: 'proc-1',
       clientId: 'c1',
       code: 'PSSI',
       title: 'PSSI',
       description: null,
-      category: ProcedureCategory.SECURITY,
+      categoryId: 'cat-sec',
+      category,
       status: ProcedureStatus.DRAFT,
       ownerUserId: null,
       currentDraftVersionId: 'ver-1',
@@ -96,18 +103,22 @@ describe('ProceduresService', () => {
     const service = buildService(prisma);
     const result = await service.create(
       'c1',
-      { code: 'pssi', title: 'PSSI', category: ProcedureCategory.SECURITY },
+      { code: 'pssi', title: 'PSSI', categoryId: 'cat-sec' },
       'actor-1',
       { requestId: 'req-1' },
     );
 
+    expect(categories.resolveActiveCategoryId).toHaveBeenCalledWith(
+      'c1',
+      'cat-sec',
+    );
     expect(tx.procedure.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           clientId: 'c1',
           code: 'PSSI',
           status: ProcedureStatus.DRAFT,
-          category: ProcedureCategory.SECURITY,
+          categoryId: 'cat-sec',
         }),
       }),
     );
@@ -121,6 +132,7 @@ describe('ProceduresService', () => {
       }),
     );
     expect(result.id).toBe('proc-1');
+    expect(result.category).toEqual(category);
     expect(auditLogs.create).toHaveBeenCalled();
   });
 

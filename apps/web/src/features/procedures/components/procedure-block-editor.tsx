@@ -41,10 +41,9 @@ import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { displayLabel } from '@/lib/display-label';
 import {
-  PROCEDURE_CATEGORY_LABELS,
   procedureCategoryLabel,
 } from '../lib/procedure-labels';
-import type { ProcedureCategoryApi } from '../types/procedure.types';
+import type { ProcedureCategoryRef } from '../types/procedure.types';
 import { EMPTY_PROCEDURE_DOC } from '../lib/procedure-content';
 import { toast } from '@/lib/toast';
 import type { AuthFetch } from '@/features/budgets/api/budget-management.api';
@@ -242,6 +241,7 @@ export function ProcedureBlockEditor({
   initialContent,
   initialTitle,
   category,
+  categoryOptions,
   ownerLabel,
   versionNumber,
   editable,
@@ -254,13 +254,14 @@ export function ProcedureBlockEditor({
   authFetch: AuthFetch;
   initialContent: unknown;
   initialTitle: string;
-  category: ProcedureCategoryApi;
+  category: ProcedureCategoryRef;
+  categoryOptions: ProcedureCategoryRef[];
   ownerLabel: string | null;
   versionNumber: number | null;
   editable: boolean;
   onChange: (doc: ProcedureBlocksDoc) => void;
   onTitleChange: (title: string) => void;
-  onCategoryChange: (cat: ProcedureCategoryApi) => void;
+  onCategoryChange: (categoryId: string) => void;
   onOpenDiagram?: (blockIndex: number) => void;
 }) {
   const [doc, setDoc] = useState(() => parseDoc(initialContent));
@@ -1172,28 +1173,24 @@ export function ProcedureBlockEditor({
                     Catégorie
                   </Label>
                   <Select
-                    value={category}
+                    value={category.id}
                     disabled={!editable}
-                    onValueChange={(v) =>
-                      onCategoryChange((v ?? category) as ProcedureCategoryApi)
-                    }
+                    onValueChange={(v) => {
+                      if (v) onCategoryChange(v);
+                    }}
                   >
                     <SelectTrigger
                       id="pr-cat"
                       className="mt-1 h-9 min-h-9 text-[13px]"
                     >
                       <SelectValue>
-                        {PROCEDURE_CATEGORY_LABELS[category]}
+                        {procedureCategoryLabel(category)}
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
-                      {(
-                        Object.keys(
-                          PROCEDURE_CATEGORY_LABELS,
-                        ) as ProcedureCategoryApi[]
-                      ).map((c) => (
-                        <SelectItem key={c} value={c}>
-                          {PROCEDURE_CATEGORY_LABELS[c]}
+                      {categoryOptions.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {procedureCategoryLabel(c)}
                         </SelectItem>
                       ))}
                     </SelectContent>

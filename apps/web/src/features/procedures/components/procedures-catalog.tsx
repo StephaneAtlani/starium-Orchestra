@@ -16,7 +16,7 @@ import { useClientMembers } from '@/features/client-rbac/hooks/use-client-member
 import { toast } from '@/lib/toast';
 import { displayLabel } from '@/lib/display-label';
 import { cn } from '@/lib/utils';
-import { createProcedure, listProcedures } from '../api/procedures.api';
+import { createProcedure, listProcedureCategories, listProcedures } from '../api/procedures.api';
 import { procedureQueryKeys } from '../lib/procedure-query-keys';
 import {
   procedureCategoryLabel,
@@ -166,6 +166,12 @@ export function ProceduresCatalog() {
         status: filters.status,
       }),
     enabled: Boolean(clientId),
+  });
+
+  const categoriesQ = useQuery({
+    queryKey: procedureQueryKeys.categories(clientId, true),
+    queryFn: () => listProcedureCategories(authFetch, { activeOnly: true }),
+    enabled: Boolean(clientId) && createOpen,
   });
 
   const createMut = useMutation({
@@ -337,6 +343,8 @@ export function ProceduresCatalog() {
         onOpenChange={setCreateOpen}
         members={membersQ.data ?? []}
         membersLoading={membersQ.isLoading}
+        categories={categoriesQ.data ?? []}
+        categoriesLoading={categoriesQ.isLoading}
         isSubmitting={createMut.isPending}
         onSubmit={(values) => createMut.mutate(values)}
       />

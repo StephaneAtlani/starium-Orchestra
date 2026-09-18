@@ -4,19 +4,25 @@ export type ProcedureStatusApi =
   | 'PUBLISHED'
   | 'ARCHIVED';
 
-export type ProcedureCategoryApi =
-  | 'PILOTAGE'
-  | 'COMPLIANCE'
-  | 'FINANCE'
-  | 'ORGANISATION'
-  | 'SECURITY';
+export type ProcedureCategoryRef = {
+  id: string;
+  code: string;
+  label: string;
+};
+
+export type ProcedureCategoryItem = ProcedureCategoryRef & {
+  sortOrder: number;
+  isActive: boolean;
+  updatedAt: string;
+};
 
 export type ProcedureListItem = {
   id: string;
   code: string;
   title: string;
   description: string | null;
-  category: ProcedureCategoryApi;
+  categoryId: string;
+  category: ProcedureCategoryRef;
   status: ProcedureStatusApi;
   ownerLabel: string | null;
   publishedVersionNumber: number | null;
@@ -32,7 +38,8 @@ export type ProcedureDetail = {
   code: string;
   title: string;
   description: string | null;
-  category: ProcedureCategoryApi;
+  categoryId: string;
+  category: ProcedureCategoryRef;
   status: ProcedureStatusApi;
   ownerLabel: string | null;
   currentDraftVersionId: string | null;
@@ -60,7 +67,7 @@ export type CreateProcedureInput = {
   code: string;
   title: string;
   description?: string;
-  category?: ProcedureCategoryApi;
+  categoryId?: string;
   ownerUserId?: string;
 };
 

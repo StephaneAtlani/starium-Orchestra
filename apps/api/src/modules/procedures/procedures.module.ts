@@ -7,6 +7,7 @@ import { ProcedureAssetsService } from './procedure-assets.service';
 import { ProceduresController } from './procedures.controller';
 import { ProceduresService } from './procedures.service';
 import { ProcedureSettingsService } from './procedure-settings.service';
+import { ProcedureCategoriesService } from './procedure-categories.service';
 
 @Module({
   imports: [AuditLogsModule, ProcurementModule, PlatformUploadModule],
@@ -15,11 +16,13 @@ import { ProcedureSettingsService } from './procedure-settings.service';
     ProceduresService,
     ProcedureAssetsService,
     ProcedureSettingsService,
+    ProcedureCategoriesService,
   ],
   exports: [
     ProceduresService,
     ProcedureAssetsService,
     ProcedureSettingsService,
+    ProcedureCategoriesService,
   ],
 })
 export class ProceduresModule {}

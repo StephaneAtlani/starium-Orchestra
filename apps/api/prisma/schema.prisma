@@ -391,6 +391,7 @@ model Client {
   procedureVersions                ProcedureVersion[]
   procedureAssets                  ProcedureAsset[]
   procedureModuleSettings          ProcedureModuleSettings?
+  procedureCategories              ProcedureCategory[]
   riskDomains                      RiskDomain[]
   riskTypes                        RiskType[]
   budgetDashboardConfigs           BudgetDashboardConfig[]
@@ -7224,27 +7225,37 @@ enum ProcedureStatus {
   ARCHIVED
 }
 
-enum ProcedureCategory {
-  PILOTAGE
-  COMPLIANCE
-  FINANCE
-  ORGANISATION
-  SECURITY
-}
-
 enum ProcedureVersionLifecycle {
   DRAFT
   PUBLISHED
 }
 
+/// RFC-PROC-007 — référentiel catégories procédures (par client).
+model ProcedureCategory {
+  id        String   @id @default(cuid())
+  clientId  String
+  code      String
+  label     String
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client     Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  procedures Procedure[]
+
+  @@unique([clientId, code])
+  @@index([clientId, isActive, sortOrder])
+}
+
 model Procedure {
-  id                        String            @id @default(cuid())
+  id                        String          @id @default(cuid())
   clientId                  String
   code                      String
   title                     String
   description               String?
-  category                  ProcedureCategory @default(PILOTAGE)
-  status                    ProcedureStatus   @default(DRAFT)
+  categoryId                String
+  status                    ProcedureStatus @default(DRAFT)
   statusBeforeArchive       ProcedureStatus?
   ownerUserId               String?
   currentDraftVersionId     String?
@@ -7252,16 +7263,18 @@ model Procedure {
   archivedAt                DateTime?
   archivedByUserId          String?
   createdByUserId           String?
-  createdAt                 DateTime          @default(now())
-  updatedAt                 DateTime          @updatedAt
+  createdAt                 DateTime        @default(now())
+  updatedAt                 DateTime        @updatedAt
 
   client   Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  category ProcedureCategory  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   versions ProcedureVersion[]
   assets   ProcedureAsset[]
 
   @@unique([clientId, code])
   @@index([clientId, status])
   @@index([clientId, updatedAt])
+  @@index([clientId, categoryId])
   @@index([ownerUserId])
 }
 

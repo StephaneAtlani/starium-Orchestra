@@ -18,22 +18,17 @@ import {
 } from '@/components/ui/select';
 import type { ClientMember } from '@/features/client-rbac/api/user-roles';
 import { displayLabel, firstDisplayLabel } from '@/lib/display-label';
-import {
-  PROCEDURE_CATEGORY_LABELS,
-} from '../lib/procedure-labels';
-import type { CreateProcedureInput, ProcedureCategoryApi } from '../types/procedure.types';
+import { procedureCategoryLabel } from '../lib/procedure-labels';
+import type {
+  CreateProcedureInput,
+  ProcedureCategoryRef,
+} from '../types/procedure.types';
 
 const schema = z.object({
   code: z.string().trim().min(1, 'Code obligatoire').max(64),
   title: z.string().trim().min(1, 'Titre obligatoire').max(300),
   description: z.string().max(2000).optional(),
-  category: z.enum([
-    'PILOTAGE',
-    'COMPLIANCE',
-    'FINANCE',
-    'ORGANISATION',
-    'SECURITY',
-  ]),
+  categoryId: z.string().min(1, 'Catégorie obligatoire'),
   ownerUserId: z.string().optional(),
 });
 
@@ -44,15 +39,13 @@ function memberLabel(m: ClientMember): string {
   return firstDisplayLabel([name, m.email], 'Membre');
 }
 
-const CATEGORY_OPTIONS = Object.entries(PROCEDURE_CATEGORY_LABELS) as Array<
-  [ProcedureCategoryApi, string]
->;
-
 export function ProcedureCreateDialog({
   open,
   onOpenChange,
   members,
   membersLoading,
+  categories,
+  categoriesLoading,
   onSubmit,
   isSubmitting,
 }: {
@@ -60,16 +53,19 @@ export function ProcedureCreateDialog({
   onOpenChange: (open: boolean) => void;
   members: ClientMember[];
   membersLoading: boolean;
+  categories: ProcedureCategoryRef[];
+  categoriesLoading: boolean;
   onSubmit: (values: CreateProcedureInput) => void;
   isSubmitting: boolean;
 }) {
+  const defaultCategoryId = categories[0]?.id ?? '';
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
       code: '',
       title: '',
       description: '',
-      category: 'PILOTAGE',
+      categoryId: defaultCategoryId,
       ownerUserId: '',
     },
   });
@@ -80,12 +76,15 @@ export function ProcedureCreateDialog({
       code: '',
       title: '',
       description: '',
-      category: 'PILOTAGE',
+      categoryId: categories[0]?.id ?? '',
       ownerUserId: '',
     });
-  }, [open, form]);
+  }, [open, form, categories]);
 
   const formId = 'procedure-create-form';
+  const selectedCat = categories.find(
+    (c) => c.id === form.watch('categoryId'),
+  );
 
   return (
     <StariumModal
@@ -100,7 +99,11 @@ export function ProcedureCreateDialog({
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Annuler
           </Button>
-          <Button type="submit" form={formId} disabled={isSubmitting}>
+          <Button
+            type="submit"
+            form={formId}
+            disabled={isSubmitting || categoriesLoading || !categories.length}
+          >
             {isSubmitting ? 'Création…' : 'Créer'}
           </Button>
         </>
@@ -114,7 +117,7 @@ export function ProcedureCreateDialog({
             code: values.code,
             title: values.title,
             description: values.description?.trim() || undefined,
-            category: values.category,
+            categoryId: values.categoryId,
             ownerUserId: values.ownerUserId || undefined,
           });
         })}
@@ -175,13 +178,12 @@ export function ProcedureCreateDialog({
             Catégorie <span className="text-[var(--state-danger)]">*</span>
           </Label>
           <Select
-            value={form.watch('category')}
+            value={form.watch('categoryId') || undefined}
             onValueChange={(v) => {
               if (!v) return;
-              form.setValue('category', v as ProcedureCategoryApi, {
-                shouldValidate: true,
-              });
+              form.setValue('categoryId', v, { shouldValidate: true });
             }}
+            disabled={categoriesLoading || categories.length === 0}
           >
             <SelectTrigger
               id="procedure-category"
@@ -189,17 +191,17 @@ export function ProcedureCreateDialog({
               aria-required
             >
               <SelectValue placeholder="Choisir une catégorie">
-                {
-                  PROCEDURE_CATEGORY_LABELS[
-                    form.watch('category') as ProcedureCategoryApi
-                  ]
-                }
+                {selectedCat
+                  ? procedureCategoryLabel(selectedCat)
+                  : categoriesLoading
+                    ? 'Chargement…'
+                    : 'Choisir une catégorie'}
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
-              {CATEGORY_OPTIONS.map(([value, label]) => (
-                <SelectItem key={value} value={value}>
-                  {label}
+              {categories.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {procedureCategoryLabel(c)}
                 </SelectItem>
               ))}
             </SelectContent>

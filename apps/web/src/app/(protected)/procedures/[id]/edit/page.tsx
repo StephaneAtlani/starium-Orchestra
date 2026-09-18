@@ -17,6 +17,7 @@ import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import {
   getProcedure,
+  listProcedureCategories,
   transitionProcedure,
   updateProcedureDraft,
 } from '@/features/procedures/api/procedures.api';
@@ -33,7 +34,7 @@ import {
   type DiagNode,
 } from '@/features/procedures/components/procedure-diagram-editor';
 import type {
-  ProcedureCategoryApi,
+  ProcedureCategoryRef,
   ProcedureStatusApi,
 } from '@/features/procedures/types/procedure.types';
 
@@ -67,9 +68,15 @@ export default function ProcedureEditPage() {
     enabled: Boolean(clientId) && Boolean(procedureId),
   });
 
+  const categoriesQ = useQuery({
+    queryKey: procedureQueryKeys.categories(clientId, true),
+    queryFn: () => listProcedureCategories(authFetch, { activeOnly: true }),
+    enabled: Boolean(clientId),
+  });
+
   const [doc, setDoc] = useState<ProcedureBlocksDoc | null>(null);
   const [title, setTitle] = useState('');
-  const [category, setCategory] = useState<ProcedureCategoryApi>('PILOTAGE');
+  const [category, setCategory] = useState<ProcedureCategoryRef | null>(null);
   const [saveState, setSaveState] = useState<
     'idle' | 'saving' | 'saved' | 'error'
   >('idle');
@@ -100,7 +107,7 @@ export default function ProcedureEditPage() {
     async (patch: {
       contentJson?: ProcedureBlocksDoc;
       title?: string;
-      category?: ProcedureCategoryApi;
+      categoryId?: string;
     }) => {
       setSaveState('saving');
       try {
@@ -109,6 +116,7 @@ export default function ProcedureEditPage() {
           expectedUpdatedAt: updatedAtRef.current,
         });
         updatedAtRef.current = res.updatedAt;
+        if (res.category) setCategory(res.category);
         setSaveState('saved');
         await queryClient.invalidateQueries({
           queryKey: procedureQueryKeys.detail(clientId, procedureId),
@@ -127,7 +135,7 @@ export default function ProcedureEditPage() {
     (patch: {
       contentJson?: ProcedureBlocksDoc;
       title?: string;
-      category?: ProcedureCategoryApi;
+      categoryId?: string;
     }) => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => {
@@ -273,13 +281,18 @@ export default function ProcedureEditPage() {
           />
         ) : null}
 
-        {q.isSuccess && doc ? (
+        {q.isSuccess && doc && category ? (
           <ProcedureBlockEditor
             procedureId={procedureId}
             authFetch={authFetch}
             initialContent={doc}
             initialTitle={title}
             category={category}
+            categoryOptions={
+              categoriesQ.data?.length
+                ? categoriesQ.data
+                : [category]
+            }
             ownerLabel={q.data.ownerLabel}
             versionNumber={q.data.currentDraft?.versionNumber ?? null}
             editable={editable}
@@ -292,9 +305,12 @@ export default function ProcedureEditPage() {
               setTitle(t);
               if (editable) scheduleSave({ title: t });
             }}
-            onCategoryChange={(c) => {
-              setCategory(c);
-              if (editable) scheduleSave({ category: c });
+            onCategoryChange={(categoryId) => {
+              const next =
+                categoriesQ.data?.find((c) => c.id === categoryId) ??
+                (category.id === categoryId ? category : null);
+              if (next) setCategory(next);
+              if (editable) scheduleSave({ categoryId });
             }}
           />
         ) : null}

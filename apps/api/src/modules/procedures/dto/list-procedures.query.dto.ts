@@ -6,9 +6,10 @@ import {
   IsOptional,
   IsString,
   Max,
+  MaxLength,
   Min,
 } from 'class-validator';
-import { ProcedureCategory, ProcedureStatus } from '@prisma/client';
+import { ProcedureStatus } from '@prisma/client';
 
 export class ListProceduresQueryDto {
   @IsOptional()
@@ -29,8 +30,9 @@ export class ListProceduresQueryDto {
   status?: ProcedureStatus;
 
   @IsOptional()
-  @IsEnum(ProcedureCategory)
-  category?: ProcedureCategory;
+  @IsString()
+  @MaxLength(64)
+  categoryId?: string;
 
   @IsOptional()
   @IsString()

@@ -7,7 +7,6 @@ import {
 } from '@nestjs/common';
 import {
   Prisma,
-  ProcedureCategory,
   ProcedureStatus,
   ProcedureVersionLifecycle,
 } from '@prisma/client';
@@ -28,12 +27,15 @@ import {
   isProcedureContentEmpty,
 } from './lib/procedure-content.util';
 import { ProcedureAssetsService } from './procedure-assets.service';
+import { ProcedureCategoriesService } from './procedure-categories.service';
 
 type AuditMeta = {
   ipAddress?: string;
   userAgent?: string;
   requestId?: string;
 };
+
+type CategoryRef = { id: string; code: string; label: string };
 
 const EMPTY_DOC = EMPTY_PROCEDURE_DOC;
 
@@ -57,6 +59,7 @@ export class ProceduresService {
     private readonly auditLogs: AuditLogsService,
     private readonly assets: ProcedureAssetsService,
     private readonly effectivePermissions: EffectivePermissionsService,
+    private readonly categories: ProcedureCategoriesService,
   ) {}
 
   async list(clientId: string, query: ListProceduresQueryDto) {
@@ -69,7 +72,7 @@ export class ProceduresService {
     } else if (!query.includeArchived) {
       where.status = { not: ProcedureStatus.ARCHIVED };
     }
-    if (query.category) where.category = query.category;
+    if (query.categoryId) where.categoryId = query.categoryId;
     if (query.q?.trim()) {
       const q = query.q.trim();
       where.OR = [
@@ -82,6 +85,9 @@ export class ProceduresService {
       this.prisma.procedure.count({ where }),
       this.prisma.procedure.findMany({
         where,
+        include: {
+          category: { select: { id: true, code: true, label: true } },
+        },
         orderBy: { updatedAt: 'desc' },
         take: limit,
         skip: offset,
@@ -138,6 +144,9 @@ export class ProceduresService {
   async getById(clientId: string, id: string) {
     const row = await this.prisma.procedure.findFirst({
       where: { id, clientId },
+      include: {
+        category: { select: { id: true, code: true, label: true } },
+      },
     });
     if (!row) throw new NotFoundException('Procédure introuvable');
 
@@ -155,7 +164,7 @@ export class ProceduresService {
       : null;
 
     return {
-      ...this.toDetail(row, owner),
+      ...this.toDetail(row, owner, row.category),
       currentDraft: draft
         ? {
             id: draft.id,
@@ -191,7 +200,7 @@ export class ProceduresService {
     if (
       dto.contentJson == null &&
       dto.title == null &&
-      dto.category == null
+      dto.categoryId == null
     ) {
       throw new BadRequestException(
         'Au moins un champ à mettre à jour est requis',
@@ -229,8 +238,12 @@ export class ProceduresService {
     if (nextTitle) {
       procedureData.title = nextTitle;
     }
-    if (dto.category) {
-      procedureData.category = dto.category;
+    if (dto.categoryId) {
+      const categoryId = await this.categories.resolveActiveCategoryId(
+        clientId,
+        dto.categoryId,
+      );
+      procedureData.category = { connect: { id: categoryId } };
     }
 
     const versionData: Prisma.ProcedureVersionUpdateInput = {};
@@ -265,7 +278,7 @@ export class ProceduresService {
           ? JSON.stringify(contentJson).length
           : undefined,
         titleUpdated: Boolean(nextTitle),
-        categoryUpdated: Boolean(dto.category),
+        categoryUpdated: Boolean(dto.categoryId),
       },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
@@ -496,6 +509,11 @@ export class ProceduresService {
       await this.ensureOwnerInClient(clientId, dto.ownerUserId);
     }
 
+    const categoryId = await this.categories.resolveActiveCategoryId(
+      clientId,
+      dto.categoryId,
+    );
+
     try {
       const created = await this.prisma.$transaction(async (tx) => {
         const procedure = await tx.procedure.create({
@@ -504,7 +522,7 @@ export class ProceduresService {
             code,
             title,
             description: dto.description?.trim() || null,
-            category: dto.category ?? ProcedureCategory.PILOTAGE,
+            categoryId,
             status: ProcedureStatus.DRAFT,
             ownerUserId: dto.ownerUserId || null,
             createdByUserId: actorUserId ?? null,
@@ -538,7 +556,7 @@ export class ProceduresService {
           code: created.code,
           title: created.title,
           status: created.status,
-          category: created.category,
+          categoryId: created.categoryId,
         },
         ipAddress: meta?.ipAddress,
         userAgent: meta?.userAgent,
@@ -674,7 +692,7 @@ export class ProceduresService {
       code: string;
       title: string;
       description: string | null;
-      category: ProcedureCategory;
+      category: CategoryRef;
       status: ProcedureStatus;
       ownerUserId: string | null;
       currentDraftVersionId: string | null;
@@ -715,6 +733,7 @@ export class ProceduresService {
       code: row.code,
       title: row.title,
       description: row.description,
+      categoryId: row.category.id,
       category: row.category,
       status: row.status,
       ownerLabel: this.ownerLabel(owner),
@@ -733,7 +752,6 @@ export class ProceduresService {
       code: string;
       title: string;
       description: string | null;
-      category: ProcedureCategory;
       status: ProcedureStatus;
       ownerUserId: string | null;
       currentDraftVersionId: string | null;
@@ -746,13 +764,15 @@ export class ProceduresService {
       lastName: string | null;
       email: string;
     } | null,
+    category: CategoryRef,
   ) {
     return {
       id: row.id,
       code: row.code,
       title: row.title,
       description: row.description,
-      category: row.category,
+      categoryId: category.id,
+      category,
       status: row.status,
       ownerLabel: this.ownerLabel(owner),
       currentDraftVersionId: row.currentDraftVersionId,

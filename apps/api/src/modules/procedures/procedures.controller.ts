@@ -22,7 +22,12 @@ import { TransitionProcedureDto } from './dto/transition-procedure.dto';
 import { UpdateProcedureDraftDto } from './dto/update-procedure-draft.dto';
 import { ProceduresService } from './procedures.service';
 import { ProcedureSettingsService } from './procedure-settings.service';
+import { ProcedureCategoriesService } from './procedure-categories.service';
 import { UpdateProcedureSettingsDto } from './dto/update-procedure-settings.dto';
+import {
+  CreateProcedureCategoryDto,
+  UpdateProcedureCategoryDto,
+} from './dto/procedure-category.dto';
 
 @Controller('procedures')
 @UseGuards(JwtAuthGuard, ActiveClientGuard, ModuleAccessGuard, PermissionsGuard)
@@ -30,6 +35,7 @@ export class ProceduresController {
   constructor(
     private readonly proceduresService: ProceduresService,
     private readonly settingsService: ProcedureSettingsService,
+    private readonly categoriesService: ProcedureCategoriesService,
   ) {}
 
   @Get()
@@ -57,6 +63,48 @@ export class ProceduresController {
     meta: { ipAddress?: string; userAgent?: string; requestId?: string },
   ) {
     return this.settingsService.update(clientId!, dto, actorUserId, meta);
+  }
+
+  @Get('categories')
+  @RequirePermissions('procedures.read')
+  listCategories(
+    @ActiveClientId() clientId: string | undefined,
+    @Query('activeOnly') activeOnly?: string,
+  ) {
+    return this.categoriesService.list(clientId!, {
+      activeOnly: activeOnly === 'true' || activeOnly === '1',
+    });
+  }
+
+  @Post('categories')
+  @RequirePermissions('procedures.configure')
+  createCategory(
+    @ActiveClientId() clientId: string | undefined,
+    @Body() dto: CreateProcedureCategoryDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta()
+    meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    return this.categoriesService.create(clientId!, dto, actorUserId, meta);
+  }
+
+  @Patch('categories/:categoryId')
+  @RequirePermissions('procedures.configure')
+  updateCategory(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('categoryId') categoryId: string,
+    @Body() dto: UpdateProcedureCategoryDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta()
+    meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    return this.categoriesService.update(
+      clientId!,
+      categoryId,
+      dto,
+      actorUserId,
+      meta,
+    );
   }
 
   @Post()

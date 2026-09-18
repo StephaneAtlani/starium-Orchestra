@@ -1,11 +1,9 @@
 import {
-  IsEnum,
   IsNotEmpty,
   IsOptional,
   IsString,
   MaxLength,
 } from 'class-validator';
-import { ProcedureCategory } from '@prisma/client';
 
 export class CreateProcedureDto {
   @IsString()
@@ -23,9 +21,11 @@ export class CreateProcedureDto {
   @MaxLength(2000)
   description?: string;
 
+  /** Catégorie active du client (défaut PILOTAGE si omis). */
   @IsOptional()
-  @IsEnum(ProcedureCategory)
-  category?: ProcedureCategory;
+  @IsString()
+  @MaxLength(64)
+  categoryId?: string;
 
   @IsOptional()
   @IsString()

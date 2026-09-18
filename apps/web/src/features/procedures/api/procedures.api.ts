@@ -27,7 +27,7 @@ export function listProcedures(
     offset?: number;
     q?: string;
     status?: string;
-    category?: string;
+    categoryId?: string;
     includeArchived?: boolean;
   },
 ): Promise<ProcedureListResponse> {
@@ -36,7 +36,7 @@ export function listProcedures(
   if (params?.offset != null) sp.set('offset', String(params.offset));
   if (params?.q) sp.set('q', params.q);
   if (params?.status) sp.set('status', params.status);
-  if (params?.category) sp.set('category', params.category);
+  if (params?.categoryId) sp.set('categoryId', params.categoryId);
   if (params?.includeArchived) sp.set('includeArchived', 'true');
   const qs = sp.toString();
   return authFetch(`${BASE}${qs ? `?${qs}` : ''}`).then((r: Response) =>
@@ -88,7 +88,7 @@ export function updateProcedureDraft(
   input: {
     contentJson?: Record<string, unknown>;
     title?: string;
-    category?: string;
+    categoryId?: string;
     expectedUpdatedAt?: string;
   },
 ): Promise<ProcedureDetail> {
@@ -199,4 +199,48 @@ export function updateProcedureSettings(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(input),
   }).then((r: Response) => parseJson<ProcedureSettingsDto>(r));
+}
+
+export type ProcedureCategoryDto = {
+  id: string;
+  code: string;
+  label: string;
+  sortOrder: number;
+  isActive: boolean;
+  updatedAt: string;
+};
+
+export function listProcedureCategories(
+  authFetch: AuthFetch,
+  opts?: { activeOnly?: boolean },
+): Promise<ProcedureCategoryDto[]> {
+  const sp = new URLSearchParams();
+  if (opts?.activeOnly) sp.set('activeOnly', 'true');
+  const qs = sp.toString();
+  return authFetch(`${BASE}/categories${qs ? `?${qs}` : ''}`).then(
+    (r: Response) => parseJson<ProcedureCategoryDto[]>(r),
+  );
+}
+
+export function createProcedureCategory(
+  authFetch: AuthFetch,
+  input: { label: string; code?: string },
+): Promise<ProcedureCategoryDto> {
+  return authFetch(`${BASE}/categories`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(input),
+  }).then((r: Response) => parseJson<ProcedureCategoryDto>(r));
+}
+
+export function updateProcedureCategory(
+  authFetch: AuthFetch,
+  categoryId: string,
+  input: { label?: string; sortOrder?: number; isActive?: boolean },
+): Promise<ProcedureCategoryDto> {
+  return authFetch(`${BASE}/categories/${categoryId}`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(input),
+  }).then((r: Response) => parseJson<ProcedureCategoryDto>(r));
 }
