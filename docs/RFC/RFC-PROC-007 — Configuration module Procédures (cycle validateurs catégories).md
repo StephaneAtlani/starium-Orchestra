@@ -4,7 +4,7 @@ Version : 0.1 — 18 septembre 2026
 
 | Métadonnée | Valeur |
 | --- | --- |
-| **Statut** | 🟡 F1–F2 ✅ · F3 pending |
+| **Statut** | ✅ F1–F3 livrés (settings, catégories, transition mode Non) |
 | **Priorité** | Haute (gouvernance publication) |
 | **Parent** | [RFC-PROC-001](./RFC-PROC-001%20—%20Module%20Procédures%20(cadrage%20et%20backlog%20user%20stories).md) |
 | **S’appuie sur** | [RFC-PROC-006](./RFC-PROC-006%20—%20CDC%20Procédures%20fidélité%20mock%20design%20handoff.md) (cycle `DRAFT` → `IN_REVIEW` → `PUBLISHED`) · [RFC-PROC-002](./RFC-PROC-002%20—%20Créer%20éditer%20archiver%20procédures%20et%20contenu%20riche.md) |

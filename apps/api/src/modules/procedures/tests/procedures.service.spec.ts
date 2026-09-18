@@ -21,6 +21,13 @@ describe('ProceduresService', () => {
     resolveActiveCategoryId: jest.fn().mockResolvedValue('cat-sec'),
     ensureDefaults: jest.fn().mockResolvedValue(undefined),
   };
+  const settings = {
+    getOrCreate: jest.fn().mockResolvedValue({
+      usePilotageCycle: true,
+      validators: [],
+      updatedAt: new Date().toISOString(),
+    }),
+  };
 
   function buildService(prisma: Record<string, unknown>) {
     const assets = {
@@ -32,12 +39,18 @@ describe('ProceduresService', () => {
       assets as any,
       effectivePermissions as any,
       categories as any,
+      settings as any,
     );
   }
 
   beforeEach(() => {
     jest.clearAllMocks();
     categories.resolveActiveCategoryId.mockResolvedValue('cat-sec');
+    settings.getOrCreate.mockResolvedValue({
+      usePilotageCycle: true,
+      validators: [],
+      updatedAt: new Date().toISOString(),
+    });
   });
 
   it('create — happy path : DRAFT + version 1 + EMPTY_V2', async () => {
@@ -228,5 +241,103 @@ describe('ProceduresService', () => {
         'actor-1',
       ),
     ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('transition — mode Non : refuse hors validateurs', async () => {
+    settings.getOrCreate.mockResolvedValueOnce({
+      usePilotageCycle: false,
+      validators: [{ userId: 'val-1', label: 'Val' }],
+      updatedAt: new Date().toISOString(),
+    });
+    const service = buildService({
+      clientUser: { findFirst: jest.fn().mockResolvedValue(null) },
+      user: { findUnique: jest.fn().mockResolvedValue({ platformRole: null }) },
+      procedure: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'proc-1',
+          status: ProcedureStatus.IN_REVIEW,
+          currentDraftVersionId: 'ver-1',
+          updatedAt: new Date(),
+        }),
+      },
+    });
+    await expect(
+      service.transition(
+        'c1',
+        'proc-1',
+        { to: 'PUBLISHED' as any },
+        'actor-1',
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('transition — mode Non : validateur autorisé (passe le gate publish)', async () => {
+    settings.getOrCreate.mockResolvedValueOnce({
+      usePilotageCycle: false,
+      validators: [{ userId: 'actor-1', label: 'Val' }],
+      updatedAt: new Date().toISOString(),
+    });
+    const draftRow = {
+      id: 'ver-1',
+      versionNumber: 1,
+      title: 'T',
+      lifecycle: ProcedureVersionLifecycle.DRAFT,
+      contentJson: {
+        schemaVersion: 2,
+        blocks: [{ t: 'p', html: 'contenu' }],
+      },
+      updatedAt: new Date(),
+    };
+    const prisma = {
+      procedure: {
+        findFirst: jest
+          .fn()
+          .mockResolvedValueOnce({
+            id: 'proc-1',
+            clientId: 'c1',
+            status: ProcedureStatus.IN_REVIEW,
+            currentDraftVersionId: 'ver-1',
+            currentPublishedVersionId: null,
+            title: 'T',
+            updatedAt: new Date(),
+          })
+          .mockResolvedValueOnce({
+            id: 'proc-1',
+            clientId: 'c1',
+            code: 'X',
+            title: 'T',
+            description: null,
+            categoryId: 'cat',
+            category: { id: 'cat', code: 'PILOTAGE', label: 'Pilotage' },
+            status: ProcedureStatus.PUBLISHED,
+            ownerUserId: null,
+            currentDraftVersionId: 'ver-2',
+            currentPublishedVersionId: 'ver-1',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          }),
+      },
+      procedureVersion: {
+        findFirst: jest.fn().mockResolvedValue(draftRow),
+      },
+      $transaction: jest.fn().mockResolvedValue({
+        published: { id: 'ver-1', versionNumber: 1, title: 'T' },
+        newDraft: { id: 'ver-2' },
+      }),
+      user: { findFirst: jest.fn() },
+    };
+
+    const service = buildService(prisma);
+    const result = await service.transition(
+      'c1',
+      'proc-1',
+      { to: 'PUBLISHED' as any },
+      'actor-1',
+    );
+    expect(result.status).toBe(ProcedureStatus.PUBLISHED);
+    expect(prisma.$transaction).toHaveBeenCalled();
+    expect(
+      effectivePermissions.resolvePermissionCodesForRequest,
+    ).not.toHaveBeenCalled();
   });
 });

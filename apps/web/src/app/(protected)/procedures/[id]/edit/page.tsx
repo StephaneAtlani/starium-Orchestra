@@ -17,6 +17,7 @@ import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import {
   getProcedure,
+  getProcedureSettings,
   listProcedureCategories,
   transitionProcedure,
   updateProcedureDraft,
@@ -37,6 +38,7 @@ import type {
   ProcedureCategoryRef,
   ProcedureStatusApi,
 } from '@/features/procedures/types/procedure.types';
+import { useAuth } from '@/context/auth-context';
 
 function statusBadgeClass(status: ProcedureStatusApi): string {
   switch (status) {
@@ -56,6 +58,7 @@ export default function ProcedureEditPage() {
   const procedureId = typeof params.id === 'string' ? params.id : '';
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
+  const { user } = useAuth();
   const clientId = activeClient?.id ?? '';
   const { has } = usePermissions();
   const canUpdate = has('procedures.update');
@@ -71,6 +74,12 @@ export default function ProcedureEditPage() {
   const categoriesQ = useQuery({
     queryKey: procedureQueryKeys.categories(clientId, true),
     queryFn: () => listProcedureCategories(authFetch, { activeOnly: true }),
+    enabled: Boolean(clientId),
+  });
+
+  const settingsQ = useQuery({
+    queryKey: procedureQueryKeys.settings(clientId),
+    queryFn: () => getProcedureSettings(authFetch),
     enabled: Boolean(clientId),
   });
 
@@ -156,7 +165,9 @@ export default function ProcedureEditPage() {
         to === 'PUBLISHED'
           ? 'Procédure publiée'
           : to === 'IN_REVIEW'
-            ? 'Procédure envoyée en revue'
+            ? usePilotageCycle
+              ? 'Procédure envoyée en revue'
+              : 'Procédure soumise pour validation'
             : 'Retour en brouillon',
       );
       await queryClient.invalidateQueries({
@@ -169,15 +180,27 @@ export default function ProcedureEditPage() {
   const isArchived = q.data?.status === 'ARCHIVED';
   const editable = Boolean(canUpdate && !isArchived && q.isSuccess);
   const status = q.data?.status;
-  const transitionTarget =
-    status === 'DRAFT'
-      ? 'IN_REVIEW'
-      : status === 'IN_REVIEW'
-        ? 'PUBLISHED'
-        : null;
-  const canRunPublish =
-    transitionTarget === 'IN_REVIEW' ||
-    (transitionTarget === 'PUBLISHED' && canPublish);
+  const usePilotageCycle = settingsQ.data?.usePilotageCycle ?? true;
+  const isValidator = Boolean(
+    user?.id &&
+      settingsQ.data?.validators.some((v) => v.userId === user.id),
+  );
+  const isClientAdmin = activeClient?.role === 'CLIENT_ADMIN';
+  const canApproveNonCycle = isValidator || isClientAdmin;
+
+  const primaryTransition =
+    status === 'DRAFT' && canUpdate
+      ? ({ to: 'IN_REVIEW' as const, label: usePilotageCycle ? 'Publier' : 'Soumettre' })
+      : status === 'IN_REVIEW' && usePilotageCycle && canPublish
+        ? ({ to: 'PUBLISHED' as const, label: 'Publier' })
+        : status === 'IN_REVIEW' && !usePilotageCycle && canApproveNonCycle
+          ? ({ to: 'PUBLISHED' as const, label: 'Approuver' })
+          : null;
+
+  const canRejectToDraft =
+    status === 'IN_REVIEW' &&
+    canUpdate &&
+    (!usePilotageCycle || canPublish);
 
   return (
     <RequireActiveClient>
@@ -258,16 +281,28 @@ export default function ProcedureEditPage() {
               <Clock className="size-4" aria-hidden />
               Versions
             </Button>
-            {editable && transitionTarget ? (
+            {primaryTransition ? (
               <Button
                 type="button"
                 size="sm"
                 className="min-h-11 sm:min-h-9"
-                disabled={!canRunPublish || transitionMut.isPending}
-                onClick={() => transitionMut.mutate(transitionTarget)}
+                disabled={transitionMut.isPending}
+                onClick={() => transitionMut.mutate(primaryTransition.to)}
               >
                 <Check className="size-4" aria-hidden />
-                Publier
+                {primaryTransition.label}
+              </Button>
+            ) : null}
+            {canRejectToDraft ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="min-h-11 sm:min-h-9"
+                disabled={transitionMut.isPending}
+                onClick={() => transitionMut.mutate('DRAFT')}
+              >
+                Renvoyer en brouillon
               </Button>
             ) : null}
           </div>

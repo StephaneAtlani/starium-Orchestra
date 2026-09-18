@@ -9,6 +9,9 @@ import {
   Prisma,
   ProcedureStatus,
   ProcedureVersionLifecycle,
+  ClientUserRole,
+  ClientUserStatus,
+  PlatformRole,
 } from '@prisma/client';
 import { satisfiesPermission } from '@starium-orchestra/rbac-permissions';
 import { EffectivePermissionsService } from '../../common/services/effective-permissions.service';
@@ -28,6 +31,7 @@ import {
 } from './lib/procedure-content.util';
 import { ProcedureAssetsService } from './procedure-assets.service';
 import { ProcedureCategoriesService } from './procedure-categories.service';
+import { ProcedureSettingsService } from './procedure-settings.service';
 
 type AuditMeta = {
   ipAddress?: string;
@@ -60,6 +64,7 @@ export class ProceduresService {
     private readonly assets: ProcedureAssetsService,
     private readonly effectivePermissions: EffectivePermissionsService,
     private readonly categories: ProcedureCategoriesService,
+    private readonly settings: ProcedureSettingsService,
   ) {}
 
   async list(clientId: string, query: ListProceduresQueryDto) {
@@ -301,14 +306,7 @@ export class ProceduresService {
 
     const to = dto.to as ProcedureStatus;
     if (to === ProcedureStatus.PUBLISHED) {
-      const codes =
-        await this.effectivePermissions.resolvePermissionCodesForRequest({
-          userId: actorUserId,
-          clientId,
-        });
-      if (!satisfiesPermission(codes, 'procedures.publish')) {
-        throw new ForbiddenException('Permission procedures.publish requise');
-      }
+      await this.assertCanPublish(clientId, actorUserId);
     }
 
     const procedure = await this.prisma.procedure.findFirst({
@@ -671,6 +669,52 @@ export class ProceduresService {
         'Propriétaire introuvable dans le client actif',
       );
     }
+  }
+
+  private async assertCanPublish(
+    clientId: string,
+    actorUserId: string,
+  ): Promise<void> {
+    const settings = await this.settings.getOrCreate(clientId);
+    if (settings.usePilotageCycle) {
+      const codes =
+        await this.effectivePermissions.resolvePermissionCodesForRequest({
+          userId: actorUserId,
+          clientId,
+        });
+      if (!satisfiesPermission(codes, 'procedures.publish')) {
+        throw new ForbiddenException('Permission procedures.publish requise');
+      }
+      return;
+    }
+
+    if (settings.validators.some((v) => v.userId === actorUserId)) {
+      return;
+    }
+
+    const membership = await this.prisma.clientUser.findFirst({
+      where: {
+        clientId,
+        userId: actorUserId,
+        status: ClientUserStatus.ACTIVE,
+      },
+      select: { role: true },
+    });
+    if (membership?.role === ClientUserRole.CLIENT_ADMIN) {
+      return;
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: actorUserId },
+      select: { platformRole: true },
+    });
+    if (user?.platformRole === PlatformRole.PLATFORM_ADMIN) {
+      return;
+    }
+
+    throw new ForbiddenException(
+      'Seul un validateur configuré (ou un administrateur) peut approuver la publication',
+    );
   }
 
   private ownerLabel(owner: {
