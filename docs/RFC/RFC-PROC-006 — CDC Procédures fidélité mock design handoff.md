@@ -4,7 +4,7 @@ Version : 1.0 — 18 septembre 2026
 
 | Métadonnée | Valeur |
 | --- | --- |
-| **Statut** | 📝 Draft — CDC produit (F0 ✅) · implémentation F1–F5 pending |
+| **Statut** | 🟡 Implémentée F0–F5 (CDC + API v2 + liste + éditeur blocs + médias + schéma) — polish / release-gate pending |
 | **Priorité** | Haute |
 | **Parent** | [RFC-PROC-001](./RFC-PROC-001%20—%20Module%20Procédures%20(cadrage%20et%20backlog%20user%20stories).md) |
 | **Remplace (cible UX)** | [RFC-PROC-005](./RFC-PROC-005%20—%20Éditeur%20riche%20avancé%20des%20procédures.md) (TipTap / Mermaid) |
