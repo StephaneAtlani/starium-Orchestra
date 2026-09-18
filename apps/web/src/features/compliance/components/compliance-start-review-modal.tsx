@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, Pencil, Play } from 'lucide-react';
 import { StariumModal } from '@/components/layout/form-dialog-shell';
@@ -77,6 +78,7 @@ export function ComplianceStartReviewModal({
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id;
   const queryClient = useQueryClient();
+  const router = useRouter();
   const { data: members = [], isLoading: membersLoading } = useClientMembers();
 
   const [name, setName] = useState('');
@@ -169,6 +171,7 @@ export function ComplianceStartReviewModal({
       );
       await invalidate();
       onOpenChange(false);
+      router.push(`/compliance/campaigns/${camp.id}`);
     },
     onError: (e: Error) => toast.error(e.message),
   });

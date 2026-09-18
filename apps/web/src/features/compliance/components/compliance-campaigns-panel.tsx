@@ -96,7 +96,7 @@ export function ComplianceCampaignsPanel() {
       ) : recent.length === 0 ? (
         <EmptyState
           title="Aucune revue"
-          description="Démarrez une revue depuis la fiche d’un référentiel pour figer les évaluations."
+          description="Démarrez une revue depuis la fiche d’un référentiel pour ouvrir un cycle d’évaluation borné."
         />
       ) : (
         <ul className="divide-y divide-border/70">
@@ -120,13 +120,13 @@ export function ComplianceCampaignsPanel() {
               <div className="flex shrink-0 flex-wrap items-center gap-2">
                 <Badge variant="secondary">{STATUS_LABEL[c.status]}</Badge>
                 <Link
-                  href={`/compliance/frameworks/${c.framework.id}`}
+                  href={`/compliance/campaigns/${c.id}`}
                   className={cn(
-                    buttonVariants({ variant: 'outline', size: 'sm' }),
+                    buttonVariants({ variant: 'default', size: 'sm' }),
                     'min-h-11 sm:min-h-9',
                   )}
                 >
-                  Ouvrir le référentiel
+                  Ouvrir la revue
                 </Link>
               </div>
             </li>
