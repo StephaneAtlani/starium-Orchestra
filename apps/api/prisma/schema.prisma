@@ -390,6 +390,7 @@ model Client {
   procedures                       Procedure[]
   procedureVersions                ProcedureVersion[]
   procedureAssets                  ProcedureAsset[]
+  procedureModuleSettings          ProcedureModuleSettings?
   riskDomains                      RiskDomain[]
   riskTypes                        RiskType[]
   budgetDashboardConfigs           BudgetDashboardConfig[]
@@ -7303,4 +7304,19 @@ model ProcedureAsset {
   procedure Procedure @relation(fields: [procedureId], references: [id], onDelete: Cascade)
 
   @@index([clientId, procedureId])
+}
+
+/// RFC-PROC-007 — config module par client (cycle pilotage + validateurs).
+model ProcedureModuleSettings {
+  id               String   @id @default(cuid())
+  clientId         String   @unique
+  /// true = DRAFT→IN_REVIEW→PUBLISHED classique ; false = même états, acteurs validateurs (F3).
+  usePilotageCycle Boolean  @default(true)
+  validatorUserIds String[] @default([])
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
 }

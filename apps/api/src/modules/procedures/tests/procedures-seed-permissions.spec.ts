@@ -10,6 +10,7 @@ describe('procedures seed permissions', () => {
     expect(content).toContain('procedures.create');
     expect(content).toContain('procedures.update');
     expect(content).toContain('procedures.publish');
+    expect(content).toContain('procedures.configure');
     expect(content).toContain('procedures.archive');
     expect(content).toContain('procedures.export');
   });

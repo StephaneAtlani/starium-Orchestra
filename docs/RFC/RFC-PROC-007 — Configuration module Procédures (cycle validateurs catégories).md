@@ -4,7 +4,7 @@ Version : 0.1 — 18 septembre 2026
 
 | Métadonnée | Valeur |
 | --- | --- |
-| **Statut** | 📝 Draft — user story / CDC (non implémenté) |
+| **Statut** | 🟡 F1 ✅ (settings + nav) · F2–F3 pending |
 | **Priorité** | Haute (gouvernance publication) |
 | **Parent** | [RFC-PROC-001](./RFC-PROC-001%20—%20Module%20Procédures%20(cadrage%20et%20backlog%20user%20stories).md) |
 | **S’appuie sur** | [RFC-PROC-006](./RFC-PROC-006%20—%20CDC%20Procédures%20fidélité%20mock%20design%20handoff.md) (cycle `DRAFT` → `IN_REVIEW` → `PUBLISHED`) · [RFC-PROC-002](./RFC-PROC-002%20—%20Créer%20éditer%20archiver%20procédures%20et%20contenu%20riche.md) |
@@ -28,14 +28,27 @@ Version : 0.1 — 18 septembre 2026
 
 ## 2. Hypothèses
 
-1. Config = **1 enregistrement par client** (`ProcedureModuleSettings` ou équivalent) + référentiel catégories client.
+1. Config = **1 enregistrement par client** (`ProcedureModuleSettings`) + référentiel catégories client (`ProcedureCategory`).
 2. **Deux modes de publication** (mutuellement exclusifs) :
-   - **Cycle de pilotage = oui** : conserve `DRAFT` → `IN_REVIEW` → `PUBLISHED` (PROC-006).
-   - **Cycle de pilotage = non** : `DRAFT` → validation par **au moins un validateur** de la liste configurée → `PUBLISHED` (pas d’étape `IN_REVIEW` obligatoire ; détail machine d’états en implémentation).
-3. Si cycle = non : liste de validateurs **obligatoire** (≥ 1 utilisateur membre du client) ; libellés métier (nom / email masqué partiel), **jamais d’ID** en UI.
-4. Catégories : passer d’un enum global à un **référentiel client** (code stable + libellé + ordre + actif) ; seed initial = 5 valeurs actuelles.
-5. Permission dédiée proposée : `procedures.configure` (sinon `procedures.update` réservé CLIENT_ADMIN) — à trancher au plan.
+   - **Cycle de pilotage = oui** (`usePilotageCycle: true`) : `DRAFT` → `IN_REVIEW` → `PUBLISHED` (PROC-006, inchangé côté acteurs : `update` / `publish`).
+   - **Cycle de pilotage = non** (`usePilotageCycle: false`) : même enchaînement d’états **`DRAFT` → `IN_REVIEW` → `PUBLISHED`** (décision **B1=B**), mais acteurs distincts (**B2=B**) :
+     - l’**auteur** (ou `procedures.update`) **soumet** → `IN_REVIEW` ;
+     - un **validateur** de la liste configurée **approuve** → `PUBLISHED` (ou refuse → retour `DRAFT`) ;
+     - `procedures.publish` seul ne suffit pas : l’acteur doit être dans `validatorUserIds` (sauf CLIENT_ADMIN / platform — à confirmer en plan : admin client peut forcer).
+3. Si cycle = non : liste de validateurs **obligatoire** (≥ 1 utilisateur membre du client) ; libellés métier, **jamais d’ID** en UI.
+4. Catégories (**B3=A**) : table `ProcedureCategory` (code + libellé + ordre + actif) + FK sur `Procedure` ; seed = 5 valeurs actuelles ; soft-disable si utilisées.
+5. Permission (**B4=A**) : `procedures.configure` pour l’écran / API settings & catégories.
 6. Isolation : toute lecture/écriture filtrée `clientId` scope ; audit des changements de config.
+
+### Décisions figées (GO 2026-09-18)
+
+| ID | Décision |
+| --- | --- |
+| B1 | États : toujours `DRAFT` → `IN_REVIEW` → `PUBLISHED` (pas de statut nouveau). |
+| B2 | Mode Non : **2 actions** — soumission auteur, approbation validateur. |
+| B3 | Table `ProcedureCategory` + migration remap. |
+| B4 | Permission `procedures.configure`. |
+| Découpage | F1 settings+nav+UI cycle/validateurs · F2 catégories · F3 brancher `transition` mode Non. |
 
 ---
 
@@ -150,8 +163,10 @@ Version : 0.1 — 18 septembre 2026
 
 | Livrable | Statut |
 | --- | --- |
-| US-PROC-31 + CA-C1…C10 | ✅ Rédigé (ce document) |
-| Index PROC-001 / `_RFC Liste` | À synchroniser avec cette RFC |
-| Code / Prisma / UI | ❌ Non démarré |
+| US-PROC-31 + CA-C1…C10 | ✅ Rédigé |
+| Décisions B1–B4 figées | ✅ GO 2026-09-18 |
+| F1 settings + nav + UI cycle/validateurs | ✅ |
+| F2 catégories table | ❌ |
+| F3 transition mode Non | ❌ |
 
-**Suite** : `/rfc-pipeline RFC-PROC-007` (plan → …) quand priorisé.
+**Suite** : plan F2 catégories.

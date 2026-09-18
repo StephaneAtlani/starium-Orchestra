@@ -1306,6 +1306,7 @@ async function ensureProceduresModuleAndPermissions(): Promise<void> {
     { code: "procedures.create", label: "Procédures — création" },
     { code: "procedures.update", label: "Procédures — mise à jour" },
     { code: "procedures.publish", label: "Procédures — publication" },
+    { code: "procedures.configure", label: "Procédures — configuration" },
     { code: "procedures.archive", label: "Procédures — archivage" },
     { code: "procedures.export", label: "Procédures — export" },
   ];
@@ -1325,6 +1326,7 @@ async function ensureClientAdminProceduresModuleRole(): Promise<void> {
     "procedures.create",
     "procedures.update",
     "procedures.publish",
+    "procedures.configure",
     "procedures.archive",
     "procedures.export",
   ] as const;

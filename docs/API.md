@@ -3108,12 +3108,14 @@ Création via **`POST /api/risks`** (scope client) avec `complianceRequirementId
 
 ---
 
-## 20 quater. Module Procédures (RFC-PROC-002 + **PROC-006**) — `/api/procedures`
+## 20 quater. Module Procédures (RFC-PROC-002 + **PROC-006** + **PROC-007**) — `/api/procedures`
 
 Référence : [RFC-PROC-002](RFC/RFC-PROC-002%20%E2%80%94%20Cr%C3%A9er%20%C3%A9diter%20archiver%20proc%C3%A9dures%20et%20contenu%20riche.md) · [RFC-PROC-006](RFC/RFC-PROC-006%20%E2%80%94%20CDC%20Proc%C3%A9dures%20fid%C3%A9lit%C3%A9%20mock%20design%20handoff.md) (cible contenu/UX). Module `procedures` client-scopé. Guards : JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard.
 
 - **GET /api/procedures** — Liste paginée `{ items, total, limit, offset }`. Query : `limit`, `offset`, `status?` (`DRAFT`|`IN_REVIEW`|`PUBLISHED`|`ARCHIVED`), `category?` (`PILOTAGE`|`COMPLIANCE`|`FINANCE`|`ORGANISATION`|`SECURITY`), `q?`, `includeArchived?`. Items : `code`, `title`, `status`, `category`, `ownerLabel`, `displayVersionNumber`, `blockCount`, version publiée si présente. Permission **`procedures.read`**. Archivées masquées par défaut.
 - **POST /api/procedures** — Création brouillon. Body : `{ code, title, description?, category?, ownerUserId? }`. Crée `Procedure` `DRAFT` + `ProcedureVersion` n°1 `DRAFT` (`contentJson` **v2** `{ schemaVersion: 2, blocks: […] }`). Code unique par client → **409**. Owner membre du client. Audit `procedure.created`. Permission **`procedures.create`**.
+- **GET /api/procedures/settings** — Config module client `{ usePilotageCycle, validators: [{ userId, label }], updatedAt }`. Crée défaut (`usePilotageCycle: true`) si absent. Permission **`procedures.read`**.
+- **PATCH /api/procedures/settings** — Body `{ usePilotageCycle?, validatorUserIds? }`. Si `usePilotageCycle: false` → ≥ 1 validateur membre **ACTIVE** du client sinon **400**. Audit `procedure.settings.updated`. Permission **`procedures.configure`**.
 - **GET /api/procedures/:id** — Détail + résumé brouillon courant (`currentDraft`). Permission **`procedures.read`**.
 - **PATCH /api/procedures/:id/draft** — Body `{ contentJson?, title?, category?, expectedUpdatedAt? }` (au moins un champ). `contentJson` = **blocs v2** uniquement (refuse TipTap `type:doc`). HTML allowlist `b/strong,i/em,u,s,a[href https],mark,br,li`. Blocs `img` (`assetId`+`alt`), `video` (URL https), `diag` (nodes/edges). Optimistic lock → **409**. Archivée → **400**. Audit `procedure.draft.updated`. Permission **`procedures.update`**.
 - **POST /api/procedures/:id/transition** — Body `{ to: DRAFT|IN_REVIEW|PUBLISHED, changeSummary?, expectedUpdatedAt? }`. Matrice : `DRAFT↔IN_REVIEW`, `IN_REVIEW→PUBLISHED` (snapshot immuable + nouveau draft), `PUBLISHED→IN_REVIEW|DRAFT` (status seul). Contenu vide → **400**. `to=PUBLISHED` exige **`procedures.publish`** (sinon **`procedures.update`** via décorateur + check service). Audits `procedure.status_changed` / `procedure.version.published`.
@@ -3123,7 +3125,7 @@ Référence : [RFC-PROC-002](RFC/RFC-PROC-002%20%E2%80%94%20Cr%C3%A9er%20%C3%A9d
 - **DELETE /api/procedures/:id/assets/:assetId** — Refus **400** si référencé dans un bloc `img` du brouillon. Permission **`procedures.update`**.
 - **POST /api/procedures/:id/archive** / **unarchive** — inchangé (unarchive restaure aussi `IN_REVIEW`). Permission **`procedures.archive`**.
 
-UI : `/procedures` (catalogue cartes), `/procedures/[id]/edit` (éditeur blocs F2–F5).
+UI : `/procedures` (catalogue cartes), `/procedures/configuration` (cycle + validateurs — PROC-007 F1), `/procedures/[id]/edit` (éditeur blocs).
 
 **Notes UI (PROC-006 polish)** :
 - Bloc `img` : upload multipart puis PATCH draft avec `assetId` — jamais de PATCH avec `assetId` vide (sinon **400** `assetId obligatoire`).

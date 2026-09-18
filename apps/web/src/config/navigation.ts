@@ -205,12 +205,25 @@ export const navigation: NavigationSection[] = [
       },
       {
         label: 'Procédures',
-        href: '/procedures',
         icon: FileText,
         scope: 'client',
         moduleCode: 'procedures',
         requiredPermissions: ['procedures.read'],
         allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
+        children: [
+          {
+            label: 'Catalogue',
+            href: '/procedures',
+            scope: 'client',
+            requiredPermissions: ['procedures.read'],
+          },
+          {
+            label: 'Configuration',
+            href: '/procedures/configuration',
+            scope: 'client',
+            requiredPermissions: ['procedures.configure'],
+          },
+        ],
       },
     ],
   },

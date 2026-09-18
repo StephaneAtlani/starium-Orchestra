@@ -21,11 +21,16 @@ import { ListProceduresQueryDto } from './dto/list-procedures.query.dto';
 import { TransitionProcedureDto } from './dto/transition-procedure.dto';
 import { UpdateProcedureDraftDto } from './dto/update-procedure-draft.dto';
 import { ProceduresService } from './procedures.service';
+import { ProcedureSettingsService } from './procedure-settings.service';
+import { UpdateProcedureSettingsDto } from './dto/update-procedure-settings.dto';
 
 @Controller('procedures')
 @UseGuards(JwtAuthGuard, ActiveClientGuard, ModuleAccessGuard, PermissionsGuard)
 export class ProceduresController {
-  constructor(private readonly proceduresService: ProceduresService) {}
+  constructor(
+    private readonly proceduresService: ProceduresService,
+    private readonly settingsService: ProcedureSettingsService,
+  ) {}
 
   @Get()
   @RequirePermissions('procedures.read')
@@ -34,6 +39,24 @@ export class ProceduresController {
     @Query() query: ListProceduresQueryDto,
   ) {
     return this.proceduresService.list(clientId!, query);
+  }
+
+  @Get('settings')
+  @RequirePermissions('procedures.read')
+  getSettings(@ActiveClientId() clientId: string | undefined) {
+    return this.settingsService.getOrCreate(clientId!);
+  }
+
+  @Patch('settings')
+  @RequirePermissions('procedures.configure')
+  updateSettings(
+    @ActiveClientId() clientId: string | undefined,
+    @Body() dto: UpdateProcedureSettingsDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta()
+    meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    return this.settingsService.update(clientId!, dto, actorUserId, meta);
   }
 
   @Post()

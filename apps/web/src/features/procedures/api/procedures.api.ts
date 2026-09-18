@@ -172,3 +172,31 @@ export function deleteProcedureAsset(
     method: 'DELETE',
   }).then((r: Response) => parseJson<{ ok: true }>(r));
 }
+
+export type ProcedureSettingsDto = {
+  usePilotageCycle: boolean;
+  validators: { userId: string; label: string }[];
+  updatedAt: string;
+};
+
+export function getProcedureSettings(
+  authFetch: AuthFetch,
+): Promise<ProcedureSettingsDto> {
+  return authFetch(`${BASE}/settings`).then((r: Response) =>
+    parseJson<ProcedureSettingsDto>(r),
+  );
+}
+
+export function updateProcedureSettings(
+  authFetch: AuthFetch,
+  input: {
+    usePilotageCycle?: boolean;
+    validatorUserIds?: string[];
+  },
+): Promise<ProcedureSettingsDto> {
+  return authFetch(`${BASE}/settings`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(input),
+  }).then((r: Response) => parseJson<ProcedureSettingsDto>(r));
+}
