@@ -4,6 +4,7 @@ import { useLayoutEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   AlertTriangle,
+  CopyPlus,
   ExternalLink,
   FileText,
   Link2,
@@ -110,6 +111,7 @@ export function ComplianceAssessDrawerBody({
   evidencePending,
   onEditEvidence,
   onRemoveEvidence,
+  onVersionEvidence,
   onAssessmentChange,
   assessmentPendingId,
   showGapPlan,
@@ -155,6 +157,7 @@ export function ComplianceAssessDrawerBody({
   evidencePending: boolean;
   onEditEvidence?: (evidenceId: string) => void;
   onRemoveEvidence?: (evidenceId: string) => void;
+  onVersionEvidence?: (evidenceId: string) => void;
   onAssessmentChange?: (
     evidenceId: string,
     assessment: import('../api/compliance.api').ComplianceEvidenceAssessmentApi,
@@ -438,6 +441,18 @@ export function ComplianceAssessDrawerBody({
                         <ExternalLink className="size-3.5" aria-hidden />
                         Ouvrir
                       </a>
+                    ) : null}
+                    {canUpdate && onVersionEvidence ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="min-h-11 min-w-11 sm:min-h-9 sm:min-w-9"
+                        aria-label={`Nouvelle version de ${displayLabel(e.name, 'la preuve')}`}
+                        onClick={() => onVersionEvidence(e.id)}
+                      >
+                        <CopyPlus className="size-3.5" aria-hidden />
+                      </Button>
                     ) : null}
                     {canUpdate && onEditEvidence ? (
                       <Button

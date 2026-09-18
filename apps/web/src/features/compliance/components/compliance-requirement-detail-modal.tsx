@@ -34,6 +34,7 @@ import { ProjectRiskEbiosDialog } from '@/features/projects/components/project-r
 import {
   createComplianceContribution,
   createComplianceEvidence,
+  createComplianceEvidenceVersion,
   createComplianceGap,
   deleteComplianceEvidence,
   getComplianceRequirementDetail,
@@ -58,6 +59,7 @@ import { ComplianceGapCyclePanel } from './compliance-gap-cycle-panel';
 import {
   ComplianceEvidenceEditModal,
   ComplianceEvidenceRemoveModal,
+  ComplianceEvidenceVersionModal,
 } from './compliance-evidence-edit-modals';
 import { ComplianceRemediationPlanModal } from './compliance-remediation-plan-modal';
 
@@ -159,6 +161,9 @@ export function ComplianceRequirementDetailModal({
   const [removingEvidenceId, setRemovingEvidenceId] = useState<string | null>(
     null,
   );
+  const [versioningEvidenceId, setVersioningEvidenceId] = useState<
+    string | null
+  >(null);
 
   const { data: members = [] } = useClientMembers();
 
@@ -332,6 +337,18 @@ export function ComplianceRequirementDetailModal({
     onSuccess: async () => {
       toast.success('Preuve retirée du dossier');
       setRemovingEvidenceId(null);
+      invalidateComplianceQueries(queryClient, clientId);
+      await q.refetch();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const evidenceVersionMut = useMutation({
+    mutationFn: () =>
+      createComplianceEvidenceVersion(authFetch, versioningEvidenceId!),
+    onSuccess: async () => {
+      toast.success('Nouvelle version créée');
+      setVersioningEvidenceId(null);
       invalidateComplianceQueries(queryClient, clientId);
       await q.refetch();
     },
@@ -641,6 +658,9 @@ export function ComplianceRequirementDetailModal({
               onRemoveEvidence={
                 canUpdate ? (id) => setRemovingEvidenceId(id) : undefined
               }
+              onVersionEvidence={
+                canUpdate ? (id) => setVersioningEvidenceId(id) : undefined
+              }
               onAssessmentChange={
                 canUpdate
                   ? (evidenceId, assessment) =>
@@ -867,6 +887,9 @@ export function ComplianceRequirementDetailModal({
         const removing = (q.data?.evidences ?? []).find(
           (e) => e.id === removingEvidenceId,
         );
+        const versioning = (q.data?.evidences ?? []).find(
+          (e) => e.id === versioningEvidenceId,
+        );
         return (
           <>
             <ComplianceEvidenceEditModal
@@ -887,6 +910,15 @@ export function ComplianceRequirementDetailModal({
               evidenceName={removing?.name ?? ''}
               pending={evidenceDeleteMut.isPending}
               onConfirm={() => evidenceDeleteMut.mutate()}
+            />
+            <ComplianceEvidenceVersionModal
+              open={Boolean(versioning)}
+              onOpenChange={(o) => {
+                if (!o) setVersioningEvidenceId(null);
+              }}
+              evidenceName={versioning?.name ?? ''}
+              pending={evidenceVersionMut.isPending}
+              onConfirm={() => evidenceVersionMut.mutate()}
             />
           </>
         );

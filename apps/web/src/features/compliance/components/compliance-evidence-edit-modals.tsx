@@ -148,3 +148,53 @@ export function ComplianceEvidenceRemoveModal({
     </StariumModal>
   );
 }
+
+export function ComplianceEvidenceVersionModal({
+  open,
+  onOpenChange,
+  evidenceName,
+  pending,
+  onConfirm,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  evidenceName: string;
+  pending: boolean;
+  onConfirm: () => void;
+}) {
+  return (
+    <StariumModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Nouvelle version"
+      description={`Créer une nouvelle version de « ${displayLabel(evidenceName, 'cette preuve')} ».`}
+      icon={Pencil}
+      size="sm"
+      footer={
+        <>
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-11 sm:min-h-9"
+            onClick={() => onOpenChange(false)}
+          >
+            Annuler
+          </Button>
+          <Button
+            type="button"
+            className="min-h-11 sm:min-h-9"
+            disabled={pending}
+            onClick={onConfirm}
+          >
+            {pending ? 'Création…' : 'Créer la version'}
+          </Button>
+        </>
+      }
+    >
+      <p className="text-sm text-muted-foreground">
+        L’ancienne version reste historisée ; la nouvelle devient courante et
+        repasse en « À examiner ».
+      </p>
+    </StariumModal>
+  );
+}

@@ -75,7 +75,7 @@ La V1 (001-A) a volontairement borné les preuves à « créer URL/observation p
 | **COMP.EV.1** | UX liste fidèle mock : méta, empty, ouvrir ; FILE masqué | ✅ 2026-09-18 (retirer → EV.2) |
 | **COMP.EV.2** | CRUD UI : éditer métadonnées ; DELETE soft (`isCurrent=false`) ; confirmation accessible | ✅ 2026-09-18 |
 | **COMP.EV.3** | Appréciation (`assessment`) + libellés métier ; impact sur « preuve justifiable » pour conforme | ✅ 2026-09-18 |
-| **COMP.EV.4** | Versionnage UI (`POST …/versions`) + historique des versions courante / archivées | 📝 |
+| **COMP.EV.4** | Versionnage UI (`POST …/versions`) + historique des versions courante / archivées | ✅ 2026-09-18 (CTA nouvelle version ; historique archivées reporté) |
 | **COMP.EV.5** | Kind REFERENCE + date de collecte + auteur affiché (libellé, jamais ID) | 📝 |
 | **COMP.EV.6** | Réutiliser une preuve existante du client (picker labellisé) | 📝 |
 | **COMP.EV.7** | *(option)* Upload fichier silo conformité **ou** branchement GED — voir H1 | 📝 |
