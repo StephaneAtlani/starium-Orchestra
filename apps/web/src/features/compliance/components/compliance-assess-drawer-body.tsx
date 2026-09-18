@@ -9,7 +9,7 @@ import {
   Pencil,
   Plus,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -34,6 +34,9 @@ import {
   EVIDENCE_ADD_OPTIONS,
   defaultMaturityForStatus,
 } from './compliance-assess-ui';
+import { formatComplianceEvidenceMeta } from '../lib/compliance-evidence-display';
+import { EmptyState } from '@/components/feedback/empty-state';
+import { ExternalLink } from 'lucide-react';
 
 function memberLabel(m: ClientMember): string {
   const name = [m.firstName, m.lastName].filter(Boolean).join(' ').trim();
@@ -129,7 +132,7 @@ export function ComplianceAssessDrawerBody({
   onToggleAddEvidenceMenu: () => void;
   addEvidenceMenuRef: React.RefObject<HTMLDivElement | null>;
   evidenceDraftOpen: boolean;
-  onPickEvidenceKind: (kind: 'FILE' | 'URL' | 'REFERENCE' | 'NOTE') => void;
+  onPickEvidenceKind: (kind: 'URL' | 'REFERENCE' | 'NOTE') => void;
   onCancelEvidenceDraft: () => void;
   evidenceKind: ComplianceEvidenceKindApi;
   evidenceName: string;
@@ -307,14 +310,21 @@ export function ComplianceAssessDrawerBody({
             Preuves & documents
           </h3>
           {evidences.length === 0 ? (
-            <p className="py-0.5 text-xs font-semibold text-muted-foreground">
-              Aucune preuve jointe.
-            </p>
+            <EmptyState
+              title="Aucune preuve jointe."
+              description="Ajoutez un lien, une référence ou une note pour justifier l’évaluation."
+            />
           ) : (
             <ul className="mb-2 flex flex-col gap-2">
               {evidences.map((e) => {
                 const meta = evidenceKindMeta(e.kind);
                 const Icon = meta.Icon;
+                const metaLine = formatComplianceEvidenceMeta({
+                  kind: e.kind,
+                  version: e.version,
+                  collectedAt: e.collectedAt,
+                  createdAt: e.createdAt,
+                });
                 return (
                   <li
                     key={e.id}
@@ -349,14 +359,24 @@ export function ComplianceAssessDrawerBody({
                         )}
                       </p>
                       <p className="text-[11px] text-muted-foreground">
-                        {e.kind === 'URL'
-                          ? 'Lien externe'
-                          : e.kind === 'FILE'
-                            ? 'Fichier'
-                            : 'Note / constat'}
-                        {e.version ? ` · v${e.version}` : ''}
+                        {metaLine}
                       </p>
                     </div>
+                    {e.url ? (
+                      <a
+                        href={e.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className={cn(
+                          buttonVariants({ variant: 'outline', size: 'sm' }),
+                          'inline-flex min-h-11 shrink-0 items-center gap-1.5 sm:min-h-9',
+                        )}
+                        aria-label={`Ouvrir ${displayLabel(e.name, 'la preuve')}`}
+                      >
+                        <ExternalLink className="size-3.5" aria-hidden />
+                        Ouvrir
+                      </a>
+                    ) : null}
                   </li>
                 );
               })}

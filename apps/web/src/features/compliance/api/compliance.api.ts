@@ -283,6 +283,8 @@ export type ComplianceRequirementDetailApi = {
     version?: number;
     assessment?: ComplianceEvidenceAssessmentApi;
     isCurrent?: boolean;
+    collectedAt?: string | null;
+    createdAt?: string | null;
   }>;
   linkedRisks: Array<{
     code: string;

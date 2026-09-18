@@ -65,11 +65,10 @@ export const STATUS_CARD_OPTIONS: Array<{
 ];
 
 export const EVIDENCE_ADD_OPTIONS: Array<{
-  kind: 'FILE' | 'URL' | 'REFERENCE' | 'NOTE';
+  kind: 'URL' | 'REFERENCE' | 'NOTE';
   label: string;
   icon: typeof FileText;
 }> = [
-  { kind: 'FILE', label: 'Fichier / document téléversé', icon: FileText },
   { kind: 'URL', label: 'Lien externe (URL)', icon: Link2 },
   { kind: 'REFERENCE', label: 'Référence (politique / procédure)', icon: BookOpen },
   { kind: 'NOTE', label: 'Note / constat manuel', icon: Pencil },

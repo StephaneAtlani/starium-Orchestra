@@ -31,7 +31,8 @@ Liste **uniquement** du travail restant (pas de historique « fait »). Trajecto
 | ~~COMP.V2~~ | Campagnes / Lancer une revue / snapshot scopé / remédiation ↔ ActionPlan | COMP-002 / COMP-003 — **✅ 2026-09-18** |
 | ~~COMP.V2.reste owner~~ | Owner obligatoire au launch (`openImmediately` / `openCampaign`) | COMP-003 — **✅** |
 | COMP.V2.reste score | Score pondéré mock optionnel (`part=0.5`) — garder `C/A` tant que non tranché | COMP-003 |
-| **COMP.EV.1**…**COMP.EV.7** | Preuves : liste/CRUD/appréciation/versions/réutilisation/fichier | [RFC-COMP-004](./RFC/RFC-COMP-004%20—%20Gestion%20des%20preuves%20de%20conformité.md) |
+| ~~COMP.EV.1~~ | Liste preuves fidèle mock (méta, empty, ouvrir, FILE masqué) | COMP-004 — **✅** |
+| **COMP.EV.2**…**COMP.EV.7** | Preuves : CRUD/appréciation/versions/réutilisation/fichier | [RFC-COMP-004](./RFC/RFC-COMP-004%20—%20Gestion%20des%20preuves%20de%20conformité.md) |
 
 ---
 

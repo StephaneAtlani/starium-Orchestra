@@ -550,12 +550,7 @@ export function ComplianceRequirementDetailModal({
               evidenceDraftOpen={evidenceDraftOpen}
               onPickEvidenceKind={(kind) => {
                 setAddEvidenceMenuOpen(false);
-                if (kind === 'FILE') {
-                  setEvidenceKind('FILE');
-                  setEvidenceName('');
-                  setEvidenceUrl('');
-                  setEvidenceDescription('');
-                } else if (kind === 'URL') {
+                if (kind === 'URL') {
                   setEvidenceKind('URL');
                   setEvidenceName('');
                   setEvidenceUrl('');
