@@ -262,7 +262,7 @@ export function ComplianceRemediationPlanModal({
           <div className="space-y-1.5">
             <Label htmlFor="rem-plan">Plan d’actions</Label>
             <Select
-              value={actionPlanId || undefined}
+              value={actionPlanId}
               onValueChange={(v) => setActionPlanId(v ?? '')}
               disabled={Boolean(createdPlanId)}
             >
@@ -302,7 +302,7 @@ export function ComplianceRemediationPlanModal({
           <div className="space-y-1.5">
             <Label htmlFor="rem-owner">Responsable</Label>
             <Select
-              value={ownerUserId || undefined}
+              value={ownerUserId}
               onValueChange={(v) => setOwnerUserId(v ?? '')}
               disabled={membersLoading || Boolean(createdPlanId)}
             >

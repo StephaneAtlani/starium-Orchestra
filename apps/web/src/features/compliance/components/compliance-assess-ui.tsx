@@ -1,6 +1,5 @@
 'use client';
 
-import { useId, useState } from 'react';
 import {
   AlertCircle,
   BookOpen,
@@ -8,7 +7,6 @@ import {
   CirclePlus,
   Clock3,
   FileText,
-  Info,
   Link2,
   Minus,
   Pencil,
@@ -112,7 +110,7 @@ function truncateHeading(text: string, max = SHORT_TITLE_MAX): string {
 
 /**
  * h2 = texte métier tronqué (description, sinon title) — jamais le code si un texte existe.
- * (i) = texte intégral dès qu’il y a troncature, ou description distincte du title court.
+ * `tooltipDescription` = texte intégral à déployer dans le corps (troncature ou description distincte).
  */
 export function assessHeadingAndTooltip(
   title: string,
@@ -129,7 +127,7 @@ export function assessHeadingAndTooltip(
     return { heading: c, tooltipDescription: null };
   }
 
-  // Title court distinct de la description → h2 = title, (i) = description
+  // Title court distinct de la description → h2 = title, corps = description
   if (t && d && t !== d && t.length <= SHORT_TITLE_MAX) {
     return { heading: t, tooltipDescription: d };
   }
@@ -141,48 +139,7 @@ export function assessHeadingAndTooltip(
   return { heading, tooltipDescription };
 }
 
-function ComplianceInfoTip({
-  description,
-  ariaLabel,
-}: {
-  description: string;
-  ariaLabel: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const tipId = useId();
-
-  return (
-    <div
-      className="relative shrink-0"
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-    >
-      <button
-        type="button"
-        className="inline-flex size-11 shrink-0 items-center justify-center rounded-[var(--control-radius,999px)] text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 sm:size-9"
-        aria-label={ariaLabel}
-        aria-expanded={open}
-        aria-controls={open ? tipId : undefined}
-        onFocus={() => setOpen(true)}
-        onBlur={() => setOpen(false)}
-        onClick={() => setOpen((v) => !v)}
-      >
-        <Info className="size-4" aria-hidden />
-      </button>
-      {open ? (
-        <div
-          id={tipId}
-          role="tooltip"
-          className="absolute right-0 top-[calc(100%+6px)] z-30 w-[min(calc(100vw-3rem),22rem)] max-h-[min(50dvh,20rem)] overflow-y-auto rounded-[var(--radius-md)] border border-border bg-card p-3 text-left text-xs font-medium leading-relaxed text-foreground shadow-[var(--shadow-3)]"
-        >
-          {description}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-/** Badges + titre court en h2 ; (i) = description au hover ; sélecteur de langue optionnel. */
+/** Badges + titre court en h2 ; sélecteur de langue optionnel. */
 export function ComplianceAssessHeader({
   frameworkName,
   code,
@@ -202,11 +159,7 @@ export function ComplianceAssessHeader({
   onContentLocaleChange?: (locale: string) => void;
   localePending?: boolean;
 }) {
-  const { heading, tooltipDescription } = assessHeadingAndTooltip(
-    title,
-    description,
-    code,
-  );
+  const { heading } = assessHeadingAndTooltip(title, description, code);
 
   const locales =
     availableLocales && availableLocales.length > 0
@@ -243,20 +196,14 @@ export function ComplianceAssessHeader({
           </label>
         ) : null}
       </div>
-      <div className="mt-2.5 flex min-w-0 items-start gap-2">
+      <div className="mt-2.5 min-w-0">
         {heading ? (
-          <h2 className="min-w-0 flex-1 line-clamp-2 text-lg font-extrabold leading-snug tracking-tight text-foreground sm:text-xl">
+          <h2 className="min-w-0 line-clamp-2 text-lg font-extrabold leading-snug tracking-tight text-foreground sm:text-xl">
             {heading}
           </h2>
         ) : (
           <h2 className="sr-only">{code}</h2>
         )}
-        {tooltipDescription ? (
-          <ComplianceInfoTip
-            description={tooltipDescription}
-            ariaLabel="Voir la description de l’exigence"
-          />
-        ) : null}
       </div>
     </header>
   );

@@ -1,6 +1,15 @@
 'use client';
 
-import { FileText, Link2, Pencil, Plus, AlertTriangle } from 'lucide-react';
+import { useEffect, useId, useState } from 'react';
+import {
+  AlertTriangle,
+  ChevronDown,
+  ChevronUp,
+  FileText,
+  Link2,
+  Pencil,
+  Plus,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -14,6 +23,7 @@ import {
 } from '@/components/ui/select';
 import { displayLabel } from '@/lib/display-label';
 import { cn } from '@/lib/utils';
+import { StariumScrollArea } from '@/components/layout/starium-scroll-area';
 import type { ClientMember } from '@/features/client-rbac/api/user-roles';
 import type {
   ComplianceEvidenceKindApi,
@@ -21,6 +31,7 @@ import type {
 } from '../api/compliance.api';
 import type { ComplianceUiStatus } from './compliance-status-display';
 import {
+  assessHeadingAndTooltip,
   ComplianceMaturityPicker,
   ComplianceStatusCards,
   EVIDENCE_ADD_OPTIONS,
@@ -145,9 +156,57 @@ export function ComplianceAssessDrawerBody({
   const ownerMember = members.find((m) => m.id === ownerUserId);
   const historyDate =
     data.status?.updatedAt ?? data.status?.lastAssessmentDate ?? null;
+  const { tooltipDescription } = assessHeadingAndTooltip(
+    data.requirement.title,
+    data.requirement.description,
+    data.requirement.code,
+  );
+  const [descriptionOpen, setDescriptionOpen] = useState(false);
+  const descriptionPanelId = useId();
+
+  useEffect(() => {
+    setDescriptionOpen(false);
+  }, [data.requirement.id]);
 
   return (
-    <div className="grid gap-6 px-5 py-5 sm:px-6 md:grid-cols-2 md:gap-8 md:items-start">
+    <div className="flex flex-col gap-4 px-5 py-5 sm:px-6">
+      {tooltipDescription ? (
+        <div className="min-w-0">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="min-h-11 w-full justify-between gap-2 px-3 sm:min-h-9"
+            aria-expanded={descriptionOpen}
+            aria-controls={descriptionOpen ? descriptionPanelId : undefined}
+            onClick={() => setDescriptionOpen((o) => !o)}
+          >
+            <span>
+              {descriptionOpen
+                ? 'Replier la description'
+                : 'Déployer la description'}
+            </span>
+            {descriptionOpen ? (
+              <ChevronUp className="size-4 shrink-0" aria-hidden />
+            ) : (
+              <ChevronDown className="size-4 shrink-0" aria-hidden />
+            )}
+          </Button>
+          {descriptionOpen ? (
+            <StariumScrollArea
+              id={descriptionPanelId}
+              className="mt-2 max-h-[min(40dvh,16rem)] rounded-[var(--radius-md)] border border-border/70 bg-muted/30"
+              layout="flow"
+              reveal="hover"
+              viewportClassName="p-4 text-sm font-medium leading-relaxed text-foreground"
+            >
+              {tooltipDescription}
+            </StariumScrollArea>
+          ) : null}
+        </div>
+      ) : null}
+
+    <div className="grid gap-6 md:grid-cols-2 md:gap-8 md:items-start">
       <div className="flex min-w-0 flex-col gap-5">
         <section>
           <h3 className="starium-modal-seg-title mb-[11px]">
@@ -540,6 +599,7 @@ export function ComplianceAssessDrawerBody({
           <div className="border-t border-border/70 pt-4">{advancedSlot}</div>
         ) : null}
       </div>
+    </div>
     </div>
   );
 }
