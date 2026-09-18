@@ -1,5 +1,13 @@
-import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { Type, Transform } from 'class-transformer';
+import {
+  IsBoolean,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+} from 'class-validator';
 import { ProcedureCategory, ProcedureStatus } from '@prisma/client';
 
 export class ListProceduresQueryDto {
@@ -30,6 +38,7 @@ export class ListProceduresQueryDto {
 
   /** Si true, inclut les procédures ARCHIVED (défaut : masquées). */
   @IsOptional()
-  @Type(() => Boolean)
+  @Transform(({ value }) => value === true || value === 'true' || value === '1')
+  @IsBoolean()
   includeArchived?: boolean;
 }

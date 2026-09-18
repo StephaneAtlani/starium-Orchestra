@@ -26,6 +26,8 @@ export function listProcedures(
     limit?: number;
     offset?: number;
     q?: string;
+    status?: string;
+    category?: string;
     includeArchived?: boolean;
   },
 ): Promise<ProcedureListResponse> {
@@ -33,6 +35,8 @@ export function listProcedures(
   if (params?.limit != null) sp.set('limit', String(params.limit));
   if (params?.offset != null) sp.set('offset', String(params.offset));
   if (params?.q) sp.set('q', params.q);
+  if (params?.status) sp.set('status', params.status);
+  if (params?.category) sp.set('category', params.category);
   if (params?.includeArchived) sp.set('includeArchived', 'true');
   const qs = sp.toString();
   return authFetch(`${BASE}${qs ? `?${qs}` : ''}`).then((r: Response) =>
