@@ -26,7 +26,13 @@ import { EMPTY_PROCEDURE_DOC } from '@/features/procedures/lib/procedure-content
 import {
   ProcedureBlockEditor,
   type ProcedureBlocksDoc,
+  type TextBlock,
 } from '@/features/procedures/components/procedure-block-editor';
+import {
+  ProcedureDiagramEditor,
+  type DiagEdge,
+  type DiagNode,
+} from '@/features/procedures/components/procedure-diagram-editor';
 import type { ProcedureCategoryApi } from '@/features/procedures/types/procedure.types';
 
 export default function ProcedureEditPage() {
@@ -53,6 +59,7 @@ export default function ProcedureEditPage() {
   const [saveState, setSaveState] = useState<
     'idle' | 'saving' | 'saved' | 'error'
   >('idle');
+  const [diagIndex, setDiagIndex] = useState<number | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const updatedAtRef = useRef<string | undefined>(undefined);
 
@@ -217,9 +224,7 @@ export default function ProcedureEditPage() {
             editable={editable}
             saveState={saveState}
             canPublish={canPublish}
-            onOpenDiagram={() =>
-              toast.success('Éditeur de schéma — prochaine livraison (F5)')
-            }
+            onOpenDiagram={(idx) => setDiagIndex(idx)}
             onChange={(next) => {
               setDoc(next);
               if (editable) scheduleSave({ contentJson: next });
@@ -233,6 +238,43 @@ export default function ProcedureEditPage() {
               if (editable) scheduleSave({ category: c });
             }}
             onTransition={(to) => transitionMut.mutate(to)}
+          />
+        ) : null}
+
+        {diagIndex != null && doc ? (
+          <ProcedureDiagramEditor
+            open
+            title={
+              doc.blocks[diagIndex]?.t === 'diag'
+                ? (doc.blocks[diagIndex] as Extract<TextBlock, { t: 'diag' }>)
+                    .title
+                : ''
+            }
+            nodes={
+              doc.blocks[diagIndex]?.t === 'diag'
+                ? ((doc.blocks[diagIndex] as Extract<TextBlock, { t: 'diag' }>)
+                    .nodes as DiagNode[])
+                : []
+            }
+            edges={
+              doc.blocks[diagIndex]?.t === 'diag'
+                ? ((doc.blocks[diagIndex] as Extract<TextBlock, { t: 'diag' }>)
+                    .edges as DiagEdge[])
+                : []
+            }
+            onClose={() => setDiagIndex(null)}
+            onCommit={({ title: t, nodes, edges }) => {
+              const blocks = doc.blocks.map((b, i) =>
+                i === diagIndex && b.t === 'diag'
+                  ? { ...b, title: t, nodes, edges }
+                  : b,
+              );
+              const next = { schemaVersion: 2 as const, blocks };
+              setDoc(next);
+              scheduleSave({ contentJson: next });
+              setDiagIndex(null);
+              toast.success('Schéma inséré dans la procédure');
+            }}
           />
         ) : null}
       </PageContainer>
