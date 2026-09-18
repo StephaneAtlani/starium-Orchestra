@@ -1,12 +1,15 @@
 # RFC-PROC-005 — Éditeur riche avancé des procédures
 
+> **⚠️ SUPERSEDE PRODUIT (2026-09-18)** — La cible UX / contenu est désormais **[RFC-PROC-006](./RFC-PROC-006%20—%20CDC%20Procédures%20fidélité%20mock%20design%20handoff.md)** (éditeur par blocs + schéma SVG, handoff `design_handoff_procedures/`). TipTap / Mermaid / Lots C–D de cette RFC sont **abandonnés**. Ce document reste pour historique des Lots A–B.
+
 Version : 1.0 — 18 septembre 2026
 
 | Métadonnée | Valeur |
 | --- | --- |
-| **Statut** | 🟡 En cours — **Lots A–B** ✅ · Lots C–D pending |
-| **Priorité** | Haute (qualité documentaire gouvernance / audit) |
+| **Statut** | ⚠️ Supersédé par PROC-006 — Lots A–B TipTap historiques uniquement |
+| **Priorité** | — (ne plus implémenter) |
 | **Parent** | [RFC-PROC-001](./RFC-PROC-001%20—%20Module%20Procédures%20(cadrage%20et%20backlog%20user%20stories).md) |
+| **Remplacé par** | [RFC-PROC-006](./RFC-PROC-006%20—%20CDC%20Procédures%20fidélité%20mock%20design%20handoff.md) |
 | **Dépend de** | [RFC-PROC-002](./RFC-PROC-002%20—%20Créer%20éditer%20archiver%20procédures%20et%20contenu%20riche.md) (socle CRUD + TipTap MVP + `contentJson`) |
 | **Alimente** | [PROC-003](./RFC-PROC-003%20—%20Versioning%20des%20procédures.md) (snapshot contenu) · [PROC-004](./RFC-PROC-004%20—%20Export%20Word%20PDF%20procédures%20avec%20logo.md) (rendu titres / médias / diagrammes) |
 | **Remplace / étend** | La portée « contenu riche V1 » minimaliste livrée dans PROC-002 US-02 (H1–H3, gras/italique/lien uniquement). **US-02b** (assets + liens internes) est **absorbée** ici. |

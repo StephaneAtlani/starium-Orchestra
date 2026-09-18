@@ -6,8 +6,10 @@ Version : 1.0 — 17 septembre 2026
 | --- | --- |
 | **Statut** | 📝 Draft |
 | **Parent** | [RFC-PROC-001](./RFC-PROC-001%20—%20Module%20Procédures%20(cadrage%20et%20backlog%20user%20stories).md) |
-| **Dépend de** | [RFC-PROC-002](./RFC-PROC-002%20—%20Créer%20éditer%20archiver%20procédures%20et%20contenu%20riche.md) |
+| **Dépend de** | [RFC-PROC-002](./RFC-PROC-002%20—%20Créer%20éditer%20archiver%20procédures%20et%20contenu%20riche.md) · transitions / `IN_REVIEW` : [RFC-PROC-006](./RFC-PROC-006%20—%20CDC%20Procédures%20fidélité%20mock%20design%20handoff.md) |
 | **Suite** | [RFC-PROC-004](./RFC-PROC-004%20—%20Export%20Word%20PDF%20procédures%20avec%20logo.md) |
+
+> **Note 2026-09-18** — Le publish immuable (clone draft + nouveau draft) reste la règle. L’endpoint `POST …/transition` et le statut `IN_REVIEW` sont spécifiés dans **PROC-006** (US-26) ; cette RFC garde US-05/06 (historique, restore).
 
 ---
 

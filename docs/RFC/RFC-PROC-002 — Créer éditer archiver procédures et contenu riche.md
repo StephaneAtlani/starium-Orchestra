@@ -4,9 +4,11 @@ Version : 1.0 — 17 septembre 2026
 
 | Métadonnée | Valeur |
 | --- | --- |
-| **Statut** | 🟡 Socle livré — **US-01 / 02 (TipTap MVP) / 03 / 04** ✅ · contenu riche avancé → **[PROC-005](./RFC-PROC-005%20—%20Éditeur%20riche%20avancé%20des%20procédures.md)** (absorbe US-02b) |
+| **Statut** | 🟡 Socle livré — **US-01 / 03 / 04** ✅ · TipTap MVP US-02 **obsolète** → contenu **blocs v2** dans **[PROC-006](./RFC-PROC-006%20—%20CDC%20Procédures%20fidélité%20mock%20design%20handoff.md)** |
 | **Parent** | [RFC-PROC-001](./RFC-PROC-001%20—%20Module%20Procédures%20(cadrage%20et%20backlog%20user%20stories).md) |
-| **Suite** | [PROC-005](./RFC-PROC-005%20—%20Éditeur%20riche%20avancé%20des%20procédures.md) · [PROC-003](./RFC-PROC-003%20—%20Versioning%20des%20procédures.md) · [PROC-004](./RFC-PROC-004%20—%20Export%20Word%20PDF%20procédures%20avec%20logo.md) |
+| **Suite** | [PROC-006](./RFC-PROC-006%20—%20CDC%20Procédures%20fidélité%20mock%20design%20handoff.md) · [PROC-003](./RFC-PROC-003%20—%20Versioning%20des%20procédures.md) · [PROC-004](./RFC-PROC-004%20—%20Export%20Word%20PDF%20procédures%20avec%20logo.md) |
+
+> **Note 2026-09-18** — `contentJson` bascule en `schemaVersion: 2` (blocs). Module jamais en prod : wipe TipTap autorisé (PROC-006 §5). Catégories / statut `IN_REVIEW` : PROC-006.
 
 ---
 

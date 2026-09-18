@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Procédures — Starium</title>
+<template id="__bundler_thumbnail" data-bg-color="#0E0E10">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <rect x="0" y="0" width="240" height="800" fill="#0E0E10"/>
+    <rect x="20" y="24" width="120" height="18" rx="4" fill="#E8A317"/>
+    <rect x="20" y="80" width="200" height="30" rx="8" fill="#E8A317" opacity=".18"/>
+    <rect x="240" y="0" width="960" height="800" fill="#FAF9F7"/>
+    <rect x="280" y="90" width="880" height="120" rx="14" fill="#fff"/>
+    <rect x="304" y="116" width="280" height="26" rx="5" fill="#0E0E10"/>
+    <rect x="304" y="170" width="700" height="10" rx="5" fill="#E8A317"/>
+    <rect x="280" y="250" width="880" height="44" rx="10" fill="#fff"/>
+    <rect x="280" y="320" width="430" height="200" rx="14" fill="#fff"/>
+    <rect x="730" y="320" width="430" height="200" rx="14" fill="#fff"/>
+  </svg>
+</template>
+<link rel="stylesheet" href="styles/app.css">
+<link rel="stylesheet" href="styles/prep.css">
+<link rel="stylesheet" href="styles/strategie.css">
+<link rel="stylesheet" href="styles/acl.css">
+<link rel="stylesheet" href="styles/procedures.css">
+</head>
+<body>
+<div class="shell">
+
+  <!-- ═══ SIDEBAR (menu de gauche actuel — conservé) ═══ -->
+  <aside class="sidebar">
+    <div class="sb-logo">
+      <img src="assets/logo-horizontal-white.png" alt="Starium" class="sb-logo-img">
+    </div>
+    <nav class="sb-nav">
+      <div class="sb-section-label">Accueil</div>
+      <a class="sb-item" data-nav="dashboard" onclick="showView('dashboard')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+        Dashboard
+      </a>
+      <div class="sb-section-label">Pilotage stratégique</div>
+      <a class="sb-item" data-nav="vision" onclick="showView('vision')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Vision stratégique<span class="sb-item-end">›</span>
+      </a>
+      <a class="sb-item" data-nav="projets" onclick="showView('list')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+        Projets<span class="sb-item-end">›</span>
+      </a>
+      <a class="sb-item" data-nav="demandes" onclick="showView('demandes')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="12" x2="12" y2="18"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+        Demandes de projet<span class="sb-item-end">›</span>
+      </a>
+      <a class="sb-item" data-nav="quarterplan" onclick="showView('quarterplan')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="4" x2="9" y2="22"/><line x1="15" y1="4" x2="15" y2="22"/></svg>
+        Quarterplan
+      </a>
+      <a class="sb-item" data-nav="plans" onclick="showView('plans')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        Plans d'action
+      </a>
+      <a class="sb-item" data-nav="cycles" onclick="showView('cycles')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M3 12a9 9 0 1 0 18 0 9 9 0 0 0-18 0"/><polyline points="12 8 12 12 14 14"/></svg>
+        Cycles de pilotage
+      </a>
+      <a class="sb-item" data-nav="risques" onclick="showView('risques')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        Risques
+      </a>
+      <div class="sb-section-label">Scénario</div>
+      <a class="sb-item" data-nav="capacity" onclick="showView('capacity')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        Scénario<span class="sb-item-end">›</span>
+      </a>
+      <div class="sb-section-label">Pilotage financier</div>
+      <a class="sb-item" data-nav="budgets" onclick="showView('budgets')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        Budgets<span class="sb-item-end">›</span>
+      </a>
+      <a class="sb-item" data-nav="fournisseurs" onclick="showView('fournisseurs')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+        Fournisseurs<span class="sb-item-end">›</span>
+      </a>
+      <a class="sb-item" data-nav="contrats" onclick="showView('contrats')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        Contrats<span class="sb-item-end">›</span>
+      </a>
+      <div class="sb-section-label">Organisation</div>
+      <a class="sb-item" data-nav="ressources" onclick="showView('ressources')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+        Ressources
+      </a>
+      <a class="sb-item" data-nav="equipes" onclick="showView('equipes')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Équipes<span class="sb-item-end">›</span>
+      </a>
+      <div class="sb-section-label">Gouvernance & conformité</div>
+      <a class="sb-item" data-nav="reunions" onclick="showView('reunions')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        Réunions<span class="sb-item-end">›</span>
+      </a>
+      <a class="sb-item" data-nav="conformite" onclick="showView('conformite')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Conformité
+      </a>
+      <a class="sb-item active" data-nav="procedures" onclick="showView('procedures')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><line x1="9" y1="7" x2="15" y2="7"/><line x1="9" y1="11" x2="13" y2="11"/></svg>
+        Procédures
+      </a>
+      <a class="sb-item" data-nav="atlas" onclick="showView('atlas')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="12" cy="18" r="2.5"/><line x1="8.1" y1="7.2" x2="10.5" y2="16.2"/><line x1="15.9" y1="7.2" x2="13.5" y2="16.2"/><line x1="8.5" y1="6" x2="15.5" y2="6"/></svg>
+        Atlas
+      </a>
+      <div class="sb-section-label">Administration</div>
+      <a class="sb-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Administration
+      </a>
+      <a class="sb-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        Cockpit licences
+      </a>
+    </nav>
+  </aside>
+
+  <!-- ═══ MAIN ═══ -->
+  <div class="main">
+    <header class="topbar">
+      <div class="breadcrumb" id="breadcrumb">
+        <a>Gouvernance &amp; conformité</a><span class="bc-sep">/</span>
+        <span class="bc-current">Procédures</span>
+      </div>
+      <div class="topbar-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <span class="tsph">Rechercher un projet, propriétaire…</span>
+        <kbd>⌘K</kbd>
+      </div>
+      <button class="topbar-btn" onclick="aclOpenRights()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        <span class="topbar-btn-l">Droits</span>
+      </button>
+      <button class="topbar-btn" onclick="aclOpenShare()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="10.5" x2="15.4" y2="6.5"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/></svg>
+        <span class="topbar-btn-l" id="acl-share-lbl">Partager</span>
+        <span class="topbar-dot" id="acl-share-dot" style="display:none"></span>
+      </button>
+      <div class="topbar-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span class="notif-badge">3</span>
+      </div>
+      <div class="avatar">AB</div>
+      <div class="topbar-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></div>
+    </header>
+
+    <div class="page-content">
+
+      <!-- ════════ VIEW: CONFORMITÉ ════════ -->
+      <section class="view active" id="view-conformite">
+
+      <!-- ════════ VIEW: PROCÉDURES ════════ -->
+      <section class="view active" id="view-procedures">
+        <div class="maxw">
+        <div id="pr-home">
+          <div class="pg-head">
+            <div><h1>Procédures</h1><p class="np-sub">Rédigez, structurez et publiez les procédures de l'organisation. Blocs déplaçables, mise en forme, schémas intégrés.</p></div>
+            <div class="head-actions">
+              <button class="btn btn-secondary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Exporter le recueil</button>
+              <button class="btn btn-primary" onclick="prNew()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>Nouvelle procédure</button>
+            </div>
+          </div>
+          <div class="pr-filters">
+            <div class="pr-seg" id="pr-filter">
+              <button class="on" data-f="all" onclick="prFilter('all')">Toutes</button>
+              <button data-f="pub" onclick="prFilter('pub')">Publiées</button>
+              <button data-f="review" onclick="prFilter('review')">En revue</button>
+              <button data-f="draft" onclick="prFilter('draft')">Brouillons</button>
+            </div>
+          </div>
+          <div class="pr-grid" id="pr-list"></div>
+        </div>
+
+        <div id="pr-editor" style="display:none">
+          <div class="pr-ed-head">
+            <button class="pr-back" onclick="prBack()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Procédures</button>
+            <span id="pr-ed-status"></span>
+            <span class="pr-saved" id="pr-saved"><i></i>Enregistré</span>
+            <span class="sp"></span>
+            <button class="btn btn-secondary" onclick="showToast('Aperçu lecteur ouvert dans un nouvel onglet')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>Aperçu</button>
+            <button class="btn btn-secondary" onclick="showToast('Historique des versions')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Versions</button>
+            <button class="btn btn-primary" onclick="prPublish()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Publier</button>
+          </div>
+          <div class="pr-ed">
+            <aside class="pr-side">
+              <div class="card card-pad"><h4>Plan</h4><div class="pr-outline" id="pr-outline"></div></div>
+            </aside>
+            <div class="pr-doc" onclick="if(event.target===this){PR_SEL=null;document.querySelectorAll('.pr-blk').forEach(b=>b.classList.remove('sel'));prProps(-1)}">
+              <div class="pr-title" id="pr-title" contenteditable="true" oninput="prSyncTitle();prSavedPulse()"></div>
+              <div class="pr-doc-meta"><span id="pr-meta-owner"></span><span id="pr-meta-ver"></span><span>Dernière modification aujourd'hui</span></div>
+              <div id="pr-blocks"></div>
+            </div>
+            <aside class="pr-side">
+              <div class="card card-pad" style="margin-bottom:14px"><h4>Bloc</h4><div id="pr-props"><div class="dg-empty">Sélectionnez un bloc pour voir ses options.</div></div></div>
+              <div class="card card-pad" style="margin-bottom:14px"><h4>Procédure</h4><div class="pr-meta">
+                <div><label>Catégorie</label><select id="pr-meta-cat" onchange="PR_CUR.cat=this.value"><option>Pilotage</option><option>Conformité</option><option>Finance</option><option>Organisation</option><option>Sécurité</option></select></div>
+                <div><label>Rattachée à</label><div class="v">Demandes de projet · Cycles de pilotage</div></div>
+                <div><label>Relecteurs</label><div style="display:flex;gap:4px"><span class="pr-av">CL</span><span class="pr-av" style="background:var(--brand-gold);color:var(--brand-ink)">AB</span><span class="pr-av" style="background:var(--neutral-200);color:var(--neutral-600)">+</span></div></div>
+              </div></div>
+              <div class="card card-pad"><h4>Historique</h4><div class="pr-hist"><div><b>v2.1</b>Ajout du schéma de circuit</div><div><b>v2.0</b>Refonte des rôles</div><div><b>v1.3</b>Seuils COPIL mis à jour</div></div></div>
+            </aside>
+          </div>
+        </div>
+        </div>
+      </section>
+
+    </div><!-- /page-content -->
+  </div><!-- /main -->
+</div><!-- /shell -->
+
+
+<div class="modal-overlay" id="aclRightsModal" onclick="if(event.target===this)aclCloseRights()"><div class="modal modal-acl">
+  <div class="modal-head">
+    <div class="modal-head-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+    <div><div class="modal-title">Droits d'accès de la page</div><div class="modal-sub">Qui peut consulter, modifier, valider et administrer cette page.</div></div>
+    <button class="modal-close" onclick="aclCloseRights()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+  </div>
+  <div class="modal-body" id="acl-rights-body"></div>
+  <div class="modal-foot"><button class="btn btn-secondary" onclick="aclCloseRights()">Annuler</button><button class="btn btn-primary" onclick="aclSaveRights()">Enregistrer les droits</button></div>
+</div></div>
+<div class="modal-overlay" id="aclShareModal" onclick="if(event.target===this)aclCloseShare()"><div class="modal modal-acl">
+  <div class="modal-head">
+    <div class="modal-head-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="10.5" x2="15.4" y2="6.5"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/></svg></div>
+    <div><div class="modal-title">Partage de la page</div><div class="modal-sub">Accès général et invitations individuelles.</div></div>
+    <button class="modal-close" onclick="aclCloseShare()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+  </div>
+  <div class="modal-body" id="acl-share-body"></div>
+  <div class="modal-foot"><button class="btn btn-secondary" onclick="aclCloseShare()">Annuler</button><button class="btn btn-primary" onclick="aclSaveShare()">Enregistrer le partage</button></div>
+</div></div>
+
+
+
+<!-- Menu d'insertion de bloc -->
+<div class="pr-menu" id="pr-menu">
+  <h5>Texte</h5>
+  <div class="pr-menu-grid">
+    <div class="pr-mi" onclick="prMenuPick('h1')"><i>H1</i>Titre 1</div>
+    <div class="pr-mi" onclick="prMenuPick('h2')"><i>H2</i>Titre 2</div>
+    <div class="pr-mi" onclick="prMenuPick('h3')"><i>H3</i>Titre 3</div>
+    <div class="pr-mi" onclick="prMenuPick('p')"><i>¶</i>Paragraphe</div>
+    <div class="pr-mi" onclick="prMenuPick('ul')"><i>•</i>Liste à puces</div>
+    <div class="pr-mi" onclick="prMenuPick('ol')"><i>1.</i>Liste numérotée</div>
+    <div class="pr-mi" onclick="prMenuPick('step')"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="9 12 11.5 14.5 15.5 10"/></svg></i>Étape</div>
+    <div class="pr-mi" onclick="prMenuPick('callout')"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></i>Encadré</div>
+  </div>
+  <h5>Média &amp; schémas</h5>
+  <div class="pr-menu-grid">
+    <div class="pr-mi" onclick="prMenuPick('img')"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></i>Image</div>
+    <div class="pr-mi" onclick="prMenuPick('video')"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="15" height="14" rx="2"/><polygon points="17 10 22 7 22 17 17 14"/></svg></i>Vidéo</div>
+    <div class="pr-mi" onclick="prMenuPick('diag')"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="6" rx="1"/><rect x="14" y="15" width="7" height="6" rx="1"/><path d="M10 6h5v9"/></svg></i>Schéma / diagramme</div>
+  </div>
+</div>
+<!-- Barre de formatage -->
+<div class="pr-fmt" id="pr-fmt">
+  <button data-c="bold" title="Gras (⌘B)" onmousedown="event.preventDefault();prFmt('bold')"><b>B</b></button>
+  <button data-c="italic" title="Italique (⌘I)" onmousedown="event.preventDefault();prFmt('italic')"><i style="font-family:Georgia,serif">I</i></button>
+  <button data-c="underline" title="Souligné (⌘U)" onmousedown="event.preventDefault();prFmt('underline')"><u>U</u></button>
+  <button data-c="strikeThrough" title="Barré" onmousedown="event.preventDefault();prFmt('strikeThrough')"><s>S</s></button>
+  <span class="sep"></span>
+  <button title="Lien" onmousedown="event.preventDefault();prLink()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>
+  <button title="Surligner" onmousedown="event.preventDefault();prFmt('hiliteColor','#FBEAB5')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>
+  <button title="Effacer la mise en forme" onmousedown="event.preventDefault();prFmt('removeFormat')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V4h16v3"/><path d="M5 20h6"/><path d="M13 4L8 20"/><line x1="15" y1="15" x2="20" y2="20"/><line x1="20" y1="15" x2="15" y2="20"/></svg></button>
+</div>
+
+<!-- Éditeur de schéma (plein écran) -->
+<div class="dg-wrap" id="dg-wrap">
+  <div class="dg-top">
+    <button class="pr-back" onclick="dgClose()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Retour</button>
+    <input id="dg-title" value="Schéma">
+    <div class="dg-tools" id="dg-tools">
+      <button class="on" data-t="select" onclick="dgTool('select')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/></svg>Sélection <kbd style="font:inherit;opacity:.5">V</kbd></button>
+      <button data-t="connect" onclick="dgTool('connect')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="2.5"/><circle cx="19" cy="12" r="2.5"/><line x1="7.5" y1="12" x2="16.5" y2="12"/></svg>Relier <kbd style="font:inherit;opacity:.5">C</kbd></button>
+    </div>
+    <span class="sp"></span>
+    <button class="btn btn-secondary" onclick="dgDemo()">Exemple</button>
+    <button class="btn btn-secondary" onclick="showToast('Export PNG / SVG')">Exporter</button>
+    <button class="btn btn-primary" onclick="dgSave()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Insérer dans la procédure</button>
+  </div>
+  <div class="dg-body">
+    <aside class="dg-pal">
+      <h4>Formes</h4>
+      <div class="dg-pal-item" draggable="true" ondragstart="dgPalDrag(event,'start')" onclick="dgAdd('start')"><svg viewBox="0 0 38 26"><rect x="2" y="4" width="34" height="18" rx="9" fill="#0E0E10"/></svg>Début</div>
+      <div class="dg-pal-item" draggable="true" ondragstart="dgPalDrag(event,'step')" onclick="dgAdd('step')"><svg viewBox="0 0 38 26"><rect x="2" y="4" width="34" height="18" rx="4" fill="#fff" stroke="#0E0E10" stroke-width="1.5"/></svg>Étape</div>
+      <div class="dg-pal-item" draggable="true" ondragstart="dgPalDrag(event,'dec')" onclick="dgAdd('dec')"><svg viewBox="0 0 38 26"><polygon points="19,2 36,13 19,24 2,13" fill="#FBEAB5" stroke="#CC8E0E" stroke-width="1.5"/></svg>Décision</div>
+      <div class="dg-pal-item" draggable="true" ondragstart="dgPalDrag(event,'doc')" onclick="dgAdd('doc')"><svg viewBox="0 0 38 26"><path d="M3 3h32v16q-8-6-16 0t-16 0z" fill="#FAF9F7" stroke="#0E0E10" stroke-width="1.5"/></svg>Document</div>
+      <div class="dg-pal-item" draggable="true" ondragstart="dgPalDrag(event,'actor')" onclick="dgAdd('actor')"><svg viewBox="0 0 38 26"><rect x="2" y="4" width="34" height="18" rx="3" fill="#E6F0FB" stroke="#1F4E8C" stroke-width="1.5"/><circle cx="11" cy="11" r="2.5" fill="none" stroke="#1F4E8C"/><path d="M7 18a4 4 0 0 1 8 0" fill="none" stroke="#1F4E8C"/></svg>Acteur / rôle</div>
+      <div class="dg-pal-item" draggable="true" ondragstart="dgPalDrag(event,'end')" onclick="dgAdd('end')"><svg viewBox="0 0 38 26"><rect x="2" y="4" width="34" height="18" rx="9" fill="#0E0E10"/><rect x="6" y="8" width="26" height="10" rx="5" fill="none" stroke="#E8A317" stroke-width="1.2"/></svg>Fin</div>
+      <div class="dg-kb">
+        <div><span>Relier deux formes</span><kbd>C</kbd></div>
+        <div><span>Sélection</span><kbd>V</kbd></div>
+        <div><span>Renommer</span><kbd>2× clic</kbd></div>
+        <div><span>Supprimer</span><kbd>Suppr</kbd></div>
+        <div><span>Fermer</span><kbd>Échap</kbd></div>
+      </div>
+    </aside>
+    <div class="dg-canvas" id="dg-canvas" onmousedown="dgBg()" ondragover="event.preventDefault()" ondrop="dgCanvasDrop(event)">
+      <svg id="dg-svg"></svg>
+      <div class="dg-hint" id="dg-hint"></div>
+    </div>
+    <aside class="dg-props">
+      <h4>Propriétés</h4>
+      <div id="dg-props-body"></div>
+    </aside>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+<script src="modules/acl.js"></script>
+<script src="modules/procedures.js"></script>
+<script>
+function showView(name){ if(name!=='procedures'){ showToast('Vue « '+name+' » disponible dans l\'application complète'); return; } prBack(); }
+function fmtEur(n){ return n.toLocaleString('fr-FR').replace(/\u202f/g,' ') + ' €'; }
+function showToast(msg){
+  const w=document.getElementById('toastWrap'); const t=document.createElement('div'); t.className='toast';
+  t.innerHTML='<span class="toast-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></span>'+msg;
+  w.appendChild(t); requestAnimationFrame(()=>t.classList.add('show')); setTimeout(()=>{ t.classList.remove('show'); setTimeout(()=>t.remove(),300); }, 3200);
+}
+if(typeof aclSetPage==='function') aclSetPage('procedures');
+if(typeof aclSyncBtns==='function') aclSyncBtns();
+</script>
+</body>
+</html>
