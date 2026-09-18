@@ -34,6 +34,7 @@ import { BudgetForecastModule } from './modules/budget-forecast/budget-forecast.
 import { BudgetLandingModule } from './modules/budget-landing/budget-landing.module';
 import { PlatformUsageModule } from './modules/platform-usage/platform-usage.module';
 import { SkillsModule } from './modules/skills/skills.module';
+import { ProceduresModule } from './modules/procedures/procedures.module';
 import { WorkTeamsModule } from './modules/work-teams/work-teams.module';
 import { ActivityTypesModule } from './modules/activity-types/activity-types.module';
 import { CapacityModule } from './modules/capacity/capacity.module';
@@ -102,6 +103,7 @@ import { PlatformLoginNewsModule } from './modules/platform-login-news/platform-
     BudgetLandingModule,
     PlatformUsageModule,
     SkillsModule,
+    ProceduresModule,
     WorkTeamsModule,
     ActivityTypesModule,
     CapacityModule,

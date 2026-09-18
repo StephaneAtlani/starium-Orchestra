@@ -387,6 +387,9 @@ model Client {
   complianceContributions          ComplianceContribution[]
   complianceGaps                   ComplianceGap[]
   complianceReminderLogs           ComplianceReminderLog[]
+  procedures                       Procedure[]
+  procedureVersions                ProcedureVersion[]
+  procedureAssets                  ProcedureAsset[]
   riskDomains                      RiskDomain[]
   riskTypes                        RiskType[]
   budgetDashboardConfigs           BudgetDashboardConfig[]
@@ -7207,4 +7210,97 @@ model MeetingAttachment {
   @@index([clientId, meetingId])
   @@index([agendaItemId])
   @@index([decisionId])
+}
+
+// ---------------------------------------------------------------------------
+// RFC-PROC-001 / PROC-002 — Module Procédures (gouvernance documentaire)
+// ---------------------------------------------------------------------------
+
+enum ProcedureStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ProcedureCategory {
+  SECURITY
+  OPERATIONS
+  HR
+  IT_SERVICE
+  COMPLIANCE
+  OTHER
+}
+
+enum ProcedureVersionLifecycle {
+  DRAFT
+  PUBLISHED
+}
+
+model Procedure {
+  id                        String            @id @default(cuid())
+  clientId                  String
+  code                      String
+  title                     String
+  description               String?
+  category                  ProcedureCategory @default(OTHER)
+  status                    ProcedureStatus   @default(DRAFT)
+  statusBeforeArchive       ProcedureStatus?
+  ownerUserId               String?
+  currentDraftVersionId     String?
+  currentPublishedVersionId String?
+  archivedAt                DateTime?
+  archivedByUserId          String?
+  createdByUserId           String?
+  createdAt                 DateTime          @default(now())
+  updatedAt                 DateTime          @updatedAt
+
+  client   Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  versions ProcedureVersion[]
+  assets   ProcedureAsset[]
+
+  @@unique([clientId, code])
+  @@index([clientId, status])
+  @@index([clientId, updatedAt])
+  @@index([ownerUserId])
+}
+
+model ProcedureVersion {
+  id                String                     @id @default(cuid())
+  clientId          String
+  procedureId       String
+  versionNumber     Int
+  lifecycle         ProcedureVersionLifecycle  @default(DRAFT)
+  title             String
+  contentJson       Json
+  changeSummary     String?
+  publishedAt       DateTime?
+  publishedByUserId String?
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+
+  client    Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  procedure Procedure @relation(fields: [procedureId], references: [id], onDelete: Cascade)
+
+  @@unique([procedureId, versionNumber])
+  @@index([clientId, procedureId])
+  @@index([clientId, lifecycle])
+}
+
+model ProcedureAsset {
+  id              String   @id @default(cuid())
+  clientId        String
+  procedureId     String
+  label           String
+  mimeType        String
+  sizeBytes       Int
+  storageBucket   String
+  storageKey      String
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  client    Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  procedure Procedure @relation(fields: [procedureId], references: [id], onDelete: Cascade)
+
+  @@index([clientId, procedureId])
 }

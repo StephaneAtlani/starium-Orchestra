@@ -3106,6 +3106,20 @@ Création via **`POST /api/risks`** (scope client) avec `complianceRequirementId
 
 ---
 
+---
+
+## 20 quater. Module Procédures (RFC-PROC-002 US-01) — `/api/procedures`
+
+Référence : [RFC-PROC-002](RFC/RFC-PROC-002%20%E2%80%94%20Cr%C3%A9er%20%C3%A9diter%20archiver%20proc%C3%A9dures%20et%20contenu%20riche.md). Module `procedures` client-scopé. Guards : JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard.
+
+- **GET /api/procedures** — Liste paginée `{ items, total, limit, offset }`. Query : `limit`, `offset`, `status?`, `category?`, `q?`, `includeArchived?`. Items : `code`, `title`, `status`, `category`, `ownerLabel` (jamais d’ID propriétaire), version publiée si présente. Permission **`procedures.read`**. Archivées masquées par défaut.
+- **POST /api/procedures** — Création brouillon. Body : `{ code, title, description?, category?, ownerUserId? }`. Crée `Procedure` `DRAFT` + `ProcedureVersion` n°1 `DRAFT` (`contentJson` doc TipTap vide). Code unique par client → **409**. Owner doit être membre du client. Audit `procedure.created`. Permission **`procedures.create`**.
+- **GET /api/procedures/:id** — Détail + résumé brouillon courant (`currentDraft`). Permission **`procedures.read`**.
+
+UI : `/procedures` (catalogue + création), `/procedures/[id]/edit` (métadonnées + stub éditeur riche US-02).
+
+---
+
 ## 21. Module Projets (RFC-PROJ-001 MVP) — `/api/projects`, `/api/projects/:projectId/tasks|task-buckets|gantt|activities|risks|milestones|budget-links|scenarios|.../financial-lines|.../financial-summary|project-sheet|reviews|documents`, `/api/projects/:projectId/microsoft-link`
 
 Référence : **RFC-PROJ-001**, **RFC-PROJ-010** (liens budget), **RFC-PROJ-011** (tâches enrichies, jalons, activités, payload **`GET /gantt`**), **RFC-PROJ-012** — *deux livrables distincts dans le dépôt* : [fiche décisionnelle Project Sheet](RFC/RFC-PROJ-012%20%E2%80%94%20Project%20Sheet.md) et [UI Gantt Tâches et Jalons](RFC/RFC-PROJ-012%20%E2%80%94%20Gantt%20T%C3%A2ches%20et%20Jalons.md), **RFC-PROJ-013** (points projet COPIL/COPRO), **RFC-PROJ-013-1** (cycle de vie réunion — Phase 1), **RFC-PROJ-DOC-001** (registre `ProjectDocument`), **RFC-PROJ-SC-001** / **RFC-PROJ-SC-002** (scénarios + projections financières scénario), détail : [docs/modules/projects-mvp.md](modules/projects-mvp.md).

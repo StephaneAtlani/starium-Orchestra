@@ -1290,6 +1290,90 @@ async function ensureSkillsModuleAndPermissions(): Promise<void> {
   }
 }
 
+async function ensureProceduresModuleAndPermissions(): Promise<void> {
+  const mod = await prisma.module.upsert({
+    where: { code: "procedures" },
+    create: {
+      code: "procedures",
+      name: "Procédures",
+      description: "Procédures internes versionnées et exportables",
+      isActive: true,
+    },
+    update: { isActive: true },
+  });
+  const defs: Array<{ code: string; label: string }> = [
+    { code: "procedures.read", label: "Procédures — lecture" },
+    { code: "procedures.create", label: "Procédures — création" },
+    { code: "procedures.update", label: "Procédures — mise à jour" },
+    { code: "procedures.publish", label: "Procédures — publication" },
+    { code: "procedures.archive", label: "Procédures — archivage" },
+    { code: "procedures.export", label: "Procédures — export" },
+  ];
+  for (const p of defs) {
+    await prisma.permission.upsert({
+      where: { code: p.code },
+      create: { code: p.code, label: p.label, moduleId: mod.id },
+      update: { label: p.label },
+    });
+  }
+}
+
+/** Rôle global : permissions procédures pour les CLIENT_ADMIN (UserRole). */
+async function ensureClientAdminProceduresModuleRole(): Promise<void> {
+  const codes = [
+    "procedures.read",
+    "procedures.create",
+    "procedures.update",
+    "procedures.publish",
+    "procedures.archive",
+    "procedures.export",
+  ] as const;
+  const permissions = await prisma.permission.findMany({
+    where: { code: { in: [...codes] } },
+  });
+  if (permissions.length !== codes.length) {
+    console.warn(
+      "⚠️  ensureClientAdminProceduresModuleRole : permissions procedures.* manquantes — skip.",
+    );
+    return;
+  }
+  let role = await prisma.role.findFirst({
+    where: { scope: RoleScope.GLOBAL, name: "Client admin — procédures" },
+  });
+  if (!role) {
+    role = await prisma.role.create({
+      data: {
+        scope: RoleScope.GLOBAL,
+        name: "Client admin — procédures",
+        description: "Catalogue et rédaction des procédures internes",
+        isSystem: true,
+      },
+    });
+  }
+  for (const perm of permissions) {
+    await prisma.rolePermission.upsert({
+      where: {
+        roleId_permissionId: { roleId: role.id, permissionId: perm.id },
+      },
+      create: { roleId: role.id, permissionId: perm.id },
+      update: {},
+    });
+  }
+  const admins = await prisma.clientUser.findMany({
+    where: { role: ClientUserRole.CLIENT_ADMIN, status: ClientUserStatus.ACTIVE },
+    select: { userId: true },
+  });
+  for (const a of admins) {
+    await prisma.userRole.upsert({
+      where: {
+        userId_roleId: { userId: a.userId, roleId: role.id },
+      },
+      create: { userId: a.userId, roleId: role.id },
+      update: {},
+    });
+  }
+}
+
 async function ensureTeamsModuleAndPermissions(): Promise<void> {
   const mod = await prisma.module.upsert({
     where: { code: "teams" },
@@ -4152,6 +4236,8 @@ async function main() {
   await ensureGlobalSupplierContractKindTypes();
   await ensureCollaboratorsModuleAndPermissions();
   await ensureSkillsModuleAndPermissions();
+  await ensureProceduresModuleAndPermissions();
+  await ensureClientAdminProceduresModuleRole();
   await ensureTeamsModuleAndPermissions();
   await ensureActivityTypesModuleAndPermissions();
   await ensureCapacityModuleAndPermissions();
