@@ -6,7 +6,7 @@ Version : 1.0 — 17 septembre 2026
 | --- | --- |
 | **Statut** | 📝 Draft — cadrage produit |
 | **Priorité** | Haute (gouvernance documentaire / conformité) |
-| **Livraisons** | [PROC-002](./RFC-PROC-002%20—%20Créer%20éditer%20archiver%20procédures%20et%20contenu%20riche.md) · [PROC-003](./RFC-PROC-003%20—%20Versioning%20des%20procédures.md) · [PROC-004](./RFC-PROC-004%20—%20Export%20Word%20PDF%20procédures%20avec%20logo.md) |
+| **Livraisons** | [PROC-002](./RFC-PROC-002%20—%20Créer%20éditer%20archiver%20procédures%20et%20contenu%20riche.md) · [PROC-005](./RFC-PROC-005%20—%20Éditeur%20riche%20avancé%20des%20procédures.md) · [PROC-003](./RFC-PROC-003%20—%20Versioning%20des%20procédures.md) · [PROC-004](./RFC-PROC-004%20—%20Export%20Word%20PDF%20procédures%20avec%20logo.md) |
 | **Dépendances** | Multi-client + RBAC · stockage fichiers (RFC-035) · branding client · Conformité (pont futur preuves / références) |
 | **Hors scope immédiat** | GED universelle · sync SharePoint · portail public · signature électronique · IA de rédaction |
 
@@ -49,13 +49,13 @@ En tant qu’utilisateur autorisé du **client actif**, je gère le cycle de vie
 
 1. **Scope** : une procédure appartient à **un seul client** ; jamais de lecture cross-client.
 2. **Nature** : document métier **gouvernance / opérationnel**, pas un fichier projet. Lien optionnel vers projet / exigence conformité en V1.1.
-3. **Contenu** : document JSON éditeur riche (ProseMirror / TipTap) + assets média scopés client. Pas de HTML libre non sanitizé.
+3. **Contenu** : document JSON éditeur riche (ProseMirror / TipTap) — socle MVP dans PROC-002 ; **cible complète** (H1–H6, styles, médias, diagrammes Mermaid, liens) dans **PROC-005**. Pas de HTML libre non sanitizé.
 4. **Cycle de vie procédure** : `DRAFT` → `PUBLISHED` → `ARCHIVED` (archivage logique, pas hard-delete).
 5. **Versions** : une version **courante éditable** (brouillon) + versions **publiées immuables** ; voir PROC-003.
 6. **Logo** : export utilise le logo client (à provisionner si absent — hypothèse : champs `Client.logoStorageKey` / API branding, ou fallback nom client sans image).
 7. **Module activation** : code module `procedures` + permissions `procedures.*` + `ModuleAccessGuard`.
 8. **Langue UI** : français, libellés métier, **jamais d’ID brut** affiché.
-9. **Médias** : images + PDF embarqués en V1 ; vidéo = lien externe ou hors V1 (hypothèse : **image + pièce jointe** en V1, vidéo en V1.1).
+9. **Médias** : images + PDF en **PROC-005** ; vidéo = lien externe (hors embed natif V1).
 
 ---
 
@@ -64,13 +64,19 @@ En tant qu’utilisateur autorisé du **client actif**, je gère le cycle de vie
 | ID | User story | RFC | Priorité |
 | --- | --- | --- | --- |
 | **US-PROC-01** | Créer une procédure (métadonnées + brouillon vide) | PROC-002 | P0 |
-| **US-PROC-02** | Éditer le contenu riche (texte, médias, liens internes/externes) | PROC-002 | P0 |
+| **US-PROC-02** | Éditer le contenu riche (socle TipTap MVP) | PROC-002 | P0 |
 | **US-PROC-03** | Archiver / désarchiver une procédure | PROC-002 | P0 |
 | **US-PROC-04** | Lister / filtrer / rechercher les procédures du client | PROC-002 | P0 |
 | **US-PROC-05** | Publier une version et consulter l’historique | PROC-003 | P0 |
 | **US-PROC-06** | Comparer / restaurer depuis une version publiée (borné) | PROC-003 | P1 |
 | **US-PROC-07** | Exporter en PDF avec logo client | PROC-004 | P0 |
 | **US-PROC-08** | Exporter en Word (.docx) avec logo client | PROC-004 | P0 |
+| **US-PROC-09** | Structure documentaire H1–H6 + blocs | PROC-005 | P0 |
+| **US-PROC-10** | Styles inline (gras, italique, souligné, couleur, surlignage) | PROC-005 | P0 |
+| **US-PROC-11** | Médias images + PDF (`ProcedureAsset`) | PROC-005 | P0 |
+| **US-PROC-12** | Diagrammes de fonctionnement (Mermaid) | PROC-005 | P0 |
+| **US-PROC-13** | Liens externes https + liens internes Orchestra | PROC-005 | P0 |
+| **US-PROC-14** | Toolbar / UX éditeur DS + RGAA | PROC-005 | P0 |
 
 Critères d’acceptation détaillés dans chaque RFC fille.
 

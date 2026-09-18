@@ -2,12 +2,15 @@
 
 Guide d’utilisation de l’autopilot RFC : une feature à la fois jusqu’au commit, puis la suivante.
 
+**Rappel rapide** : `/starium-help` · skill `.claude/skills/starium-help/SKILL.md`
+
 **Sources de vérité**
 
 | Élément | Chemin |
 |---|---|
+| Aide pipeline | `/starium-help` → `.claude/commands/starium-help.md` |
 | Orchestrateur | `.claude/skills/starium-rfc-pipeline/SKILL.md` |
-| Commande | `/rfc-pipeline` → `.claude/commands/rfc-pipeline.md` |
+| Commande run | `/rfc-pipeline` → `.claude/commands/rfc-pipeline.md` |
 | État local (gitignoré) | `.claude/rfc-pipeline-state.json` |
 | Template d’état | `.claude/rfc-pipeline-state.example.json` |
 | Étapes | `.claude/skills/starium-step-*/SKILL.md` |
@@ -16,13 +19,38 @@ Guide d’utilisation de l’autopilot RFC : une feature à la fois jusqu’au c
 
 ## 1. Objectif
 
-Enchaîner automatiquement :
+**Cinq étapes pour cadrer. Six qui se répètent.**
+
+Règle unique : interdit de coder une feature hors pipeline. Une feature = un cycle 6→11
+(commit local, **jamais de push** automatique).
+
+### Cadrage · une fois pour la RFC
+
+| Vision | Architecture | Design System | RFC | Backlog |
+|:---:|:---:|:---:|:---:|:---:|
+| **1** | **2** | **3** | **4** | **5** |
+
+| # | Étape | Où |
+|---|---|---|
+| 1 | Vision | `docs/VISION_PRODUIT.md` |
+| 2 | Architecture | `docs/ARCHITECTURE.md` (+ `docs/LIAISONS-MODULES.md` si pont) |
+| 3 | Design System | `docs/design-system/` · skill `starium-design-system` |
+| 4 | RFC | `/rfc` · `docs/RFC/` · `docs/RFC/_RFC Liste.md` |
+| 5 | Backlog | découpe features (3–8) au bootstrap `/rfc-pipeline` |
+
+### Cycle · pour chaque feature
+
+| Plan | Review-plan | Implement | Conformité | Docs | Commit |
+|:---:|:---:|:---:|:---:|:---:|:---:|
+| **6** | **7** | **8** | **9** | **10** | **11** |
+
+Enchaînement automatique du cycle :
 
 ```
 plan → review-plan → implement → conformite → docs → commit
 ```
 
-puis sélectionner la feature suivante, jusqu’à fin de backlog + release-gate préprod.
+puis feature suivante, jusqu’à fin de backlog + `starium-release-gate` préprod.
 
 Intervention humaine limitée à :
 
@@ -42,7 +70,7 @@ Intervention humaine limitée à :
 - [ ] Skills présentes sous `.claude/skills/` (orchestrateur + 6 steps + transverses)
 - [ ] Dirty tree **connu** : le pipeline capture le dirty préexistant et ne l’embarque pas ; éviter les conflits sur les mêmes fichiers
 
-Skills transverses attendues au bootstrap : `starium-rfc`, `starium-conformite`, `starium-documentation`, `starium-design-system`, `starium-modales`, `starium-release-gate`.
+Skills transverses attendues au bootstrap : `starium-rfc`, `starium-conformite`, `starium-documentation`, `starium-design-system`, `starium-modales`, `starium-release-gate`. Aide : `starium-help` (`/starium-help`).
 
 ---
 
@@ -70,7 +98,8 @@ Exemples :
 
 | Outil | Rôle |
 |---|---|
-| `/rfc-pipeline` | Boucle autonome feature par feature |
+| `/starium-help` | Rappel visuel du pipeline (cadrage 1–5 + cycle 6–11) |
+| `/rfc-pipeline` | Boucle autonome feature par feature (cycle 6→11) |
 | `/rfc` | Rédaction / implémentation manuelle (méthode 9 points `starium-rfc`) |
 | `/conformite` | Audit ponctuel d’un diff, hors boucle |
 | `/doc-sync` | Sync docs ponctuelle |
@@ -86,16 +115,16 @@ Exemples :
 
 ## 4. Boucle d’exécution
 
-### 4.1 Étapes par feature
+### 4.1 Étapes par feature (cycle 6→11)
 
-| Stage | Skill | Action |
-|---|---|---|
-| `plan` | `starium-step-plan` | Plan borné (1 feature), critères d’acceptation, hors-scope |
-| `review-plan` | `starium-step-review-plan` | Challenge scope / isolation / DoD |
-| `implement` | `starium-step-implement` | Code API + UI + tests ; Prisma si besoin |
-| `conformite` | `starium-step-conformite` | Revue + `featureControls` (`codeRef` = tree id) |
-| `docs` | `starium-step-docs` | RFC, `_RFC Liste`, API.md, docs liées |
-| `commit` | `starium-step-commit` | Commit isolé si autorisé ; tree = `validatedTreeId` |
+| # | Stage | Skill | Action |
+|---|---|---|---|
+| 6 | `plan` | `starium-step-plan` | Plan borné (1 feature), critères d’acceptation, hors-scope |
+| 7 | `review-plan` | `starium-step-review-plan` | Challenge scope / isolation / DoD |
+| 8 | `implement` | `starium-step-implement` | Code API + UI + tests ; Prisma si besoin |
+| 9 | `conformite` | `starium-step-conformite` | Revue + `featureControls` (`codeRef` = tree id) |
+| 10 | `docs` | `starium-step-docs` | RFC, `_RFC Liste`, API.md, docs liées |
+| 11 | `commit` | `starium-step-commit` | Commit isolé si autorisé ; tree = `validatedTreeId` |
 
 Après succès d’une étape, l’agent **enchaîne immédiatement** dans le même run. Interdit de s’arrêter « pour confirmation » entre étapes techniques.
 
@@ -229,6 +258,7 @@ Ne pas marquer `completed` sur la seule existence d’un objet git : exiger comm
 
 | Besoin | Commande / skill |
 |---|---|
+| Rappel pipeline (cadrage + cycle) | `/starium-help` |
 | Rédiger une RFC sans autopilot | `/rfc RFC-XXXX` |
 | Audit conformité d’un diff | `/conformite` |
 | Sync documentation | `/doc-sync` |
@@ -252,6 +282,7 @@ Ne pas marquer `completed` sur la seule existence d’un objet git : exiger comm
 
 ## Références
 
+- Aide pipeline : `/starium-help` · `.claude/skills/starium-help/SKILL.md`
 - Orchestrateur : `.claude/skills/starium-rfc-pipeline/SKILL.md`
 - Méthode RFC : `.claude/skills/starium-rfc/SKILL.md` et `.cursor/rules/rfc.mdc`
 - Conformité : `.claude/skills/starium-conformite/SKILL.md`

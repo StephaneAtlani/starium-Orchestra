@@ -4,9 +4,9 @@ Version : 1.0 — 17 septembre 2026
 
 | Métadonnée | Valeur |
 | --- | --- |
-| **Statut** | 🟡 En cours — **US-01 / 02 (TipTap) / 03 / 04** ✅ · **US-02b** assets/liens internes restant |
+| **Statut** | 🟡 Socle livré — **US-01 / 02 (TipTap MVP) / 03 / 04** ✅ · contenu riche avancé → **[PROC-005](./RFC-PROC-005%20—%20Éditeur%20riche%20avancé%20des%20procédures.md)** (absorbe US-02b) |
 | **Parent** | [RFC-PROC-001](./RFC-PROC-001%20—%20Module%20Procédures%20(cadrage%20et%20backlog%20user%20stories).md) |
-| **Suite** | [PROC-003](./RFC-PROC-003%20—%20Versioning%20des%20procédures.md) · [PROC-004](./RFC-PROC-004%20—%20Export%20Word%20PDF%20procédures%20avec%20logo.md) |
+| **Suite** | [PROC-005](./RFC-PROC-005%20—%20Éditeur%20riche%20avancé%20des%20procédures.md) · [PROC-003](./RFC-PROC-003%20—%20Versioning%20des%20procédures.md) · [PROC-004](./RFC-PROC-004%20—%20Export%20Word%20PDF%20procédures%20avec%20logo.md) |
 
 ---
 
@@ -38,31 +38,22 @@ Voir PROC-001 §1. Réutilisations prévues :
 5. Audit `procedure.created`.
 6. Redirect vers l’éditeur (`/procedures/[id]/edit`).
 
-### US-PROC-02 — Éditer le contenu riche
+### US-PROC-02 — Éditer le contenu riche (socle MVP)
 
 **En tant qu’** utilisateur avec `procedures.update`,  
-**je veux** rédiger le corps de la procédure avec texte, médias et hyperliens,  
-**afin de** produire un document exploitable en lecture et à l’export.
+**je veux** rédiger le corps de la procédure dans un éditeur TipTap basique,  
+**afin de** démarrer la rédaction avant l’éditeur avancé (PROC-005).
 
-#### Contenu supporté (V1)
+> **Périmètre MVP livré** : headings 1–3, paragraphes, listes, blockquote, gras/italique, lien https, PATCH draft + whitelist API.  
+> **Cible produit complète** (H1–H6, couleurs, surlignage, médias, diagrammes, liens internes) : **[RFC-PROC-005](./RFC-PROC-005%20—%20Éditeur%20riche%20avancé%20des%20procédures.md)** — US-PROC-09…14. L’ancienne US-02b (assets/liens) y est absorbée.
 
-| Type | Comportement |
-| --- | --- |
-| Texte structuré | Titres, paragraphes, listes, gras/italique, citations |
-| Médias | Images uploadées (`ProcedureAsset`) ; pièces jointes téléchargeables (PDF) |
-| Lien externe | URL `https://…` avec libellé ; ouverture nouvel onglet + `rel` sécurisé |
-| Lien interne | Picker d’entité Orchestra (V1 : `Procedure`, `Project`, `ComplianceRequirement` si module actif) — stocke `resourceType` + `resourceId` + **label snapshot** ; UI affiche toujours le label (refresh label si entité encore lisible) |
+#### Critères d’acceptation (MVP)
 
-#### Critères d’acceptation
-
-1. Éditeur riche (hypothèse TipTap) ; payload = JSON ProseMirror validé côté API (schéma whitelist de nodes/marks).
-2. Upload média : multipart, types MIME allowlist, taille max configurable, stockage scopé `clientId/procedures/:procedureId/…`.
-3. Insertion image = node référencant `assetId` ; lecture via URL signée / endpoint autorisé `GET …/assets/:assetId`.
-4. Lien interne : combobox avec **libellés métier** uniquement ; sauvegarde ID en interne.
-5. Autosave ou CTA **Enregistrer** explicite + `aria-live` « Enregistré » / erreur.
-6. Procédure `ARCHIVED` : contenu en **lecture seule** (sauf `unarchive` puis edit).
-7. Sanitization : aucun `script`, aucun HTML arbitraire.
-8. Audit `procedure.draft.updated` (résumé : versionId, taille contenu, pas le corps entier en clair si volumineux).
+1. Éditeur TipTap ; payload = JSON ProseMirror validé côté API (whitelist nodes/marks minimale).
+2. Autosave ou CTA **Enregistrer** + `aria-live` « Enregistré » / erreur.
+3. Procédure `ARCHIVED` : contenu en **lecture seule** (sauf `unarchive` puis edit).
+4. Sanitization : aucun `script`, aucun HTML arbitraire.
+5. Audit `procedure.draft.updated` (résumé : versionId, taille contenu — pas le corps entier).
 
 ### US-PROC-03 — Archiver / désarchiver
 

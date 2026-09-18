@@ -275,10 +275,14 @@ Détail : `docs/design-system/MODALES.md` et la skill `starium-modales`.
 **Mode opératoire** (lancement, reprise, pilotage, debug) :
 `docs/runbooks/mode-operatoire-pipeline-rfc.md`.
 
+**Pipeline en un coup d’œil** : `/starium-help` — cadrage 1–5 (Vision → Backlog) + cycle 6–11
+(Plan → Commit).
+
 **Skills** (`.claude/skills/`) — invoquées automatiquement selon le contexte :
 
 | Skill | Quand |
 |---|---|
+| `starium-help` | Afficher le pipeline (cadrage + cycle) — `/starium-help` |
 | `starium-design-system` | Tout travail UI dans `apps/web` |
 | `starium-modales` | Création / refonte de modale ou dialog |
 | `starium-conformite` | Revue avant commit / PR, contrôle multi-client & sécurité |
@@ -293,6 +297,6 @@ Détail : `docs/design-system/MODALES.md` et la skill `starium-modales`.
 | `starium-step-docs` | Étape documentation |
 | `starium-step-commit` | Étape commit par feature (pas de push) |
 
-**Commandes** (`.claude/commands/`) : `/rfc`, `/rfc-pipeline`, `/conformite`, `/audit-ui`, `/doc-sync`, `/nouveau-module`.
+**Commandes** (`.claude/commands/`) : `/starium-help`, `/rfc`, `/rfc-pipeline`, `/conformite`, `/audit-ui`, `/doc-sync`, `/nouveau-module`.
 
 **Agent** (`.claude/agents/`) : `starium-ui-reviewer` — revue DS + RGAA + mobile d'un diff frontend.
