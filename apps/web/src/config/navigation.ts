@@ -218,6 +218,12 @@ export const navigation: NavigationSection[] = [
             requiredPermissions: ['procedures.read'],
           },
           {
+            label: 'Modèles',
+            href: '/procedures/templates',
+            scope: 'client',
+            requiredPermissions: ['procedures.templates.manage'],
+          },
+          {
             label: 'Configuration',
             href: '/procedures/configuration',
             scope: 'client',

@@ -5,6 +5,7 @@
 import {
   Prisma,
   ProcedureStatus,
+  ProcedureStakeholderRole,
   ProcedureVersionBumpType,
   ProcedureVersionLifecycle,
   type PrismaClient,
@@ -289,6 +290,9 @@ async function seedOneProcedure(
       }
     }
 
+    if (ownerUserId) {
+      await ensureDemoStakeholders(prisma, clientId, existing.id, ownerUserId);
+    }
     return 'updated';
   }
 
@@ -362,7 +366,40 @@ async function seedOneProcedure(
     });
   }
 
+  if (ownerUserId) {
+    await ensureDemoStakeholders(prisma, clientId, procedure.id, ownerUserId);
+  }
   return 'created';
+}
+
+async function ensureDemoStakeholders(
+  prisma: PrismaClient,
+  clientId: string,
+  procedureId: string,
+  ownerUserId: string,
+): Promise<void> {
+  for (const role of [
+    ProcedureStakeholderRole.EDITOR,
+    ProcedureStakeholderRole.REVIEWER,
+    ProcedureStakeholderRole.VALIDATOR,
+  ]) {
+    await prisma.procedureStakeholder.upsert({
+      where: {
+        procedureId_userId_role: {
+          procedureId,
+          userId: ownerUserId,
+          role,
+        },
+      },
+      create: {
+        clientId,
+        procedureId,
+        userId: ownerUserId,
+        role,
+      },
+      update: {},
+    });
+  }
 }
 
 export async function ensureDemoProceduresForAllClients(

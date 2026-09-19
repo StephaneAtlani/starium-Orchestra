@@ -3108,27 +3108,37 @@ Création via **`POST /api/risks`** (scope client) avec `complianceRequirementId
 
 ---
 
-## 20 quater. Module Procédures (RFC-PROC-002 + **PROC-006** + **PROC-007**) — `/api/procedures`
+## 20 quater. Module Procédures (RFC-PROC-002 + **PROC-006** + **PROC-007** + **PROC-008**) — `/api/procedures` · `/api/procedure-templates`
 
-Référence : [RFC-PROC-002](RFC/RFC-PROC-002%20%E2%80%94%20Cr%C3%A9er%20%C3%A9diter%20archiver%20proc%C3%A9dures%20et%20contenu%20riche.md) · [RFC-PROC-006](RFC/RFC-PROC-006%20%E2%80%94%20CDC%20Proc%C3%A9dures%20fid%C3%A9lit%C3%A9%20mock%20design%20handoff.md) (cible contenu/UX). Module `procedures` client-scopé. Guards : JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard.
+Référence : [RFC-PROC-002](RFC/RFC-PROC-002%20%E2%80%94%20Cr%C3%A9er%20%C3%A9diter%20archiver%20proc%C3%A9dures%20et%20contenu%20riche.md) · [RFC-PROC-006](RFC/RFC-PROC-006%20%E2%80%94%20CDC%20Proc%C3%A9dures%20fid%C3%A9lit%C3%A9%20mock%20design%20handoff.md) (cible contenu/UX) · [RFC-PROC-008](RFC/RFC-PROC-008%20%E2%80%94%20Mod%C3%A8les%20de%20proc%C3%A9dures%20(outline%20client).md) (modèles outline). Module `procedures` client-scopé. Guards : JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard.
 
-- **GET /api/procedures** — Liste paginée `{ items, total, limit, offset }`. Query : `limit`, `offset`, `status?` (`DRAFT`|`IN_REVIEW`|`PUBLISHED`|`ARCHIVED`), `categoryId?`, `q?`, `includeArchived?`. Items : `code`, `title`, `status`, `categoryId`, `category: { id, code, label }`, `ownerLabel`, `displayVersionNumber`, `blockCount`, version publiée si présente. Permission **`procedures.read`**. Archivées masquées par défaut.
-- **POST /api/procedures** — Création brouillon. Body : `{ code, title, description?, categoryId?, ownerUserId? }`. Crée `Procedure` `DRAFT` + `ProcedureVersion` n°1 `DRAFT` (`contentJson` **v2** `{ schemaVersion: 2, blocks: […] }`). `categoryId` doit être une catégorie **active** du client (défaut code `PILOTAGE`). Code unique par client → **409**. Owner membre du client. Audit `procedure.created`. Permission **`procedures.create`**.
-- **GET /api/procedures/settings** — Config module client `{ usePilotageCycle, validators: [{ userId, label }], updatedAt }`. Crée défaut (`usePilotageCycle: true`) si absent. Permission **`procedures.read`**.
-- **PATCH /api/procedures/settings** — Body `{ usePilotageCycle?, validatorUserIds? }`. Si `usePilotageCycle: false` → ≥ 1 validateur membre **ACTIVE** du client sinon **400**. Audit `procedure.settings.updated`. Permission **`procedures.configure`**.
-- **GET /api/procedures/categories** — Référentiel client `{ id, code, label, sortOrder, isActive, updatedAt }[]`. Query `activeOnly?`. Seed 5 défauts si vide. Permission **`procedures.read`**.
-- **POST /api/procedures/categories** — Body `{ label, code? }`. Audit `procedure.category.created`. Permission **`procedures.configure`**.
-- **PATCH /api/procedures/categories/:categoryId** — Body `{ label?, sortOrder?, isActive? }`. Désactivation refusée si procédures liées (**400**). Audit `procedure.category.updated`. Permission **`procedures.configure`**.
-- **GET /api/procedures/:id** — Détail + `category` enrichi + résumé brouillon courant (`currentDraft`). Permission **`procedures.read`**.
-- **PATCH /api/procedures/:id/draft** — Body `{ contentJson?, title?, categoryId?, expectedUpdatedAt? }` (au moins un champ). `contentJson` = **blocs v2** uniquement (refuse TipTap `type:doc`). HTML allowlist `b/strong,i/em,u,s,a[href https],mark,br,li`. Blocs `img` (`assetId`+`alt`), `video` (URL https), `diag` (nodes/edges). Optimistic lock → **409**. Archivée → **400**. Audit `procedure.draft.updated`. Permission **`procedures.update`**.
-- **POST /api/procedures/:id/transition** — Body `{ to: DRAFT|IN_REVIEW|PUBLISHED, changeSummary?, expectedUpdatedAt? }`. Matrice : `DRAFT↔IN_REVIEW`, `IN_REVIEW→PUBLISHED` (snapshot immuable + nouveau draft), `PUBLISHED→IN_REVIEW|DRAFT` (status seul). Contenu vide → **400**. `to=PUBLISHED` : si settings `usePilotageCycle=true` → **`procedures.publish`** ; si `false` → acteur ∈ validateurs **ou** CLIENT_ADMIN / PLATFORM_ADMIN (sinon **403**). Audits `procedure.status_changed` / `procedure.version.published`.
-- **GET /api/procedures/:id/assets** — Liste `{ id, label, mimeType, sizeBytes, createdAt }`. Permission **`procedures.read`**.
-- **POST /api/procedures/:id/assets/upload** — Multipart `file` (PNG/JPEG/WebP/GIF/SVG/PDF). Domaine `procedures`. Permission **`procedures.update`**.
-- **GET /api/procedures/:id/assets/:assetId** — Stream inline. Permission **`procedures.read`**.
-- **DELETE /api/procedures/:id/assets/:assetId** — Refus **400** si référencé dans un bloc `img` du brouillon. Permission **`procedures.update`**.
-- **POST /api/procedures/:id/archive** / **unarchive** — inchangé (unarchive restaure aussi `IN_REVIEW`). Permission **`procedures.archive`**.
+- **GET /api/procedures** — Liste paginée `{ items, total, limit, offset }`. Query : `limit`, `offset`, `status?` (`DRAFT`|`IN_REVIEW`|`PENDING_VALIDATION`|`PUBLISHED`|`ARCHIVED`), `categoryId?`, `q?`, `includeArchived?`. Items : `code`, `title`, `status`, `categoryId`, `category: { id, code, label }`, `ownerLabel`, version publiée si présente. Permission **`procedures.read`**. Archivées masquées par défaut.
+- **POST /api/procedures** — Création brouillon. Body : `{ code, title, description?, categoryId?, ownerUserId?, templateId? }`. Si `templateId` : modèle **ACTIVE** du client → draft initial = outline matérialisé (titres + `p` vides) + `sourceTemplateId` / `sourceTemplateName` ; sinon `EMPTY_PROCEDURE_DOC`. `categoryId` catégorie **active** (défaut `PILOTAGE`). Code unique par client → **409**. Audit `procedure.created`. Permission **`procedures.create`**.
+- **GET /api/procedures/settings** — Config module client. Permission **`procedures.read`**.
+- **PATCH /api/procedures/settings** — Permission **`procedures.configure`** (écriture settings historiques ; validateurs globaux dépréciés — gouvernance par procédure).
+- **GET /api/procedures/categories** — Référentiel client. Query `activeOnly?`. Permission **`procedures.read`**.
+- **POST /api/procedures/categories** — Permission **`procedures.configure`**.
+- **PATCH /api/procedures/categories/:categoryId** — Désactivation refusée si procédures liées (**400**). Permission **`procedures.configure`**.
+- **GET /api/procedures/:id** — Détail + `category` + `currentDraft` + `sourceTemplateId` / `sourceTemplateName` / `sourceTemplateLabel` (libellé live ou snapshot). Permission **`procedures.read`**.
+- **PATCH /api/procedures/:id/draft** — Contenu blocs v2. Permission **`procedures.update`**.
+- **POST /api/procedures/:id/transition** — Cycle gouvernance (DRAFT / IN_REVIEW / PENDING_VALIDATION / PUBLISHED). Permission selon acteurs / listes.
+- **GET|PATCH /api/procedures/:id/stakeholders** — Listes rédacteurs / relecteurs / validateurs. Permission **`procedures.update`** (gestion listes).
+- **GET /api/procedures/:id/assets** / upload / stream / DELETE — inchangé. Permissions read/update.
+- **POST /api/procedures/:id/archive** / **unarchive** — Permission **`procedures.archive`**.
 
-UI : `/procedures` (catalogue cartes), `/procedures/configuration` (cycle + validateurs — PROC-007 F1), `/procedures/[id]/edit` (éditeur blocs).
+### Modèles (`/api/procedure-templates`) — RFC-PROC-008
+
+- **GET /api/procedure-templates** — Liste tous statuts. Permission **`procedures.templates.manage`**.
+- **GET /api/procedure-templates/active** — Liste `ACTIVE` (picker). Permission **`procedures.create`** ou **`procedures.templates.manage`**.
+- **POST /api/procedure-templates** — Body `{ name, categoryId?, outline? }`. Statut initial `DRAFT`. Audit `procedure.template.created`. Permission manage.
+- **GET /api/procedure-templates/:templateId** — Détail + `outline` + `hierarchyWarnings`. Permission manage.
+- **PATCH /api/procedure-templates/:templateId** — Update (refus si `ARCHIVED`). Audit `procedure.template.updated`. Permission manage.
+- **POST /api/procedure-templates/:templateId/transition** — Body `{ status: DRAFT|ACTIVE|ARCHIVED }`. Activation : nom + ≥1 H1 sinon **400**. Audit `procedure.template.transitioned`. Permission manage.
+- **DELETE /api/procedure-templates/:templateId** — Hard delete si 0 procédure avec `sourceTemplateId` ; sinon archive forcée `{ deleted: false, archived: true, message }`. Permission manage.
+
+Réponse modèle (extrait) : `{ id, name, status, categoryId, category: { id, code, label }|null, outline: [{ level, title }], hierarchyWarnings[], createdAt, updatedAt }`.
+
+UI : `/procedures` (catalogue), `/procedures/templates` (modèles), `/procedures/configuration` (catégories), `/procedures/[id]/edit` (éditeur blocs + « Créée depuis… »).
 
 **Notes UI (PROC-006 polish)** :
 - Bloc `img` : upload multipart puis PATCH draft avec `assetId` — jamais de PATCH avec `assetId` vide (sinon **400** `assetId obligatoire`).

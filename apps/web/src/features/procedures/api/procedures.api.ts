@@ -1,8 +1,11 @@
 import type { AuthFetch } from '@/features/budgets/api/budget-management.api';
 import type {
   CreateProcedureInput,
+  CreateProcedureTemplateInput,
   ProcedureDetail,
   ProcedureListResponse,
+  ProcedureTemplate,
+  UpdateProcedureTemplateInput,
 } from '../types/procedure.types';
 
 const BASE = '/api/procedures';
@@ -103,7 +106,7 @@ export function transitionProcedure(
   authFetch: AuthFetch,
   id: string,
   input: {
-    to: 'DRAFT' | 'IN_REVIEW' | 'PUBLISHED';
+    to: 'DRAFT' | 'IN_REVIEW' | 'PENDING_VALIDATION' | 'PUBLISHED';
     bumpType?: 'MINOR' | 'MAJOR';
     changeSummary?: string;
     expectedUpdatedAt?: string;
@@ -195,8 +198,6 @@ export function deleteProcedureAsset(
 }
 
 export type ProcedureSettingsDto = {
-  usePilotageCycle: boolean;
-  validators: { userId: string; label: string }[];
   updatedAt: string;
 };
 
@@ -210,16 +211,49 @@ export function getProcedureSettings(
 
 export function updateProcedureSettings(
   authFetch: AuthFetch,
-  input: {
-    usePilotageCycle?: boolean;
-    validatorUserIds?: string[];
-  },
+  input: Record<string, never> = {},
 ): Promise<ProcedureSettingsDto> {
   return authFetch(`${BASE}/settings`, {
     method: 'PATCH',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(input),
   }).then((r: Response) => parseJson<ProcedureSettingsDto>(r));
+}
+
+export type ProcedureStakeholderItemDto = {
+  userId: string;
+  label: string;
+};
+
+export type ProcedureStakeholdersDto = {
+  editors: ProcedureStakeholderItemDto[];
+  reviewers: ProcedureStakeholderItemDto[];
+  validators: ProcedureStakeholderItemDto[];
+};
+
+export function getProcedureStakeholders(
+  authFetch: AuthFetch,
+  id: string,
+): Promise<ProcedureStakeholdersDto> {
+  return authFetch(`${BASE}/${id}/stakeholders`).then((r: Response) =>
+    parseJson<ProcedureStakeholdersDto>(r),
+  );
+}
+
+export function updateProcedureStakeholders(
+  authFetch: AuthFetch,
+  id: string,
+  input: {
+    editors: string[];
+    reviewers: string[];
+    validators: string[];
+  },
+): Promise<ProcedureStakeholdersDto> {
+  return authFetch(`${BASE}/${id}/stakeholders`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(input),
+  }).then((r: Response) => parseJson<ProcedureStakeholdersDto>(r));
 }
 
 export type ProcedureCategoryDto = {
@@ -264,4 +298,81 @@ export function updateProcedureCategory(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(input),
   }).then((r: Response) => parseJson<ProcedureCategoryDto>(r));
+}
+
+const TEMPLATES_BASE = '/api/procedure-templates';
+
+export function listProcedureTemplates(
+  authFetch: AuthFetch,
+): Promise<ProcedureTemplate[]> {
+  return authFetch(TEMPLATES_BASE).then((r: Response) =>
+    parseJson<ProcedureTemplate[]>(r),
+  );
+}
+
+export function getProcedureTemplate(
+  authFetch: AuthFetch,
+  id: string,
+): Promise<ProcedureTemplate> {
+  return authFetch(`${TEMPLATES_BASE}/${id}`).then((r: Response) =>
+    parseJson<ProcedureTemplate>(r),
+  );
+}
+
+export function createProcedureTemplate(
+  authFetch: AuthFetch,
+  input: CreateProcedureTemplateInput,
+): Promise<ProcedureTemplate> {
+  return authFetch(TEMPLATES_BASE, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(input),
+  }).then((r: Response) => parseJson<ProcedureTemplate>(r));
+}
+
+export function updateProcedureTemplate(
+  authFetch: AuthFetch,
+  id: string,
+  input: UpdateProcedureTemplateInput,
+): Promise<ProcedureTemplate> {
+  return authFetch(`${TEMPLATES_BASE}/${id}`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(input),
+  }).then((r: Response) => parseJson<ProcedureTemplate>(r));
+}
+
+export function listActiveProcedureTemplates(
+  authFetch: AuthFetch,
+): Promise<ProcedureTemplate[]> {
+  return authFetch(`${TEMPLATES_BASE}/active`).then((r: Response) =>
+    parseJson<ProcedureTemplate[]>(r),
+  );
+}
+
+export function transitionProcedureTemplate(
+  authFetch: AuthFetch,
+  id: string,
+  status: 'ACTIVE' | 'ARCHIVED' | 'DRAFT',
+): Promise<ProcedureTemplate> {
+  return authFetch(`${TEMPLATES_BASE}/${id}/transition`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ status }),
+  }).then((r: Response) => parseJson<ProcedureTemplate>(r));
+}
+
+export type DeleteProcedureTemplateResult = {
+  deleted: boolean;
+  archived: boolean;
+  message: string;
+};
+
+export function deleteProcedureTemplate(
+  authFetch: AuthFetch,
+  id: string,
+): Promise<DeleteProcedureTemplateResult> {
+  return authFetch(`${TEMPLATES_BASE}/${id}`, { method: 'DELETE' }).then(
+    (r: Response) => parseJson<DeleteProcedureTemplateResult>(r),
+  );
 }

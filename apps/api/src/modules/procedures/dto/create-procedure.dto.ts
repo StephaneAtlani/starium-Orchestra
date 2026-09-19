@@ -31,4 +31,10 @@ export class CreateProcedureDto {
   @IsString()
   @MaxLength(64)
   ownerUserId?: string;
+
+  /** Modèle ACTIVE optionnel — copie figée de l'outline à la création. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  templateId?: string;
 }

@@ -18,11 +18,15 @@ import {
 } from '@/components/ui/select';
 import type { ClientMember } from '@/features/client-rbac/api/user-roles';
 import { displayLabel, firstDisplayLabel } from '@/lib/display-label';
+import { cn } from '@/lib/utils';
 import { procedureCategoryLabel } from '../lib/procedure-labels';
 import type {
   CreateProcedureInput,
   ProcedureCategoryRef,
+  ProcedureTemplate,
 } from '../types/procedure.types';
+
+const NONE_TEMPLATE = '__none__';
 
 const schema = z.object({
   code: z.string().trim().min(1, 'Code obligatoire').max(64),
@@ -30,6 +34,7 @@ const schema = z.object({
   description: z.string().max(2000).optional(),
   categoryId: z.string().min(1, 'Catégorie obligatoire'),
   ownerUserId: z.string().optional(),
+  templateId: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -46,6 +51,8 @@ export function ProcedureCreateDialog({
   membersLoading,
   categories,
   categoriesLoading,
+  templates = [],
+  templatesLoading = false,
   onSubmit,
   isSubmitting,
 }: {
@@ -55,6 +62,8 @@ export function ProcedureCreateDialog({
   membersLoading: boolean;
   categories: ProcedureCategoryRef[];
   categoriesLoading: boolean;
+  templates?: ProcedureTemplate[];
+  templatesLoading?: boolean;
   onSubmit: (values: CreateProcedureInput) => void;
   isSubmitting: boolean;
 }) {
@@ -67,6 +76,7 @@ export function ProcedureCreateDialog({
       description: '',
       categoryId: defaultCategoryId,
       ownerUserId: '',
+      templateId: '',
     },
   });
 
@@ -78,6 +88,7 @@ export function ProcedureCreateDialog({
       description: '',
       categoryId: categories[0]?.id ?? '',
       ownerUserId: '',
+      templateId: '',
     });
   }, [open, form, categories]);
 
@@ -85,6 +96,18 @@ export function ProcedureCreateDialog({
   const selectedCat = categories.find(
     (c) => c.id === form.watch('categoryId'),
   );
+  const selectedTemplateId = form.watch('templateId') || '';
+  const selectedTemplate = templates.find((t) => t.id === selectedTemplateId);
+
+  useEffect(() => {
+    if (!selectedTemplate?.categoryId) return;
+    const exists = categories.some((c) => c.id === selectedTemplate.categoryId);
+    if (exists) {
+      form.setValue('categoryId', selectedTemplate.categoryId, {
+        shouldValidate: true,
+      });
+    }
+  }, [selectedTemplate, categories, form]);
 
   return (
     <StariumModal
@@ -125,6 +148,7 @@ export function ProcedureCreateDialog({
             description: values.description?.trim() || undefined,
             categoryId: values.categoryId,
             ownerUserId: values.ownerUserId || undefined,
+            templateId: values.templateId || undefined,
           });
         })}
       >
@@ -133,6 +157,65 @@ export function ProcedureCreateDialog({
             Aucune catégorie active — créez-en une dans Configuration.
           </p>
         ) : null}
+
+        <div className="starium-form-field space-y-2">
+          <Label htmlFor="procedure-template" className="starium-form-label">
+            Modèle (optionnel)
+          </Label>
+          <Select
+            value={selectedTemplateId || NONE_TEMPLATE}
+            onValueChange={(v) => {
+              form.setValue(
+                'templateId',
+                !v || v === NONE_TEMPLATE ? '' : v,
+                { shouldValidate: true },
+              );
+            }}
+            disabled={templatesLoading}
+          >
+            <SelectTrigger
+              id="procedure-template"
+              className="starium-form-select min-h-11 w-full"
+            >
+              <SelectValue placeholder="Document vide">
+                {selectedTemplate
+                  ? displayLabel(selectedTemplate.name, 'Modèle')
+                  : templatesLoading
+                    ? 'Chargement…'
+                    : 'Document vide'}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NONE_TEMPLATE}>Document vide</SelectItem>
+              {templates.map((t) => (
+                <SelectItem key={t.id} value={t.id}>
+                  {displayLabel(t.name, 'Modèle')}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {selectedTemplate && selectedTemplate.outline.length > 0 ? (
+            <div
+              className="rounded-lg border border-border/70 bg-muted/30 p-3 text-sm"
+              aria-live="polite"
+            >
+              <p className="mb-2 font-medium text-foreground">Aperçu de l’outline</p>
+              <ul className="space-y-1 text-muted-foreground">
+                {selectedTemplate.outline.map((item, i) => (
+                  <li
+                    key={`${item.level}-${i}-${item.title}`}
+                    className={cn(
+                      item.level === 2 && 'pl-3',
+                      item.level === 3 && 'pl-6',
+                    )}
+                  >
+                    H{item.level} — {displayLabel(item.title, 'Titre')}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </div>
         <div className="starium-form-field space-y-2">
           <Label htmlFor="procedure-code" className="starium-form-label">
             Code <span className="text-[var(--state-danger)]">*</span>

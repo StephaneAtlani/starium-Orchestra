@@ -94,6 +94,7 @@
       "procedures.publish",
       "procedures.configure",
       "procedures.archive",
+      "procedures.templates.manage",
       "governance_cycles.read",
       "governance_cycles.propose",
       "project_requests.read",

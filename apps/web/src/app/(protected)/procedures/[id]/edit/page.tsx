@@ -17,12 +17,13 @@ import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import {
   getProcedure,
-  getProcedureSettings,
+  getProcedureStakeholders,
   listProcedureCategories,
   transitionProcedure,
   updateProcedureDraft,
 } from '@/features/procedures/api/procedures.api';
 import { procedureQueryKeys } from '@/features/procedures/lib/procedure-query-keys';
+import { displayLabel } from '@/lib/display-label';
 import { procedureStatusLabel } from '@/features/procedures/lib/procedure-labels';
 import {
   ProcedureBlockEditor,
@@ -31,6 +32,7 @@ import {
 } from '@/features/procedures/components/procedure-block-editor';
 import { ProcedurePublishDialog } from '@/features/procedures/components/procedure-publish-dialog';
 import { ProcedureVersionHistory } from '@/features/procedures/components/procedure-version-history';
+import { ProcedureStakeholdersPanel } from '@/features/procedures/components/procedure-stakeholders-panel';
 import {
   ProcedureDiagramEditor,
   type DiagEdge,
@@ -48,6 +50,7 @@ function statusBadgeClass(status: ProcedureStatusApi): string {
     case 'PUBLISHED':
       return 'bg-[var(--state-success-bg)] text-[var(--state-success)]';
     case 'IN_REVIEW':
+    case 'PENDING_VALIDATION':
       return 'bg-[color-mix(in_srgb,var(--brand-gold)_20%,white)] text-[var(--brand-gold-700)]';
     case 'ARCHIVED':
       return 'bg-muted text-muted-foreground';
@@ -65,7 +68,6 @@ export default function ProcedureEditPage() {
   const clientId = activeClient?.id ?? '';
   const { has } = usePermissions();
   const canUpdate = has('procedures.update');
-  const canPublish = has('procedures.publish');
   const queryClient = useQueryClient();
 
   const q = useQuery({
@@ -80,10 +82,10 @@ export default function ProcedureEditPage() {
     enabled: Boolean(clientId),
   });
 
-  const settingsQ = useQuery({
-    queryKey: procedureQueryKeys.settings(clientId),
-    queryFn: () => getProcedureSettings(authFetch),
-    enabled: Boolean(clientId),
+  const stakeholdersQ = useQuery({
+    queryKey: procedureQueryKeys.stakeholders(clientId, procedureId),
+    queryFn: () => getProcedureStakeholders(authFetch, procedureId),
+    enabled: Boolean(clientId) && Boolean(procedureId),
   });
 
   const [doc, setDoc] = useState<ProcedureBlocksDoc | null>(null);
@@ -160,7 +162,7 @@ export default function ProcedureEditPage() {
 
   const transitionMut = useMutation({
     mutationFn: (input: {
-      to: 'DRAFT' | 'IN_REVIEW' | 'PUBLISHED';
+      to: 'DRAFT' | 'IN_REVIEW' | 'PENDING_VALIDATION' | 'PUBLISHED';
       bumpType?: ProcedureBumpType;
       changeSummary?: string;
     }) =>
@@ -170,17 +172,17 @@ export default function ProcedureEditPage() {
       }),
     onSuccess: async (res, input) => {
       const label = res.publishedVersion?.versionLabel;
-      toast.success(
+      const toastMsg =
         input.to === 'PUBLISHED'
           ? label
             ? `Procédure publiée — ${label}`
             : 'Procédure publiée'
           : input.to === 'IN_REVIEW'
-            ? usePilotageCycle
-              ? 'Procédure envoyée en revue'
-              : 'Procédure soumise pour validation'
-            : 'Retour en brouillon',
-      );
+            ? 'Procédure envoyée en relecture'
+            : input.to === 'PENDING_VALIDATION'
+              ? 'Relecture validée — en validation'
+              : 'Retour en brouillon';
+      toast.success(toastMsg);
       setPublishOpen(false);
       await queryClient.invalidateQueries({
         queryKey: procedureQueryKeys.all(clientId),
@@ -190,37 +192,49 @@ export default function ProcedureEditPage() {
   });
 
   const isArchived = q.data?.status === 'ARCHIVED';
-  const editable = Boolean(canUpdate && !isArchived && q.isSuccess);
   const status = q.data?.status;
-  const usePilotageCycle = settingsQ.data?.usePilotageCycle ?? true;
+  const contentEditable =
+    Boolean(canUpdate && !isArchived && q.isSuccess) &&
+    (status === 'DRAFT' || status === 'PUBLISHED');
+
+  const userId = user?.id;
+  const isEditor = Boolean(
+    userId && stakeholdersQ.data?.editors.some((e) => e.userId === userId),
+  );
+  const isReviewer = Boolean(
+    userId && stakeholdersQ.data?.reviewers.some((r) => r.userId === userId),
+  );
   const isValidator = Boolean(
-    user?.id &&
-      settingsQ.data?.validators.some((v) => v.userId === user.id),
+    userId && stakeholdersQ.data?.validators.some((v) => v.userId === userId),
   );
   const isClientAdmin = activeClient?.role === 'CLIENT_ADMIN';
   const isPlatformAdmin = user?.platformRole === 'PLATFORM_ADMIN';
-  const canApproveNonCycle =
-    canUpdate && (isValidator || isClientAdmin || isPlatformAdmin);
+  const canForce = isClientAdmin || isPlatformAdmin;
 
-  const canOpenPublish =
+  const canSendToReview =
+    canUpdate &&
+    (status === 'DRAFT' || status === 'PUBLISHED') &&
+    (isEditor || canForce);
+
+  const canValidateReview =
+    canUpdate &&
     status === 'IN_REVIEW' &&
-    ((usePilotageCycle && canPublish) ||
-      (!usePilotageCycle && canApproveNonCycle));
+    (isReviewer || canForce);
 
-  const primaryAction =
-    status === 'DRAFT' && canUpdate
-      ? ({
-          kind: 'review' as const,
-          label: usePilotageCycle ? 'Envoyer en revue' : 'Soumettre',
-        })
-      : canOpenPublish
-        ? ({ kind: 'publish' as const, label: 'Publier' })
-        : null;
+  const canPublish =
+    canUpdate &&
+    status === 'PENDING_VALIDATION' &&
+    (isValidator || canForce);
 
   const canRejectToDraft =
-    status === 'IN_REVIEW' &&
     canUpdate &&
-    (!usePilotageCycle || canPublish);
+    ((status === 'IN_REVIEW' && (isReviewer || canForce)) ||
+      (status === 'PENDING_VALIDATION' && (isValidator || canForce)));
+
+  const canRejectToReview =
+    canUpdate &&
+    status === 'PENDING_VALIDATION' &&
+    (isValidator || canForce);
 
   const published = q.data?.publishedVersion;
   const currentPublished =
@@ -255,6 +269,15 @@ export default function ProcedureEditPage() {
                 aria-hidden
               />
               {procedureStatusLabel(status)}
+            </span>
+          ) : null}
+
+          {q.data?.sourceTemplateLabel ? (
+            <span className="text-xs text-muted-foreground" aria-live="polite">
+              Créée depuis{' '}
+              <span className="font-medium text-foreground">
+                {displayLabel(q.data.sourceTemplateLabel, 'Modèle')}
+              </span>
             </span>
           ) : null}
 
@@ -310,22 +333,34 @@ export default function ProcedureEditPage() {
               <Clock className="size-4" aria-hidden />
               Versions
             </Button>
-            {primaryAction?.kind === 'review' ? (
+            {canSendToReview ? (
               <Button
                 type="button"
                 size="sm"
                 className="min-h-11 sm:min-h-9"
                 disabled={transitionMut.isPending}
                 aria-busy={transitionMut.isPending}
+                onClick={() => transitionMut.mutate({ to: 'IN_REVIEW' })}
+              >
+                <Check className="size-4" aria-hidden />
+                Envoyer en relecture
+              </Button>
+            ) : null}
+            {canValidateReview ? (
+              <Button
+                type="button"
+                size="sm"
+                className="min-h-11 sm:min-h-9"
+                disabled={transitionMut.isPending}
                 onClick={() =>
-                  transitionMut.mutate({ to: 'IN_REVIEW' })
+                  transitionMut.mutate({ to: 'PENDING_VALIDATION' })
                 }
               >
                 <Check className="size-4" aria-hidden />
-                {primaryAction.label}
+                Valider la relecture
               </Button>
             ) : null}
-            {primaryAction?.kind === 'publish' ? (
+            {canPublish ? (
               <Button
                 type="button"
                 size="sm"
@@ -334,7 +369,19 @@ export default function ProcedureEditPage() {
                 onClick={() => setPublishOpen(true)}
               >
                 <Check className="size-4" aria-hidden />
-                {primaryAction.label}
+                Publier
+              </Button>
+            ) : null}
+            {canRejectToReview ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="min-h-11 sm:min-h-9"
+                disabled={transitionMut.isPending}
+                onClick={() => transitionMut.mutate({ to: 'IN_REVIEW' })}
+              >
+                Renvoyer en relecture
               </Button>
             ) : null}
             {canRejectToDraft ? (
@@ -374,33 +421,44 @@ export default function ProcedureEditPage() {
               categoriesQ.data?.length ? categoriesQ.data : [category]
             }
             ownerLabel={q.data.ownerLabel}
+            ownerUserId={q.data.ownerUserId}
             publishedVersionLabel={
               q.data.publishedVersion?.versionLabel ?? null
             }
-            editable={editable}
+            editable={contentEditable}
+            governanceSlot={
+              <ProcedureStakeholdersPanel
+                procedureId={procedureId}
+                canManage={Boolean(
+                  canUpdate &&
+                    !isArchived &&
+                    (isEditor || canForce || q.data.status === 'DRAFT'),
+                )}
+              />
+            }
             historySlot={
               <ProcedureVersionHistory
                 procedureId={procedureId}
                 clientId={clientId}
                 authFetch={authFetch}
-                canRestore={editable}
+                canRestore={contentEditable}
               />
             }
             onOpenDiagram={(idx) => setDiagIndex(idx)}
             onChange={(next) => {
               setDoc(next);
-              if (editable) scheduleSave({ contentJson: next });
+              if (contentEditable) scheduleSave({ contentJson: next });
             }}
             onTitleChange={(t) => {
               setTitle(t);
-              if (editable) scheduleSave({ title: t });
+              if (contentEditable) scheduleSave({ title: t });
             }}
             onCategoryChange={(categoryId) => {
               const next =
                 categoriesQ.data?.find((c) => c.id === categoryId) ??
                 (category.id === categoryId ? category : null);
               if (next) setCategory(next);
-              if (editable) scheduleSave({ categoryId });
+              if (contentEditable) scheduleSave({ categoryId });
             }}
           />
         ) : null}
@@ -447,11 +505,10 @@ export default function ProcedureEditPage() {
                   ? { ...b, title: t, nodes, edges }
                   : b,
               );
-              const next = { schemaVersion: 2 as const, blocks };
+              const next = { ...doc, blocks };
               setDoc(next);
-              scheduleSave({ contentJson: next });
               setDiagIndex(null);
-              toast.success('Schéma inséré dans la procédure');
+              if (contentEditable) scheduleSave({ contentJson: next });
             }}
           />
         ) : null}

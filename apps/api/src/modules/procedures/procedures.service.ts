@@ -3,21 +3,22 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import {
   Prisma,
   ProcedureStatus,
+  ProcedureStakeholderRole,
+  ProcedureTemplateStatus,
   ProcedureVersionBumpType,
   ProcedureVersionLifecycle,
-  ClientUserRole,
-  ClientUserStatus,
-  PlatformRole,
+  NotificationType,
 } from '@prisma/client';
-import { satisfiesPermission } from '@starium-orchestra/rbac-permissions';
-import { EffectivePermissionsService } from '../../common/services/effective-permissions.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { EmailService } from '../email/email.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateProcedureDto } from './dto/create-procedure.dto';
 import { ListProceduresQueryDto } from './dto/list-procedures.query.dto';
 import { TransitionProcedureDto } from './dto/transition-procedure.dto';
@@ -28,6 +29,10 @@ import {
   EMPTY_PROCEDURE_DOC,
   isProcedureContentEmpty,
 } from './lib/procedure-content.util';
+import {
+  contentJsonFromTemplateOutline,
+  normalizeProcedureTemplateOutline,
+} from './lib/procedure-template-outline.util';
 import { personDisplayLabel } from './lib/procedure-display.util';
 import {
   formatProcedureVersionLabel,
@@ -35,7 +40,7 @@ import {
 } from './lib/procedure-version.util';
 import { ProcedureAssetsService } from './procedure-assets.service';
 import { ProcedureCategoriesService } from './procedure-categories.service';
-import { ProcedureSettingsService } from './procedure-settings.service';
+import { ProcedureStakeholdersService } from './procedure-stakeholders.service';
 
 type AuditMeta = {
   ipAddress?: string;
@@ -46,6 +51,14 @@ type AuditMeta = {
 type CategoryRef = { id: string; code: string; label: string };
 
 const EMPTY_DOC = EMPTY_PROCEDURE_DOC;
+
+const STATUS_LABEL_FR: Record<ProcedureStatus, string> = {
+  DRAFT: 'Brouillon',
+  IN_REVIEW: 'En relecture',
+  PENDING_VALIDATION: 'En validation',
+  PUBLISHED: 'Publiée',
+  ARCHIVED: 'Archivée',
+};
 
 function isPrismaUniqueConstraintError(error: unknown): boolean {
   return (
@@ -62,13 +75,16 @@ function normalizeCode(code: string): string {
 
 @Injectable()
 export class ProceduresService {
+  private readonly logger = new Logger(ProceduresService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogs: AuditLogsService,
     private readonly assets: ProcedureAssetsService,
-    private readonly effectivePermissions: EffectivePermissionsService,
     private readonly categories: ProcedureCategoriesService,
-    private readonly settings: ProcedureSettingsService,
+    private readonly stakeholders: ProcedureStakeholdersService,
+    private readonly notifications: NotificationsService,
+    private readonly emailService: EmailService,
   ) {}
 
   async list(clientId: string, query: ListProceduresQueryDto) {
@@ -158,6 +174,7 @@ export class ProceduresService {
       where: { id, clientId },
       include: {
         category: { select: { id: true, code: true, label: true } },
+        sourceTemplate: { select: { id: true, name: true } },
       },
     });
     if (!row) throw new NotFoundException('Procédure introuvable');
@@ -187,7 +204,7 @@ export class ProceduresService {
       : null;
 
     return {
-      ...this.toDetail(row, owner, row.category),
+      ...this.toDetail(row, owner, row.category, row.sourceTemplate),
       publishedVersion: published
         ? this.toPublishedVersionSummary(published, row.currentPublishedVersionId)
         : null,
@@ -388,6 +405,10 @@ export class ProceduresService {
     actorUserId?: string,
     meta?: AuditMeta,
   ) {
+    if (!actorUserId) {
+      throw new ForbiddenException('Utilisateur requis');
+    }
+
     const procedure = await this.prisma.procedure.findFirst({
       where: { id, clientId },
     });
@@ -397,6 +418,23 @@ export class ProceduresService {
         'Procédure archivée — désarchiver pour modifier le contenu',
       );
     }
+    if (
+      procedure.status === ProcedureStatus.IN_REVIEW ||
+      procedure.status === ProcedureStatus.PENDING_VALIDATION
+    ) {
+      throw new BadRequestException(
+        'Contenu non modifiable en relecture ou en validation',
+      );
+    }
+    if (
+      procedure.status !== ProcedureStatus.DRAFT &&
+      procedure.status !== ProcedureStatus.PUBLISHED
+    ) {
+      throw new BadRequestException('Statut incompatible avec l’édition');
+    }
+
+    await this.assertEditorOrAdmin(clientId, id, actorUserId);
+
     if (!procedure.currentDraftVersionId) {
       throw new BadRequestException('Aucun brouillon courant');
     }
@@ -502,9 +540,6 @@ export class ProceduresService {
     }
 
     const to = dto.to as ProcedureStatus;
-    if (to === ProcedureStatus.PUBLISHED) {
-      await this.assertCanPublish(clientId, actorUserId);
-    }
 
     const procedure = await this.prisma.procedure.findFirst({
       where: { id, clientId },
@@ -530,23 +565,41 @@ export class ProceduresService {
     }
 
     const allowed =
-      (from === ProcedureStatus.DRAFT &&
-        (to === ProcedureStatus.IN_REVIEW || to === ProcedureStatus.DRAFT)) ||
+      (from === ProcedureStatus.DRAFT && to === ProcedureStatus.IN_REVIEW) ||
       (from === ProcedureStatus.IN_REVIEW &&
         (to === ProcedureStatus.DRAFT ||
-          to === ProcedureStatus.PUBLISHED ||
-          to === ProcedureStatus.IN_REVIEW)) ||
+          to === ProcedureStatus.PENDING_VALIDATION)) ||
+      (from === ProcedureStatus.PENDING_VALIDATION &&
+        (to === ProcedureStatus.DRAFT ||
+          to === ProcedureStatus.IN_REVIEW ||
+          to === ProcedureStatus.PUBLISHED)) ||
       (from === ProcedureStatus.PUBLISHED &&
         (to === ProcedureStatus.IN_REVIEW || to === ProcedureStatus.DRAFT));
 
     if (!allowed) {
       throw new BadRequestException(
-        `Transition ${from} → ${to} non autorisée`,
+        `Transition ${STATUS_LABEL_FR[from]} → ${STATUS_LABEL_FR[to]} non autorisée`,
       );
+    }
+
+    await this.assertTransitionActor(clientId, id, from, to, actorUserId);
+
+    if (to === ProcedureStatus.IN_REVIEW) {
+      const counts = await this.stakeholders.countByRole(clientId, id);
+      if (
+        counts.EDITOR < 1 ||
+        counts.REVIEWER < 1 ||
+        counts.VALIDATOR < 1
+      ) {
+        throw new BadRequestException(
+          'Ajoutez au moins un rédacteur, un relecteur et un validateur avant d’envoyer en relecture',
+        );
+      }
     }
 
     if (
       to === ProcedureStatus.IN_REVIEW ||
+      to === ProcedureStatus.PENDING_VALIDATION ||
       to === ProcedureStatus.PUBLISHED
     ) {
       if (!procedure.currentDraftVersionId) {
@@ -568,7 +621,7 @@ export class ProceduresService {
       }
 
       if (to === ProcedureStatus.PUBLISHED) {
-        return this.publishFromDraft(
+        const published = await this.publishFromDraft(
           clientId,
           procedure,
           draft,
@@ -577,6 +630,16 @@ export class ProceduresService {
           actorUserId,
           meta,
         );
+        await this.notifyTransitionRecipients(
+          clientId,
+          id,
+          procedure.title,
+          from,
+          ProcedureStatus.PUBLISHED,
+          actorUserId,
+          procedure.ownerUserId,
+        );
+        return published;
       }
     }
 
@@ -597,6 +660,16 @@ export class ProceduresService {
       userAgent: meta?.userAgent,
       requestId: meta?.requestId,
     });
+
+    await this.notifyTransitionRecipients(
+      clientId,
+      id,
+      procedure.title,
+      from,
+      to,
+      actorUserId,
+      procedure.ownerUserId,
+    );
 
     return this.getById(clientId, id);
   }
@@ -764,6 +837,32 @@ export class ProceduresService {
       await this.ensureOwnerInClient(clientId, dto.ownerUserId);
     }
 
+    let sourceTemplateId: string | null = null;
+    let sourceTemplateName: string | null = null;
+    let initialContent: Record<string, unknown> = EMPTY_DOC as unknown as Record<
+      string,
+      unknown
+    >;
+
+    if (dto.templateId) {
+      const template = await this.prisma.procedureTemplate.findFirst({
+        where: {
+          id: dto.templateId,
+          clientId,
+          status: ProcedureTemplateStatus.ACTIVE,
+        },
+      });
+      if (!template) {
+        throw new BadRequestException(
+          'Modèle introuvable, inactif ou hors client',
+        );
+      }
+      const { items } = normalizeProcedureTemplateOutline(template.outlineJson);
+      initialContent = contentJsonFromTemplateOutline(items);
+      sourceTemplateId = template.id;
+      sourceTemplateName = template.name;
+    }
+
     const categoryId = await this.categories.resolveActiveCategoryId(
       clientId,
       dto.categoryId,
@@ -781,6 +880,8 @@ export class ProceduresService {
             status: ProcedureStatus.DRAFT,
             ownerUserId: dto.ownerUserId || null,
             createdByUserId: actorUserId ?? null,
+            sourceTemplateId,
+            sourceTemplateName,
           },
         });
 
@@ -793,7 +894,7 @@ export class ProceduresService {
             bumpType: null,
             lifecycle: ProcedureVersionLifecycle.DRAFT,
             title,
-            contentJson: EMPTY_DOC,
+            contentJson: initialContent as Prisma.InputJsonValue,
           },
         });
 
@@ -814,11 +915,20 @@ export class ProceduresService {
           title: created.title,
           status: created.status,
           categoryId: created.categoryId,
+          sourceTemplateId: created.sourceTemplateId,
         },
         ipAddress: meta?.ipAddress,
         userAgent: meta?.userAgent,
         requestId: meta?.requestId,
       });
+
+      if (actorUserId) {
+        await this.stakeholders.ensureCreatorAsEditor(
+          clientId,
+          created.id,
+          actorUserId,
+        );
+      }
 
       return this.getById(clientId, created.id);
     } catch (error) {
@@ -890,7 +1000,9 @@ export class ProceduresService {
         ? ProcedureStatus.PUBLISHED
         : existing.statusBeforeArchive === ProcedureStatus.IN_REVIEW
           ? ProcedureStatus.IN_REVIEW
-          : ProcedureStatus.DRAFT;
+          : existing.statusBeforeArchive === ProcedureStatus.PENDING_VALIDATION
+            ? ProcedureStatus.PENDING_VALIDATION
+            : ProcedureStatus.DRAFT;
 
     const updated = await this.prisma.procedure.update({
       where: { id },
@@ -918,6 +1030,169 @@ export class ProceduresService {
     return this.getById(clientId, id);
   }
 
+  private async assertEditorOrAdmin(
+    clientId: string,
+    procedureId: string,
+    actorUserId: string,
+  ): Promise<void> {
+    if (await this.stakeholders.isAdminForcer(clientId, actorUserId)) return;
+    if (
+      await this.stakeholders.hasRole(
+        clientId,
+        procedureId,
+        actorUserId,
+        ProcedureStakeholderRole.EDITOR,
+      )
+    ) {
+      return;
+    }
+    throw new ForbiddenException(
+      'Seul un rédacteur de cette procédure (ou un administrateur) peut modifier le contenu',
+    );
+  }
+
+  private async assertTransitionActor(
+    clientId: string,
+    procedureId: string,
+    from: ProcedureStatus,
+    to: ProcedureStatus,
+    actorUserId: string,
+  ): Promise<void> {
+    if (await this.stakeholders.isAdminForcer(clientId, actorUserId)) return;
+
+    let required: ProcedureStakeholderRole | null = null;
+    if (
+      (from === ProcedureStatus.DRAFT || from === ProcedureStatus.PUBLISHED) &&
+      (to === ProcedureStatus.IN_REVIEW || to === ProcedureStatus.DRAFT)
+    ) {
+      required = ProcedureStakeholderRole.EDITOR;
+    } else if (from === ProcedureStatus.IN_REVIEW) {
+      required = ProcedureStakeholderRole.REVIEWER;
+    } else if (from === ProcedureStatus.PENDING_VALIDATION) {
+      required = ProcedureStakeholderRole.VALIDATOR;
+    }
+
+    if (
+      required &&
+      (await this.stakeholders.hasRole(
+        clientId,
+        procedureId,
+        actorUserId,
+        required,
+      ))
+    ) {
+      return;
+    }
+
+    const roleLabel =
+      required === ProcedureStakeholderRole.EDITOR
+        ? 'rédacteur'
+        : required === ProcedureStakeholderRole.REVIEWER
+          ? 'relecteur'
+          : required === ProcedureStakeholderRole.VALIDATOR
+            ? 'validateur'
+            : 'acteur';
+    throw new ForbiddenException(
+      `Seul un ${roleLabel} de cette procédure (ou un administrateur) peut effectuer cette action`,
+    );
+  }
+
+  private async notifyTransitionRecipients(
+    clientId: string,
+    procedureId: string,
+    title: string,
+    from: ProcedureStatus,
+    to: ProcedureStatus,
+    actorUserId: string,
+    ownerUserId: string | null,
+  ): Promise<void> {
+    let role: ProcedureStakeholderRole | null = null;
+    let includeOwner = false;
+    let titleNotif: string;
+    let message: string;
+
+    if (to === ProcedureStatus.IN_REVIEW) {
+      role = ProcedureStakeholderRole.REVIEWER;
+      titleNotif = 'Procédure à relire';
+      message = `« ${title} » est en relecture.`;
+    } else if (to === ProcedureStatus.PENDING_VALIDATION) {
+      role = ProcedureStakeholderRole.VALIDATOR;
+      titleNotif = 'Procédure à valider';
+      message = `« ${title} » attend votre validation pour publication.`;
+    } else if (to === ProcedureStatus.PUBLISHED) {
+      role = ProcedureStakeholderRole.EDITOR;
+      includeOwner = true;
+      titleNotif = 'Procédure publiée';
+      message = `« ${title} » a été publiée.`;
+    } else if (to === ProcedureStatus.DRAFT) {
+      role = ProcedureStakeholderRole.EDITOR;
+      titleNotif = 'Procédure renvoyée en brouillon';
+      message = `« ${title} » est de nouveau en brouillon (${STATUS_LABEL_FR[from]} → Brouillon).`;
+    } else {
+      return;
+    }
+
+    const recipientIds = new Set<string>();
+    if (role) {
+      for (const uid of await this.stakeholders.listUserIdsByRole(
+        clientId,
+        procedureId,
+        role,
+      )) {
+        recipientIds.add(uid);
+      }
+    }
+    if (includeOwner && ownerUserId) {
+      recipientIds.add(ownerUserId);
+    }
+    recipientIds.delete(actorUserId);
+    if (recipientIds.size === 0) return;
+
+    const actionUrl = `/procedures/${procedureId}/edit`;
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: [...recipientIds] } },
+      select: { id: true, email: true },
+    });
+
+    for (const user of users) {
+      try {
+        await this.notifications.createForUser({
+          clientId,
+          userId: user.id,
+          actorUserId,
+          type: NotificationType.INFO,
+          title: titleNotif,
+          message,
+          entityType: 'procedure',
+          entityId: procedureId,
+          entityLabel: title,
+          actionUrl,
+        });
+      } catch {
+        this.logger.warn(
+          `Notif in-app procédure échouée procedureId=${procedureId} userId=${user.id}`,
+        );
+      }
+
+      if (!user.email?.trim()) continue;
+      try {
+        await this.emailService.queueEmail({
+          clientId,
+          createdByUserId: actorUserId,
+          recipient: user.email,
+          templateKey: 'generic_notification',
+          title: titleNotif,
+          message,
+          actionUrl,
+        });
+      } catch {
+        this.logger.warn(
+          `Notif mail procédure échouée procedureId=${procedureId}`,
+        );
+      }
+    }
+  }
+
   private async ensureOwnerInClient(clientId: string, userId: string) {
     const membership = await this.prisma.clientUser.findFirst({
       where: { clientId, userId },
@@ -928,52 +1203,6 @@ export class ProceduresService {
         'Propriétaire introuvable dans le client actif',
       );
     }
-  }
-
-  private async assertCanPublish(
-    clientId: string,
-    actorUserId: string,
-  ): Promise<void> {
-    const settings = await this.settings.getOrCreate(clientId);
-    if (settings.usePilotageCycle) {
-      const codes =
-        await this.effectivePermissions.resolvePermissionCodesForRequest({
-          userId: actorUserId,
-          clientId,
-        });
-      if (!satisfiesPermission(codes, 'procedures.publish')) {
-        throw new ForbiddenException('Permission procedures.publish requise');
-      }
-      return;
-    }
-
-    if (settings.validators.some((v) => v.userId === actorUserId)) {
-      return;
-    }
-
-    const membership = await this.prisma.clientUser.findFirst({
-      where: {
-        clientId,
-        userId: actorUserId,
-        status: ClientUserStatus.ACTIVE,
-      },
-      select: { role: true },
-    });
-    if (membership?.role === ClientUserRole.CLIENT_ADMIN) {
-      return;
-    }
-
-    const user = await this.prisma.user.findUnique({
-      where: { id: actorUserId },
-      select: { platformRole: true },
-    });
-    if (user?.platformRole === PlatformRole.PLATFORM_ADMIN) {
-      return;
-    }
-
-    throw new ForbiddenException(
-      'Seul un validateur configuré (ou un administrateur) peut approuver la publication',
-    );
   }
 
   private ownerLabel(owner: {
@@ -1092,6 +1321,8 @@ export class ProceduresService {
       ownerUserId: string | null;
       currentDraftVersionId: string | null;
       currentPublishedVersionId: string | null;
+      sourceTemplateId: string | null;
+      sourceTemplateName: string | null;
       createdAt: Date;
       updatedAt: Date;
     },
@@ -1101,7 +1332,11 @@ export class ProceduresService {
       email: string;
     } | null,
     category: CategoryRef,
+    sourceTemplate: { id: string; name: string } | null,
   ) {
+    const liveName = sourceTemplate?.name?.trim() || null;
+    const snapshotName = row.sourceTemplateName?.trim() || null;
+    const displayName = liveName || snapshotName;
     return {
       id: row.id,
       code: row.code,
@@ -1110,9 +1345,13 @@ export class ProceduresService {
       categoryId: category.id,
       category,
       status: row.status,
+      ownerUserId: row.ownerUserId,
       ownerLabel: this.ownerLabel(owner),
       currentDraftVersionId: row.currentDraftVersionId,
       currentPublishedVersionId: row.currentPublishedVersionId,
+      sourceTemplateId: row.sourceTemplateId,
+      sourceTemplateName: snapshotName,
+      sourceTemplateLabel: displayName,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     };

@@ -1,6 +1,7 @@
 export type ProcedureStatusApi =
   | 'DRAFT'
   | 'IN_REVIEW'
+  | 'PENDING_VALIDATION'
   | 'PUBLISHED'
   | 'ARCHIVED';
 
@@ -57,9 +58,14 @@ export type ProcedureDetail = {
   categoryId: string;
   category: ProcedureCategoryRef;
   status: ProcedureStatusApi;
+  ownerUserId: string | null;
   ownerLabel: string | null;
   currentDraftVersionId: string | null;
   currentPublishedVersionId: string | null;
+  sourceTemplateId?: string | null;
+  sourceTemplateName?: string | null;
+  /** Libellé affiché : nom live du modèle si dispo, sinon snapshot. */
+  sourceTemplateLabel?: string | null;
   createdAt: string;
   updatedAt: string;
   publishedVersion: ProcedurePublishedVersionSummary | null;
@@ -99,11 +105,43 @@ export type CreateProcedureInput = {
   description?: string;
   categoryId?: string;
   ownerUserId?: string;
+  templateId?: string;
 };
 
 export type TransitionProcedureInput = {
-  to: 'DRAFT' | 'IN_REVIEW' | 'PUBLISHED';
+  to: 'DRAFT' | 'IN_REVIEW' | 'PENDING_VALIDATION' | 'PUBLISHED';
   bumpType?: ProcedureBumpType;
   changeSummary?: string;
   expectedUpdatedAt?: string;
+};
+
+export type ProcedureTemplateStatusApi = 'DRAFT' | 'ACTIVE' | 'ARCHIVED';
+
+export type ProcedureTemplateOutlineItem = {
+  level: 1 | 2 | 3;
+  title: string;
+};
+
+export type ProcedureTemplate = {
+  id: string;
+  name: string;
+  status: ProcedureTemplateStatusApi;
+  categoryId: string | null;
+  category: ProcedureCategoryRef | null;
+  outline: ProcedureTemplateOutlineItem[];
+  hierarchyWarnings: string[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CreateProcedureTemplateInput = {
+  name: string;
+  categoryId?: string | null;
+  outline?: ProcedureTemplateOutlineItem[];
+};
+
+export type UpdateProcedureTemplateInput = {
+  name?: string;
+  categoryId?: string | null;
+  outline?: ProcedureTemplateOutlineItem[];
 };

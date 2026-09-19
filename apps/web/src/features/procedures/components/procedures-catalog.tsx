@@ -16,7 +16,7 @@ import { useClientMembers } from '@/features/client-rbac/hooks/use-client-member
 import { toast } from '@/lib/toast';
 import { displayLabel } from '@/lib/display-label';
 import { cn } from '@/lib/utils';
-import { createProcedure, listProcedureCategories, listProcedures } from '../api/procedures.api';
+import { createProcedure, listActiveProcedureTemplates, listProcedureCategories, listProcedures } from '../api/procedures.api';
 import { procedureQueryKeys } from '../lib/procedure-query-keys';
 import {
   procedureCategoryLabel,
@@ -27,12 +27,18 @@ import { ProcedureCreateDialog } from './procedure-create-dialog';
 
 const PAGE_SIZE = 48;
 
-type SegFilter = 'all' | 'PUBLISHED' | 'IN_REVIEW' | 'DRAFT';
+type SegFilter =
+  | 'all'
+  | 'PUBLISHED'
+  | 'PENDING_VALIDATION'
+  | 'IN_REVIEW'
+  | 'DRAFT';
 
 const SEGMENTS: { id: SegFilter; label: string }[] = [
   { id: 'all', label: 'Toutes' },
   { id: 'PUBLISHED', label: 'Publiées' },
-  { id: 'IN_REVIEW', label: 'En revue' },
+  { id: 'PENDING_VALIDATION', label: 'En validation' },
+  { id: 'IN_REVIEW', label: 'En relecture' },
   { id: 'DRAFT', label: 'Brouillons' },
 ];
 
@@ -68,6 +74,7 @@ function statusBadgeClass(status: ProcedureStatusApi): string {
     case 'PUBLISHED':
       return 'starium-ds-badge--success';
     case 'IN_REVIEW':
+    case 'PENDING_VALIDATION':
       return 'starium-ds-badge--warn';
     case 'ARCHIVED':
       return 'starium-ds-badge--neutral';
@@ -189,6 +196,12 @@ export function ProceduresCatalog({
     queryKey: procedureQueryKeys.categories(clientId, true),
     queryFn: () => listProcedureCategories(authFetch, { activeOnly: true }),
     enabled: Boolean(clientId) && createDialogOpen,
+  });
+
+  const templatesQ = useQuery({
+    queryKey: [...procedureQueryKeys.templates(clientId), 'active'],
+    queryFn: () => listActiveProcedureTemplates(authFetch),
+    enabled: Boolean(clientId) && createDialogOpen && canCreate,
   });
 
   const createMut = useMutation({
@@ -315,6 +328,8 @@ export function ProceduresCatalog({
         membersLoading={membersQ.isLoading}
         categories={categoriesQ.data ?? []}
         categoriesLoading={categoriesQ.isLoading}
+        templates={templatesQ.data ?? []}
+        templatesLoading={templatesQ.isLoading}
         isSubmitting={createMut.isPending}
         onSubmit={(values) => createMut.mutate(values)}
       />

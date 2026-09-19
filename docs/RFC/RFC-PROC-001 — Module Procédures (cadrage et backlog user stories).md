@@ -6,7 +6,7 @@ Version : 1.0 — 17 septembre 2026
 | --- | --- |
 | **Statut** | 📝 Draft — cadrage produit |
 | **Priorité** | Haute (gouvernance documentaire / conformité) |
-| **Livraisons** | [PROC-002](./RFC-PROC-002%20—%20Créer%20éditer%20archiver%20procédures%20et%20contenu%20riche.md) · [PROC-006](./RFC-PROC-006%20—%20CDC%20Procédures%20fidélité%20mock%20design%20handoff.md) (**cible UX**) · [PROC-007](./RFC-PROC-007%20—%20Configuration%20module%20Procédures%20(cycle%20validateurs%20catégories).md) (**config module**) · [PROC-005](./RFC-PROC-005%20—%20Éditeur%20riche%20avancé%20des%20procédures.md) (historique TipTap, supersédé) · [PROC-003](./RFC-PROC-003%20—%20Versioning%20des%20procédures.md) · [PROC-004](./RFC-PROC-004%20—%20Export%20Word%20PDF%20procédures%20avec%20logo.md) |
+| **Livraisons** | [PROC-002](./RFC-PROC-002%20—%20Créer%20éditer%20archiver%20procédures%20et%20contenu%20riche.md) · [PROC-006](./RFC-PROC-006%20—%20CDC%20Procédures%20fidélité%20mock%20design%20handoff.md) (**cible UX**) · [PROC-007](./RFC-PROC-007%20—%20Configuration%20module%20Procédures%20(cycle%20validateurs%20catégories).md) (**config module**) · [PROC-008](./RFC-PROC-008%20—%20Modèles%20de%20procédures%20(outline%20client).md) (**modèles outline**) · [PROC-005](./RFC-PROC-005%20—%20Éditeur%20riche%20avancé%20des%20procédures.md) (historique TipTap, supersédé) · [PROC-003](./RFC-PROC-003%20—%20Versioning%20des%20procédures.md) · [PROC-004](./RFC-PROC-004%20—%20Export%20Word%20PDF%20procédures%20avec%20logo.md) |
 | **Dépendances** | Multi-client + RBAC · stockage fichiers (RFC-035) · branding client · Conformité (pont futur preuves / références) |
 | **Hors scope immédiat** | GED universelle · sync SharePoint · portail public · signature électronique · IA de rédaction |
 
@@ -89,6 +89,12 @@ En tant qu’utilisateur autorisé du **client actif**, je gère le cycle de vie
 | **US-PROC-29** | Éditeur schéma SVG + preview | **PROC-006** | P0 |
 | **US-PROC-30** | contentJson v2 API + isolation client | **PROC-006** | P0 |
 | **US-PROC-31** | Configurer le module (cycle pilotage, validateurs, catégories) | **[PROC-007](./RFC-PROC-007%20—%20Configuration%20module%20Procédures%20(cycle%20validateurs%20catégories).md)** | P0 |
+| **US-PROC-32** | CRUD modèles outline (brouillon) | **[PROC-008](./RFC-PROC-008%20—%20Modèles%20de%20procédures%20(outline%20client).md)** | P0 |
+| **US-PROC-33** | Warning imbrication titres | **PROC-008** | P0 |
+| **US-PROC-34** | Activer / archiver / éditer modèle actif | **PROC-008** | P0 |
+| **US-PROC-35** | Page modèles + droits manage | **PROC-008** | P0 |
+| **US-PROC-36** | Création procédure depuis modèle ACTIVE | **PROC-008** | P0 |
+| **US-PROC-37** | Traçabilité « Créée depuis… » + delete/archive forcée | **PROC-008** | P0 |
 
 Critères d’acceptation détaillés dans chaque RFC fille.
 

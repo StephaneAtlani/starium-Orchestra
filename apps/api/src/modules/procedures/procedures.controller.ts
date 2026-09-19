@@ -20,9 +20,11 @@ import { CreateProcedureDto } from './dto/create-procedure.dto';
 import { ListProceduresQueryDto } from './dto/list-procedures.query.dto';
 import { TransitionProcedureDto } from './dto/transition-procedure.dto';
 import { UpdateProcedureDraftDto } from './dto/update-procedure-draft.dto';
+import { UpdateProcedureStakeholdersDto } from './dto/update-procedure-stakeholders.dto';
 import { ProceduresService } from './procedures.service';
 import { ProcedureSettingsService } from './procedure-settings.service';
 import { ProcedureCategoriesService } from './procedure-categories.service';
+import { ProcedureStakeholdersService } from './procedure-stakeholders.service';
 import { UpdateProcedureSettingsDto } from './dto/update-procedure-settings.dto';
 import {
   CreateProcedureCategoryDto,
@@ -36,6 +38,7 @@ export class ProceduresController {
     private readonly proceduresService: ProceduresService,
     private readonly settingsService: ProcedureSettingsService,
     private readonly categoriesService: ProcedureCategoriesService,
+    private readonly stakeholdersService: ProcedureStakeholdersService,
   ) {}
 
   @Get()
@@ -135,6 +138,34 @@ export class ProceduresController {
     @Param('id') id: string,
   ) {
     return this.proceduresService.listVersions(clientId!, id);
+  }
+
+  @Get(':id/stakeholders')
+  @RequirePermissions('procedures.read')
+  listStakeholders(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+  ) {
+    return this.stakeholdersService.list(clientId!, id);
+  }
+
+  @Patch(':id/stakeholders')
+  @RequirePermissions('procedures.update')
+  updateStakeholders(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+    @Body() dto: UpdateProcedureStakeholdersDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta()
+    meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    return this.stakeholdersService.replace(
+      clientId!,
+      id,
+      dto,
+      actorUserId,
+      meta,
+    );
   }
 
   @Get(':id/versions/:versionId')

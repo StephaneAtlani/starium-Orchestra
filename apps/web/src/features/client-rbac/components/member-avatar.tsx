@@ -1,6 +1,7 @@
 'use client';
 
 import { UserInitialsAvatar } from '@/components/ui/user-initials-avatar';
+import { cn } from '@/lib/utils';
 import { useMemberAvatarUrl } from '../hooks/use-member-avatar-url';
 
 export function MemberAvatar({
@@ -8,11 +9,13 @@ export function MemberAvatar({
   displayName,
   hasAvatar,
   size = 'md',
+  className,
 }: {
   userId: string;
   displayName: string;
   hasAvatar?: boolean;
   size?: 'sm' | 'md' | 'lg';
+  className?: string;
 }) {
   const imageUrl = useMemberAvatarUrl(userId, Boolean(hasAvatar));
 
@@ -23,7 +26,7 @@ export function MemberAvatar({
       imageUrl={imageUrl}
       size={size}
       title={displayName}
-      className="shadow-sm ring-1 ring-border/40"
+      className={cn('shadow-sm ring-1 ring-border/40', className)}
     />
   );
 }

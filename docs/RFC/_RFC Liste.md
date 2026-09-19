@@ -1,6 +1,6 @@
 # Index des RFC (Starium Orchestra)
 
-> Dernière révision documentaire : **2026-09-18** — **RFC-PROC-007** Draft (US-PROC-31 config cycle/validateurs/catégories) ; **RFC-PROC-006** 🟡 F0–F5 + polish ; **RFC-COMP-004** Draft ; **RFC-COMP-002 / COMP-003** ; **RFC-PROJ-ARB-001** Draft. Antérieur **2026-09-17** — **RFC-COMP-001-A** ✅ MVP ; COMP.UX.0–3 ; **RFC-ADM-002**.
+> Dernière révision documentaire : **2026-09-19** — **RFC-PROC-008** ✅ modèles outline procédures ; Antérieur **2026-09-18** — **RFC-PROC-007** ; **RFC-PROC-006** ; **RFC-COMP-004** Draft.
 >
 > **Collision de numéro** : deux fichiers distincts portent **RFC-PROJ-012** — [Project Sheet (fiche décisionnelle)](./RFC-PROJ-012%20%E2%80%94%20Project%20Sheet.md) et [Gantt Tâches et Jalons (UI planning)](./RFC-PROJ-012%20%E2%80%94%20Gantt%20T%C3%A2ches%20et%20Jalons.md). Ne pas les fusionner dans les tableaux ci-dessous.
 >
@@ -379,10 +379,11 @@ Module `meetings` en **surcouche** : il orchestre le rituel (template, périmèt
 | **RFC-COMP-002** | Campagnes et dossier d’audit (V2) | ✅ V2.8 (launch + remédiation plans) | Campagnes, snapshot scopé, write-scope, UI « Lancer une revue », `POST …/remediation-plan` — [RFC](./RFC-COMP-002%20%E2%80%94%20Campagnes%20et%20dossier%20d'audit.md) |
 | **RFC-COMP-003** | CDC Conformité (fidélité mock) | ✅ UX.0–3 + COMP.V2 + owner launch | Fiche FW, remédiation, revue, pont ActionPlan, owner obligatoire — [RFC](./RFC-COMP-003%20%E2%80%94%20CDC%20Conformit%C3%A9%20(fid%C3%A9lit%C3%A9%20mock).md) |
 | **RFC-COMP-004** | Gestion des preuves de conformité | 🟡 EV.1–6 ✅ · EV.7 reporté | Liste/CRUD/appréciation/versions/REFERENCE/réutilisation — [RFC](./RFC-COMP-004%20%E2%80%94%20Gestion%20des%20preuves%20de%20conformit%C3%A9.md) |
-| **RFC-PROC-001** | Module Procédures — cadrage & backlog US | 📝 Draft | Cadrage + index US-01…14 + **US-20…31** — [RFC](./RFC-PROC-001%20%E2%80%94%20Module%20Proc%C3%A9dures%20(cadrage%20et%20backlog%20user%20stories).md) |
+| **RFC-PROC-001** | Module Procédures — cadrage & backlog US | 📝 Draft | Cadrage + index US-01…14 + **US-20…31** + **US-32…37** (PROC-008) — [RFC](./RFC-PROC-001%20%E2%80%94%20Module%20Proc%C3%A9dures%20(cadrage%20et%20backlog%20user%20stories).md) |
 | **RFC-PROC-002** | Créer / éditer / archiver + contenu riche | 🟡 US-01…04 ✅ (socle) | CRUD + assets ; **contenu → blocs v2 PROC-006** (TipTap MVP obsolète) — [RFC](./RFC-PROC-002%20%E2%80%94%20Cr%C3%A9er%20%C3%A9diter%20archiver%20proc%C3%A9dures%20et%20contenu%20riche.md) |
 | **RFC-PROC-006** | CDC Procédures (fidélité mock handoff) | 🟡 F0–F5 ✅ · polish éditeur · release-gate pending | Blocs v2, liste cartes, schéma SVG + preview pan/zoom, IN_REVIEW — [RFC](./RFC-PROC-006%20%E2%80%94%20CDC%20Proc%C3%A9dures%20fid%C3%A9lit%C3%A9%20mock%20design%20handoff.md) · handoff [`design_handoff_procedures/`](../design_handoff_procedures/README.md) |
 | **RFC-PROC-007** | Configuration module Procédures | ✅ F1–F3 | Cycle pilotage Oui/Non, validateurs, catégories client — [RFC](./RFC-PROC-007%20%E2%80%94%20Configuration%20module%20Proc%C3%A9dures%20(cycle%20validateurs%20cat%C3%A9gories).md) |
+| **RFC-PROC-008** | Modèles de procédures (outline client) | ✅ V1 phases 1–4 | Catalogue `/procedures/templates`, copie figée à la création, traçabilité — [RFC](./RFC-PROC-008%20%E2%80%94%20Mod%C3%A8les%20de%20proc%C3%A9dures%20(outline%20client).md) · [PLAN](../PLAN.md) · [PRD](../PRD.md) |
 | **RFC-PROC-005** | Éditeur riche avancé (TipTap) | ⚠️ Supersédé produit par **PROC-006** | Lots A–B TipTap historiques ; cible UX = handoff blocs — [RFC](./RFC-PROC-005%20%E2%80%94%20%C3%89diteur%20riche%20avanc%C3%A9%20des%20proc%C3%A9dures.md) |
 | **RFC-PROC-003** | Versioning des procédures | 📝 Draft | US-PROC-05…06 — publish immuable ; transition via PROC-006 — [RFC](./RFC-PROC-003%20%E2%80%94%20Versioning%20des%20proc%C3%A9dures.md) |
 | **RFC-PROC-004** | Export Word / PDF + logo entreprise | 📝 Draft | US-PROC-07…08 + branding logo client — [RFC](./RFC-PROC-004%20%E2%80%94%20Export%20Word%20PDF%20proc%C3%A9dures%20avec%20logo.md) |

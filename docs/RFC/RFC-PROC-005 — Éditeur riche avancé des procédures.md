@@ -281,7 +281,7 @@ Aucune table nouvelle si `ProcedureAsset` déjà migré (PROC-002). Sinon repren
 - Canvas libre (Excalidraw), BPMN natif, Visio.
 - Vidéo embarquée / streaming.
 - Commentaires inline / suggestions track-changes.
-- Templates de procédures préremplis (V1.1).
+- Templates de procédures préremplis → **[RFC-PROC-008](./RFC-PROC-008%20—%20Modèles%20de%20procédures%20(outline%20client).md)** (outline V1 livré ; modèles riches = V1.x).
 - Diff visuel entre versions (reste PROC-003 P1 / V1.1).
 
 ---

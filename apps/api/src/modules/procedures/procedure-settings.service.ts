@@ -1,20 +1,13 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
-import { ClientUserStatus } from '@prisma/client';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   AuditLogsService,
   type CreateAuditLogInput,
 } from '../audit-logs/audit-logs.service';
 import { UpdateProcedureSettingsDto } from './dto/update-procedure-settings.dto';
-import { personDisplayLabel } from './lib/procedure-display.util';
 
+/** Réponse settings — cycle / validateurs globaux retirés (gouvernance par procédure). */
 export type ProcedureSettingsResponse = {
-  usePilotageCycle: boolean;
-  validators: { userId: string; label: string }[];
   updatedAt: string;
 };
 
@@ -50,46 +43,25 @@ export class ProcedureSettingsService {
         },
       });
     }
-    return this.toResponse(clientId, row);
+    return { updatedAt: row.updatedAt.toISOString() };
   }
 
   async update(
     clientId: string,
-    dto: UpdateProcedureSettingsDto,
+    _dto: UpdateProcedureSettingsDto,
     actorUserId: string | undefined,
     meta?: AuditMeta,
   ): Promise<ProcedureSettingsResponse> {
     const current = await this.getOrCreate(clientId);
-    const nextCycle =
-      dto.usePilotageCycle !== undefined
-        ? dto.usePilotageCycle
-        : current.usePilotageCycle;
-    const nextIds =
-      dto.validatorUserIds !== undefined
-        ? [...new Set(dto.validatorUserIds.map((id) => id.trim()).filter(Boolean))]
-        : current.validators.map((v) => v.userId);
-
-    if (!nextCycle && nextIds.length < 1) {
-      throw new BadRequestException(
-        'Au moins un validateur est requis lorsque le cycle de pilotage est désactivé',
-      );
-    }
-
-    if (nextIds.length > 0) {
-      await this.assertValidatorsBelongToClient(clientId, nextIds);
-    }
-
+    // Champs cycle / validateurs globaux ignorés (dépréciés).
     const row = await this.prisma.procedureModuleSettings.upsert({
       where: { clientId },
       create: {
         clientId,
-        usePilotageCycle: nextCycle,
-        validatorUserIds: nextIds,
+        usePilotageCycle: true,
+        validatorUserIds: [],
       },
-      update: {
-        usePilotageCycle: nextCycle,
-        validatorUserIds: nextIds,
-      },
+      update: { updatedAt: new Date() },
     });
 
     const audit: CreateAuditLogInput = {
@@ -98,94 +70,14 @@ export class ProcedureSettingsService {
       action: 'procedure.settings.updated',
       resourceType: 'ProcedureModuleSettings',
       resourceId: row.id,
-      oldValue: {
-        usePilotageCycle: current.usePilotageCycle,
-        validatorCount: current.validators.length,
-      },
-      newValue: {
-        usePilotageCycle: row.usePilotageCycle,
-        validatorCount: row.validatorUserIds.length,
-      },
+      oldValue: { updatedAt: current.updatedAt },
+      newValue: { updatedAt: row.updatedAt.toISOString() },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
       requestId: meta?.requestId,
     };
     await this.auditLogs.create(audit);
 
-    return this.toResponse(clientId, row);
-  }
-
-  private async assertValidatorsBelongToClient(
-    clientId: string,
-    userIds: string[],
-  ) {
-    const memberships = await this.prisma.clientUser.findMany({
-      where: {
-        clientId,
-        userId: { in: userIds },
-        status: ClientUserStatus.ACTIVE,
-      },
-      select: { userId: true },
-    });
-    if (memberships.length !== userIds.length) {
-      throw new BadRequestException(
-        'Un ou plusieurs validateurs ne sont pas des membres actifs du client',
-      );
-    }
-  }
-
-  private async toResponse(
-    clientId: string,
-    row: {
-      usePilotageCycle: boolean;
-      validatorUserIds: string[];
-      updatedAt: Date;
-    },
-  ): Promise<ProcedureSettingsResponse> {
-    const ids = row.validatorUserIds;
-    const users =
-      ids.length === 0
-        ? []
-        : await this.prisma.user.findMany({
-            where: { id: { in: ids } },
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-            },
-          });
-    const activeMemberships =
-      ids.length === 0
-        ? []
-        : await this.prisma.clientUser.findMany({
-            where: {
-              clientId,
-              userId: { in: ids },
-              status: ClientUserStatus.ACTIVE,
-            },
-            select: { userId: true },
-          });
-    const activeSet = new Set(activeMemberships.map((m) => m.userId));
-    const byId = new Map(users.map((u) => [u.id, u]));
-    const validators = ids.map((userId) => {
-      if (!activeSet.has(userId)) {
-        return { userId, label: 'Membre retiré' };
-      }
-      const u = byId.get(userId);
-      return {
-        userId,
-        label: personDisplayLabel({
-          firstName: u?.firstName,
-          lastName: u?.lastName,
-          email: u?.email,
-        }),
-      };
-    });
-    return {
-      usePilotageCycle: row.usePilotageCycle,
-      validators,
-      updatedAt: row.updatedAt.toISOString(),
-    };
+    return { updatedAt: row.updatedAt.toISOString() };
   }
 }

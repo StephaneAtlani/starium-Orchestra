@@ -390,8 +390,10 @@ model Client {
   procedures                       Procedure[]
   procedureVersions                ProcedureVersion[]
   procedureAssets                  ProcedureAsset[]
+  procedureStakeholders            ProcedureStakeholder[]
   procedureModuleSettings          ProcedureModuleSettings?
   procedureCategories              ProcedureCategory[]
+  procedureTemplates               ProcedureTemplate[]
   riskDomains                      RiskDomain[]
   riskTypes                        RiskType[]
   budgetDashboardConfigs           BudgetDashboardConfig[]
@@ -710,6 +712,7 @@ model User {
   complianceGapsOwned                  ComplianceGap[]             @relation("ComplianceGapOwner")
   complianceStatusesOwned               ComplianceStatus[]          @relation("ComplianceStatusOwner")
   complianceCampaignsOwned             ComplianceCampaign[]        @relation("ComplianceCampaignOwner")
+  procedureStakeholders                ProcedureStakeholder[]
 }
 
 /// Adresse e-mail déclarée par l’utilisateur (affichage / futur envoi). Une par user + email normalisé.
@@ -7221,7 +7224,21 @@ model MeetingAttachment {
 enum ProcedureStatus {
   DRAFT
   IN_REVIEW
+  PENDING_VALIDATION
   PUBLISHED
+  ARCHIVED
+}
+
+/// Rôles de gouvernance portés par procédure (cumulables).
+enum ProcedureStakeholderRole {
+  EDITOR
+  REVIEWER
+  VALIDATOR
+}
+
+enum ProcedureTemplateStatus {
+  DRAFT
+  ACTIVE
   ARCHIVED
 }
 
@@ -7246,11 +7263,34 @@ model ProcedureCategory {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  client     Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client     Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
   procedures Procedure[]
+  templates  ProcedureTemplate[]
 
   @@unique([clientId, code])
   @@index([clientId, isActive, sortOrder])
+}
+
+/// Modèle de procédure (outline H1/H2/H3) — copie figée à la création d'une procédure.
+model ProcedureTemplate {
+  id              String                  @id @default(cuid())
+  clientId        String
+  name            String                  @db.VarChar(200)
+  categoryId      String?
+  status          ProcedureTemplateStatus @default(DRAFT)
+  /// Liste ordonnée [{ level: 1|2|3, title: string }]
+  outlineJson     Json
+  createdByUserId String?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+
+  client   Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  category ProcedureCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  sourcedProcedures Procedure[]
+
+  @@index([clientId, status])
+  @@index([clientId, updatedAt])
+  @@index([clientId, categoryId])
 }
 
 model Procedure {
@@ -7265,22 +7305,49 @@ model Procedure {
   ownerUserId               String?
   currentDraftVersionId     String?
   currentPublishedVersionId String?
+  /// Traçabilité soft — template d'origine (copie figée).
+  sourceTemplateId          String?
+  /// Nom du modèle au moment de la création (fallback si template renommé / absent).
+  sourceTemplateName        String?         @db.VarChar(200)
   archivedAt                DateTime?
   archivedByUserId          String?
   createdByUserId           String?
   createdAt                 DateTime        @default(now())
   updatedAt                 DateTime        @updatedAt
 
-  client   Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  category ProcedureCategory  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  versions ProcedureVersion[]
-  assets   ProcedureAsset[]
+  client         Client                  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  category       ProcedureCategory       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  sourceTemplate ProcedureTemplate?      @relation(fields: [sourceTemplateId], references: [id], onDelete: SetNull)
+  versions       ProcedureVersion[]
+  assets         ProcedureAsset[]
+  stakeholders   ProcedureStakeholder[]
 
   @@unique([clientId, code])
   @@index([clientId, status])
   @@index([clientId, updatedAt])
   @@index([clientId, categoryId])
   @@index([ownerUserId])
+  @@index([clientId, sourceTemplateId])
+}
+
+/// Acteurs de gouvernance d'une procédure (rédacteur / relecteur / validateur).
+model ProcedureStakeholder {
+  id          String                   @id @default(cuid())
+  clientId    String
+  procedureId String
+  userId      String
+  role        ProcedureStakeholderRole
+  createdAt   DateTime                 @default(now())
+  updatedAt   DateTime                 @updatedAt
+
+  client    Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  procedure Procedure @relation(fields: [procedureId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([procedureId, userId, role])
+  @@index([clientId, procedureId])
+  @@index([clientId, userId])
+  @@index([procedureId, role])
 }
 
 model ProcedureVersion {
@@ -7328,12 +7395,13 @@ model ProcedureAsset {
   @@index([clientId, procedureId])
 }
 
-/// RFC-PROC-007 — config module par client (cycle pilotage + validateurs).
+/// Config module procédures (catégories via ProcedureCategory). Champs cycle/validateurs globaux dépréciés (gouvernance par procédure).
 model ProcedureModuleSettings {
   id               String   @id @default(cuid())
   clientId         String   @unique
-  /// true = DRAFT→IN_REVIEW→PUBLISHED classique ; false = même états, acteurs validateurs (F3).
+  /// @deprecated Gouvernance portée par ProcedureStakeholder — conservé pour compat lecture.
   usePilotageCycle Boolean  @default(true)
+  /// @deprecated Validateurs globaux retirés — listes par procédure.
   validatorUserIds String[] @default([])
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt

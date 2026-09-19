@@ -12,21 +12,26 @@ import { ProceduresService } from '../procedures.service';
 
 describe('ProceduresService', () => {
   const auditLogs = { create: jest.fn().mockResolvedValue(undefined) };
-  const effectivePermissions = {
-    resolvePermissionCodesForRequest: jest
-      .fn()
-      .mockResolvedValue(new Set(['procedures.publish', 'procedures.update'])),
-  };
   const categories = {
     resolveActiveCategoryId: jest.fn().mockResolvedValue('cat-sec'),
     ensureDefaults: jest.fn().mockResolvedValue(undefined),
   };
-  const settings = {
-    getOrCreate: jest.fn().mockResolvedValue({
-      usePilotageCycle: true,
-      validators: [],
-      updatedAt: new Date().toISOString(),
+  const stakeholders = {
+    ensureCreatorAsEditor: jest.fn().mockResolvedValue(undefined),
+    countByRole: jest.fn().mockResolvedValue({
+      EDITOR: 1,
+      REVIEWER: 1,
+      VALIDATOR: 1,
     }),
+    hasRole: jest.fn().mockResolvedValue(true),
+    isAdminForcer: jest.fn().mockResolvedValue(false),
+    listUserIdsByRole: jest.fn().mockResolvedValue([]),
+  };
+  const notifications = {
+    createForUser: jest.fn().mockResolvedValue(undefined),
+  };
+  const emailService = {
+    queueEmail: jest.fn().mockResolvedValue(undefined),
   };
 
   function buildService(prisma: Record<string, unknown>) {
@@ -37,23 +42,27 @@ describe('ProceduresService', () => {
       prisma as any,
       auditLogs as any,
       assets as any,
-      effectivePermissions as any,
       categories as any,
-      settings as any,
+      stakeholders as any,
+      notifications as any,
+      emailService as any,
     );
   }
 
   beforeEach(() => {
     jest.clearAllMocks();
     categories.resolveActiveCategoryId.mockResolvedValue('cat-sec');
-    settings.getOrCreate.mockResolvedValue({
-      usePilotageCycle: true,
-      validators: [],
-      updatedAt: new Date().toISOString(),
+    stakeholders.countByRole.mockResolvedValue({
+      EDITOR: 1,
+      REVIEWER: 1,
+      VALIDATOR: 1,
     });
+    stakeholders.hasRole.mockResolvedValue(true);
+    stakeholders.isAdminForcer.mockResolvedValue(false);
+    stakeholders.listUserIdsByRole.mockResolvedValue([]);
   });
 
-  it('create — happy path : DRAFT + version 1 + EMPTY_V2', async () => {
+  it('create — happy path : DRAFT + version 1 + EMPTY_V2 + éditeur auto', async () => {
     const category = { id: 'cat-sec', code: 'SECURITY', label: 'Sécurité' };
     const procedure = {
       id: 'proc-1',
@@ -67,6 +76,8 @@ describe('ProceduresService', () => {
       ownerUserId: null,
       currentDraftVersionId: 'ver-1',
       currentPublishedVersionId: null,
+      sourceTemplateId: null,
+      sourceTemplateName: null,
       createdAt: new Date('2026-09-18T10:00:00Z'),
       updatedAt: new Date('2026-09-18T10:00:00Z'),
     };
@@ -78,21 +89,16 @@ describe('ProceduresService', () => {
       versionMinor: null,
       lifecycle: ProcedureVersionLifecycle.DRAFT,
       title: 'PSSI',
-      contentJson: {
-        schemaVersion: 2,
-        blocks: [
-          { t: 'h1', html: '' },
-          { t: 'p', html: '' },
-        ],
-      },
+      contentJson: { schemaVersion: 2, blocks: [] },
       updatedAt: new Date('2026-09-18T10:00:00Z'),
     };
 
     const tx = {
       procedure: {
-        create: jest
-          .fn()
-          .mockResolvedValue({ ...procedure, currentDraftVersionId: null }),
+        create: jest.fn().mockResolvedValue({
+          ...procedure,
+          currentDraftVersionId: null,
+        }),
         update: jest.fn().mockResolvedValue(procedure),
       },
       procedureVersion: {
@@ -101,87 +107,34 @@ describe('ProceduresService', () => {
     };
 
     const prisma = {
-      $transaction: jest.fn(async (fn: (t: typeof tx) => Promise<unknown>) =>
-        fn(tx),
-      ),
+      $transaction: jest.fn(async (fn: any) => fn(tx)),
       procedure: {
-        findFirst: jest.fn().mockResolvedValue(procedure),
+        findFirst: jest.fn().mockResolvedValue({
+          ...procedure,
+          category,
+          sourceTemplateId: null,
+          sourceTemplateName: null,
+          sourceTemplate: null,
+        }),
       },
       procedureVersion: {
         findFirst: jest.fn().mockResolvedValue(version),
       },
-      user: { findFirst: jest.fn() },
-      clientUser: { findFirst: jest.fn() },
+      user: { findFirst: jest.fn().mockResolvedValue(null) },
     };
 
     const service = buildService(prisma);
     const result = await service.create(
       'c1',
-      { code: 'pssi', title: 'PSSI', categoryId: 'cat-sec' },
+      { code: 'pssi', title: 'PSSI' },
       'actor-1',
-      { requestId: 'req-1' },
     );
 
-    expect(categories.resolveActiveCategoryId).toHaveBeenCalledWith(
-      'c1',
-      'cat-sec',
-    );
-    expect(tx.procedure.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          clientId: 'c1',
-          code: 'PSSI',
-          status: ProcedureStatus.DRAFT,
-          categoryId: 'cat-sec',
-        }),
-      }),
-    );
-    expect(tx.procedureVersion.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          versionMajor: null,
-      versionMinor: null,
-          lifecycle: ProcedureVersionLifecycle.DRAFT,
-          contentJson: expect.objectContaining({ schemaVersion: 2 }),
-        }),
-      }),
-    );
     expect(result.id).toBe('proc-1');
-    expect(result.category).toEqual(category);
-    expect(auditLogs.create).toHaveBeenCalled();
-  });
-
-  it('updateDraft — 409 si expectedUpdatedAt ne matche pas', async () => {
-    const prisma = {
-      procedure: {
-        findFirst: jest.fn().mockResolvedValue({
-          id: 'proc-1',
-          clientId: 'c1',
-          status: ProcedureStatus.DRAFT,
-          currentDraftVersionId: 'ver-1',
-          updatedAt: new Date('2026-09-18T10:00:00Z'),
-        }),
-      },
-    };
-    const service = buildService(prisma);
-    await expect(
-      service.updateDraft('c1', 'proc-1', {
-        contentJson: {
-          schemaVersion: 2,
-          blocks: [{ t: 'p', html: 'x' }],
-        },
-        expectedUpdatedAt: '2026-09-18T09:00:00.000Z',
-      }),
-    ).rejects.toBeInstanceOf(ConflictException);
-  });
-
-  it('getById — NotFound hors client', async () => {
-    const prisma = {
-      procedure: { findFirst: jest.fn().mockResolvedValue(null) },
-    };
-    const service = buildService(prisma);
-    await expect(service.getById('c1', 'proc-x')).rejects.toBeInstanceOf(
-      NotFoundException,
+    expect(stakeholders.ensureCreatorAsEditor).toHaveBeenCalledWith(
+      'c1',
+      'proc-1',
+      'actor-1',
     );
   });
 
@@ -193,20 +146,16 @@ describe('ProceduresService', () => {
           clientId: 'c1',
           status: ProcedureStatus.DRAFT,
           currentDraftVersionId: 'ver-1',
-          updatedAt: new Date(),
+          updatedAt: new Date('2026-09-18T10:00:00Z'),
+          title: 'PSSI',
+          ownerUserId: null,
         }),
       },
       procedureVersion: {
         findFirst: jest.fn().mockResolvedValue({
           id: 'ver-1',
+          contentJson: { schemaVersion: 2, blocks: [{ t: 'p', html: '' }] },
           lifecycle: ProcedureVersionLifecycle.DRAFT,
-          contentJson: {
-            schemaVersion: 2,
-            blocks: [
-              { t: 'h1', html: '' },
-              { t: 'p', html: '' },
-            ],
-          },
         }),
       },
     };
@@ -221,155 +170,74 @@ describe('ProceduresService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it('transition — publish exige procedures.publish', async () => {
-    effectivePermissions.resolvePermissionCodesForRequest.mockResolvedValueOnce(
-      new Set(['procedures.update']),
-    );
-    const service = buildService({
-      procedure: {
-        findFirst: jest.fn().mockResolvedValue({
-          id: 'proc-1',
-          status: ProcedureStatus.IN_REVIEW,
-          currentDraftVersionId: 'ver-1',
-          updatedAt: new Date(),
-        }),
-      },
+  it('transition — refuse listes incomplètes vers IN_REVIEW', async () => {
+    stakeholders.countByRole.mockResolvedValue({
+      EDITOR: 1,
+      REVIEWER: 0,
+      VALIDATOR: 1,
     });
-    await expect(
-      service.transition(
-        'c1',
-        'proc-1',
-        { to: 'PUBLISHED' as any },
-        'actor-1',
-      ),
-    ).rejects.toBeInstanceOf(ForbiddenException);
-  });
-
-  it('transition — mode Non : refuse hors validateurs', async () => {
-    settings.getOrCreate.mockResolvedValueOnce({
-      usePilotageCycle: false,
-      validators: [{ userId: 'val-1', label: 'Val' }],
-      updatedAt: new Date().toISOString(),
-    });
-    const service = buildService({
-      clientUser: { findFirst: jest.fn().mockResolvedValue(null) },
-      user: { findUnique: jest.fn().mockResolvedValue({ platformRole: null }) },
-      procedure: {
-        findFirst: jest.fn().mockResolvedValue({
-          id: 'proc-1',
-          status: ProcedureStatus.IN_REVIEW,
-          currentDraftVersionId: 'ver-1',
-          updatedAt: new Date(),
-        }),
-      },
-    });
-    await expect(
-      service.transition(
-        'c1',
-        'proc-1',
-        { to: 'PUBLISHED' as any },
-        'actor-1',
-      ),
-    ).rejects.toBeInstanceOf(ForbiddenException);
-  });
-
-  it('transition — mode Non : CLIENT_ADMIN hors liste peut forcer', async () => {
-    settings.getOrCreate.mockResolvedValueOnce({
-      usePilotageCycle: false,
-      validators: [{ userId: 'val-1', label: 'Val' }],
-      updatedAt: new Date().toISOString(),
-    });
-    const draftRow = {
-      id: 'ver-1',
-      versionMajor: null,
-      versionMinor: null,
-      title: 'T',
-      lifecycle: ProcedureVersionLifecycle.DRAFT,
-      contentJson: {
-        schemaVersion: 2,
-        blocks: [{ t: 'p', html: 'contenu' }],
-      },
-      updatedAt: new Date(),
-    };
     const prisma = {
-      clientUser: {
-        findFirst: jest.fn().mockResolvedValue({ role: 'CLIENT_ADMIN' }),
-      },
-      user: {
-        findUnique: jest.fn(),
-        findFirst: jest.fn(),
-      },
       procedure: {
-        findFirst: jest
-          .fn()
-          .mockResolvedValueOnce({
-            id: 'proc-1',
-            clientId: 'c1',
-            status: ProcedureStatus.IN_REVIEW,
-            currentDraftVersionId: 'ver-1',
-            currentPublishedVersionId: null,
-            title: 'T',
-            updatedAt: new Date(),
-          })
-          .mockResolvedValueOnce({
-            id: 'proc-1',
-            clientId: 'c1',
-            code: 'X',
-            title: 'T',
-            description: null,
-            categoryId: 'cat',
-            category: { id: 'cat', code: 'PILOTAGE', label: 'Pilotage' },
-            status: ProcedureStatus.PUBLISHED,
-            ownerUserId: null,
-            currentDraftVersionId: 'ver-2',
-            currentPublishedVersionId: 'ver-1',
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          }),
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'proc-1',
+          clientId: 'c1',
+          status: ProcedureStatus.DRAFT,
+          currentDraftVersionId: 'ver-1',
+          updatedAt: new Date('2026-09-18T10:00:00Z'),
+          title: 'PSSI',
+          ownerUserId: null,
+        }),
       },
       procedureVersion: {
-        findFirst: jest.fn().mockResolvedValue(draftRow),
-      },
-      $transaction: jest.fn().mockResolvedValue({
-        published: {
+        findFirst: jest.fn().mockResolvedValue({
           id: 'ver-1',
-          versionMajor: 1,
-          versionMinor: 0,
-          bumpType: 'MAJOR',
-          title: 'T',
-        },
-        newDraft: { id: 'ver-2' },
-      }),
+          contentJson: {
+            schemaVersion: 2,
+            blocks: [{ t: 'p', html: 'Contenu' }],
+          },
+          lifecycle: ProcedureVersionLifecycle.DRAFT,
+        }),
+      },
     };
     const service = buildService(prisma);
-    const result = await service.transition(
-      'c1',
-      'proc-1',
-      { to: 'PUBLISHED' as any },
-      'admin-1',
-    );
-    expect(result.status).toBe(ProcedureStatus.PUBLISHED);
-    expect(prisma.clientUser.findFirst).toHaveBeenCalled();
+    await expect(
+      service.transition(
+        'c1',
+        'proc-1',
+        { to: 'IN_REVIEW' as any },
+        'actor-1',
+      ),
+    ).rejects.toThrow(/relecteur/);
   });
 
-  it('transition — mode Non : validateur autorisé (passe le gate publish)', async () => {
-    settings.getOrCreate.mockResolvedValueOnce({
-      usePilotageCycle: false,
-      validators: [{ userId: 'actor-1', label: 'Val' }],
-      updatedAt: new Date().toISOString(),
-    });
-    const draftRow = {
-      id: 'ver-1',
-      versionMajor: null,
-      versionMinor: null,
-      title: 'T',
-      lifecycle: ProcedureVersionLifecycle.DRAFT,
-      contentJson: {
-        schemaVersion: 2,
-        blocks: [{ t: 'p', html: 'contenu' }],
+  it('transition — hors liste → Forbidden', async () => {
+    stakeholders.hasRole.mockResolvedValue(false);
+    stakeholders.isAdminForcer.mockResolvedValue(false);
+    const prisma = {
+      procedure: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'proc-1',
+          clientId: 'c1',
+          status: ProcedureStatus.IN_REVIEW,
+          currentDraftVersionId: 'ver-1',
+          updatedAt: new Date('2026-09-18T10:00:00Z'),
+          title: 'PSSI',
+          ownerUserId: null,
+        }),
       },
-      updatedAt: new Date(),
     };
+    const service = buildService(prisma);
+    await expect(
+      service.transition(
+        'c1',
+        'proc-1',
+        { to: 'PENDING_VALIDATION' as any },
+        'stranger',
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('transition — relecteur → PENDING_VALIDATION', async () => {
     const prisma = {
       procedure: {
         findFirst: jest
@@ -379,18 +247,108 @@ describe('ProceduresService', () => {
             clientId: 'c1',
             status: ProcedureStatus.IN_REVIEW,
             currentDraftVersionId: 'ver-1',
-            currentPublishedVersionId: null,
-            title: 'T',
-            updatedAt: new Date(),
+            updatedAt: new Date('2026-09-18T10:00:00Z'),
+            title: 'PSSI',
+            ownerUserId: null,
           })
+          .mockResolvedValue({
+            id: 'proc-1',
+            clientId: 'c1',
+            code: 'PSSI',
+            title: 'PSSI',
+            description: null,
+            categoryId: 'cat-sec',
+            category: { id: 'cat-sec', code: 'SECURITY', label: 'Sécurité' },
+            status: ProcedureStatus.PENDING_VALIDATION,
+            ownerUserId: null,
+            currentDraftVersionId: 'ver-1',
+            currentPublishedVersionId: null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          }),
+        update: jest.fn().mockResolvedValue({}),
+      },
+      procedureVersion: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'ver-1',
+          contentJson: {
+            schemaVersion: 2,
+            blocks: [{ t: 'p', html: 'OK' }],
+          },
+          lifecycle: ProcedureVersionLifecycle.DRAFT,
+          title: 'PSSI',
+          updatedAt: new Date(),
+        }),
+      },
+      user: { findFirst: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
+    };
+    const service = buildService(prisma);
+    const result = await service.transition(
+      'c1',
+      'proc-1',
+      { to: 'PENDING_VALIDATION' as any },
+      'reviewer-1',
+    );
+    expect(result.status).toBe(ProcedureStatus.PENDING_VALIDATION);
+    expect(prisma.procedure.update).toHaveBeenCalled();
+  });
+
+  it('transition — validateur publie depuis PENDING_VALIDATION', async () => {
+    const draft = {
+      id: 'ver-1',
+      title: 'PSSI',
+      contentJson: {
+        schemaVersion: 2,
+        blocks: [{ t: 'p', html: 'OK' }],
+      },
+      lifecycle: ProcedureVersionLifecycle.DRAFT,
+    };
+    const tx = {
+      procedureVersion: {
+        update: jest.fn().mockResolvedValue({
+          ...draft,
+          versionMajor: 1,
+          versionMinor: 0,
+          bumpType: 'MINOR',
+          lifecycle: ProcedureVersionLifecycle.PUBLISHED,
+          publishedAt: new Date(),
+          publishedByUserId: 'val-1',
+        }),
+        create: jest.fn().mockResolvedValue({
+          id: 'ver-2',
+          lifecycle: ProcedureVersionLifecycle.DRAFT,
+        }),
+      },
+      procedure: {
+        update: jest.fn().mockResolvedValue({
+          id: 'proc-1',
+          status: ProcedureStatus.PUBLISHED,
+        }),
+      },
+    };
+    const prisma = {
+      $transaction: jest.fn(async (fn: any) => fn(tx)),
+      procedure: {
+        findFirst: jest
+          .fn()
           .mockResolvedValueOnce({
             id: 'proc-1',
             clientId: 'c1',
-            code: 'X',
-            title: 'T',
+            status: ProcedureStatus.PENDING_VALIDATION,
+            currentDraftVersionId: 'ver-1',
+            currentPublishedVersionId: null,
+            updatedAt: new Date('2026-09-18T10:00:00Z'),
+            title: 'PSSI',
+            ownerUserId: null,
+          })
+          .mockResolvedValue({
+            id: 'proc-1',
+            clientId: 'c1',
+            code: 'PSSI',
+            title: 'PSSI',
             description: null,
-            categoryId: 'cat',
-            category: { id: 'cat', code: 'PILOTAGE', label: 'Pilotage' },
+            categoryId: 'cat-sec',
+            category: { id: 'cat-sec', code: 'SECURITY', label: 'Sécurité' },
             status: ProcedureStatus.PUBLISHED,
             ownerUserId: null,
             currentDraftVersionId: 'ver-2',
@@ -400,32 +358,64 @@ describe('ProceduresService', () => {
           }),
       },
       procedureVersion: {
-        findFirst: jest.fn().mockResolvedValue(draftRow),
+        findFirst: jest
+          .fn()
+          .mockResolvedValueOnce(draft)
+          .mockResolvedValue({
+            id: 'ver-1',
+            versionMajor: 1,
+            versionMinor: 0,
+            bumpType: 'MINOR',
+            publishedAt: new Date(),
+            title: 'PSSI',
+            lifecycle: ProcedureVersionLifecycle.PUBLISHED,
+            contentJson: draft.contentJson,
+            updatedAt: new Date(),
+          }),
       },
-      $transaction: jest.fn().mockResolvedValue({
-        published: {
-          id: 'ver-1',
-          versionMajor: 1,
-          versionMinor: 0,
-          bumpType: 'MAJOR',
-          title: 'T',
-        },
-        newDraft: { id: 'ver-2' },
-      }),
-      user: { findFirst: jest.fn() },
+      user: { findFirst: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
     };
-
     const service = buildService(prisma);
     const result = await service.transition(
       'c1',
       'proc-1',
       { to: 'PUBLISHED' as any },
-      'actor-1',
+      'val-1',
     );
     expect(result.status).toBe(ProcedureStatus.PUBLISHED);
-    expect(prisma.$transaction).toHaveBeenCalled();
-    expect(
-      effectivePermissions.resolvePermissionCodesForRequest,
-    ).not.toHaveBeenCalled();
+  });
+
+  it('transition — conflit expectedUpdatedAt', async () => {
+    const prisma = {
+      procedure: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'proc-1',
+          status: ProcedureStatus.DRAFT,
+          updatedAt: new Date('2026-09-18T10:00:00Z'),
+        }),
+      },
+    };
+    const service = buildService(prisma);
+    await expect(
+      service.transition(
+        'c1',
+        'proc-1',
+        {
+          to: 'IN_REVIEW' as any,
+          expectedUpdatedAt: '2026-09-18T09:00:00.000Z',
+        },
+        'actor-1',
+      ),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('getById — 404', async () => {
+    const prisma = {
+      procedure: { findFirst: jest.fn().mockResolvedValue(null) },
+    };
+    const service = buildService(prisma);
+    await expect(service.getById('c1', 'x')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
   });
 });

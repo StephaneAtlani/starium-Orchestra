@@ -11,6 +11,7 @@ import { ProcedureStatus, ProcedureVersionBumpType } from '@prisma/client';
 export enum ProcedureTransitionTarget {
   DRAFT = 'DRAFT',
   IN_REVIEW = 'IN_REVIEW',
+  PENDING_VALIDATION = 'PENDING_VALIDATION',
   PUBLISHED = 'PUBLISHED',
 }
 
@@ -35,5 +36,5 @@ export class TransitionProcedureDto {
 
 export type ProcedureTransitionStatus = Extract<
   ProcedureStatus,
-  'DRAFT' | 'IN_REVIEW' | 'PUBLISHED'
+  'DRAFT' | 'IN_REVIEW' | 'PENDING_VALIDATION' | 'PUBLISHED'
 >;

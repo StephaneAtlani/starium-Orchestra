@@ -1,108 +1,53 @@
-import { BadRequestException } from '@nestjs/common';
 import { ProcedureSettingsService } from '../procedure-settings.service';
 
 describe('ProcedureSettingsService', () => {
-  const prisma = {
-    client: { findUnique: jest.fn() },
-    procedureModuleSettings: {
-      findUnique: jest.fn(),
-      create: jest.fn(),
-      upsert: jest.fn(),
-    },
-    clientUser: { findMany: jest.fn() },
-    user: { findMany: jest.fn() },
-  };
-  const auditLogs = { create: jest.fn() };
+  const auditLogs = { create: jest.fn().mockResolvedValue(undefined) };
 
-  const service = new ProcedureSettingsService(
-    prisma as never,
-    auditLogs as never,
-  );
+  function build(prisma: Record<string, unknown>) {
+    return new ProcedureSettingsService(prisma as any, auditLogs as any);
+  }
 
-  beforeEach(() => {
-    jest.clearAllMocks();
-    prisma.client.findUnique.mockResolvedValue({ id: 'c1' });
-  });
+  beforeEach(() => jest.clearAllMocks());
 
-  it('getOrCreate — crée défaut usePilotageCycle true', async () => {
-    prisma.procedureModuleSettings.findUnique.mockResolvedValue(null);
-    prisma.procedureModuleSettings.create.mockResolvedValue({
+  it('getOrCreate — crée défaut et renvoie updatedAt', async () => {
+    const row = {
+      id: 's1',
+      clientId: 'c1',
       usePilotageCycle: true,
       validatorUserIds: [],
-      updatedAt: new Date('2026-09-18T00:00:00.000Z'),
-    });
-    prisma.user.findMany.mockResolvedValue([]);
-
+      updatedAt: new Date('2026-09-18T10:00:00Z'),
+    };
+    const prisma = {
+      client: { findUnique: jest.fn().mockResolvedValue({ id: 'c1' }) },
+      procedureModuleSettings: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue(row),
+      },
+    };
+    const service = build(prisma);
     const res = await service.getOrCreate('c1');
-    expect(res.usePilotageCycle).toBe(true);
-    expect(res.validators).toEqual([]);
+    expect(res.updatedAt).toBe(row.updatedAt.toISOString());
     expect(prisma.procedureModuleSettings.create).toHaveBeenCalled();
   });
 
-  it('update — refuse cycle off sans validateur', async () => {
-    prisma.procedureModuleSettings.findUnique.mockResolvedValue({
-      usePilotageCycle: true,
-      validatorUserIds: [],
-      updatedAt: new Date(),
-    });
-    prisma.user.findMany.mockResolvedValue([]);
-
-    await expect(
-      service.update('c1', { usePilotageCycle: false }, 'u1'),
-    ).rejects.toBeInstanceOf(BadRequestException);
-  });
-
-  it('update — refuse validateur hors client', async () => {
-    prisma.procedureModuleSettings.findUnique.mockResolvedValue({
-      usePilotageCycle: true,
-      validatorUserIds: [],
-      updatedAt: new Date(),
-    });
-    prisma.user.findMany.mockResolvedValue([]);
-    prisma.clientUser.findMany.mockResolvedValue([]);
-
-    await expect(
-      service.update(
-        'c1',
-        { usePilotageCycle: false, validatorUserIds: ['u-x'] },
-        'u1',
-      ),
-    ).rejects.toBeInstanceOf(BadRequestException);
-  });
-
-  it('update — OK cycle off avec validateur membre', async () => {
-    prisma.procedureModuleSettings.findUnique.mockResolvedValue({
-      usePilotageCycle: true,
-      validatorUserIds: [],
-      updatedAt: new Date(),
-    });
-    prisma.clientUser.findMany.mockResolvedValue([{ userId: 'u2' }]);
-    prisma.procedureModuleSettings.upsert.mockResolvedValue({
+  it('update — ignore cycle / validateurs (no-op métier)', async () => {
+    const row = {
       id: 's1',
-      usePilotageCycle: false,
-      validatorUserIds: ['u2'],
-      updatedAt: new Date('2026-09-18T12:00:00.000Z'),
-    });
-    prisma.user.findMany.mockResolvedValue([
-      {
-        id: 'u2',
-        firstName: 'Ada',
-        lastName: 'Lovelace',
-        email: 'ada@example.com',
+      clientId: 'c1',
+      usePilotageCycle: true,
+      validatorUserIds: [],
+      updatedAt: new Date('2026-09-18T11:00:00Z'),
+    };
+    const prisma = {
+      client: { findUnique: jest.fn().mockResolvedValue({ id: 'c1' }) },
+      procedureModuleSettings: {
+        findUnique: jest.fn().mockResolvedValue(row),
+        upsert: jest.fn().mockResolvedValue(row),
       },
-    ]);
-
-    const res = await service.update(
-      'c1',
-      { usePilotageCycle: false, validatorUserIds: ['u2'] },
-      'u1',
-    );
-    expect(res.usePilotageCycle).toBe(false);
-    expect(res.validators).toEqual([
-      { userId: 'u2', label: 'Ada Lovelace' },
-    ]);
-    expect(auditLogs.create).toHaveBeenCalledWith(
-      expect.objectContaining({ action: 'procedure.settings.updated' }),
-    );
+    };
+    const service = build(prisma);
+    const res = await service.update('c1', {}, 'u1');
+    expect(res.updatedAt).toBe(row.updatedAt.toISOString());
+    expect(auditLogs.create).toHaveBeenCalled();
   });
 });

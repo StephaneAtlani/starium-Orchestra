@@ -1310,6 +1310,10 @@ async function ensureProceduresModuleAndPermissions(): Promise<void> {
     { code: "procedures.configure", label: "Procédures — configuration" },
     { code: "procedures.archive", label: "Procédures — archivage" },
     { code: "procedures.export", label: "Procédures — export" },
+    {
+      code: "procedures.templates.manage",
+      label: "Procédures — gestion des modèles",
+    },
   ];
   for (const p of defs) {
     await prisma.permission.upsert({
@@ -1330,6 +1334,7 @@ async function ensureClientAdminProceduresModuleRole(): Promise<void> {
     "procedures.configure",
     "procedures.archive",
     "procedures.export",
+    "procedures.templates.manage",
   ] as const;
   const permissions = await prisma.permission.findMany({
     where: { code: { in: [...codes] } },

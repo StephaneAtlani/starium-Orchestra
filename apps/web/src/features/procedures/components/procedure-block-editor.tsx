@@ -40,6 +40,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { displayLabel } from '@/lib/display-label';
+import { MemberAvatar } from '@/features/client-rbac/components/member-avatar';
+import { useClientMembers } from '@/features/client-rbac/hooks/use-client-members';
 import {
   procedureCategoryLabel,
 } from '../lib/procedure-labels';
@@ -148,15 +150,6 @@ const BLOCK_TYPE_LABELS: Record<TextBlock['t'], string> = {
   diag: 'Schéma',
 };
 
-function ownerInitials(label: string | null | undefined): string {
-  const parts = displayLabel(label, 'NA')
-    .split(/\s+/)
-    .filter(Boolean);
-  if (parts.length === 0) return 'NA';
-  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
-  return `${parts[0]![0] ?? ''}${parts[1]![0] ?? ''}`.toUpperCase();
-}
-
 function emptyBlock(t: TextBlock['t']): TextBlock {
   if (t === 'callout') return { t: 'callout', html: '', kind: 'warn' };
   if (t === 'img')
@@ -243,9 +236,11 @@ export function ProcedureBlockEditor({
   category,
   categoryOptions,
   ownerLabel,
+  ownerUserId,
   publishedVersionLabel,
   editable,
   historySlot,
+  governanceSlot,
   onChange,
   onTitleChange,
   onCategoryChange,
@@ -258,16 +253,28 @@ export function ProcedureBlockEditor({
   category: ProcedureCategoryRef;
   categoryOptions: ProcedureCategoryRef[];
   ownerLabel: string | null;
+  ownerUserId: string | null;
   /** Libellé de la version publiée courante (`vX.Y`) — null si aucune. */
   publishedVersionLabel: string | null;
   editable: boolean;
   /** Historique versions — rendu dans le panneau droit (optionnel). */
   historySlot?: ReactNode;
+  /** Listes rédacteurs / relecteurs / validateurs. */
+  governanceSlot?: ReactNode;
   onChange: (doc: ProcedureBlocksDoc) => void;
   onTitleChange: (title: string) => void;
   onCategoryChange: (categoryId: string) => void;
   onOpenDiagram?: (blockIndex: number) => void;
 }) {
+  const membersQ = useClientMembers();
+  const ownerMember = useMemo(
+    () =>
+      ownerUserId
+        ? (membersQ.data ?? []).find((m) => m.id === ownerUserId)
+        : undefined,
+    [membersQ.data, ownerUserId],
+  );
+  const ownerDisplay = displayLabel(ownerLabel, 'Non assigné');
   const [doc, setDoc] = useState(() => parseDoc(initialContent));
   const [blockKeys, setBlockKeys] = useState(() =>
     parseDoc(initialContent).blocks.map(() => newBlockKey()),
@@ -1213,31 +1220,36 @@ export function ProcedureBlockEditor({
                 </div>
                 <div>
                   <p className="text-[11.5px] font-bold text-muted-foreground">
-                    Relecteurs
+                    Responsable
                   </p>
-                  <div className="mt-1.5 flex items-center gap-1">
-                    <span
-                      className="inline-flex size-6 items-center justify-center rounded-full bg-[var(--brand-ink)] text-[9px] font-extrabold text-[var(--brand-gold)]"
-                      title={displayLabel(ownerLabel, 'Non assigné')}
-                      aria-label={displayLabel(ownerLabel, 'Non assigné')}
-                    >
-                      {ownerInitials(ownerLabel)}
+                  <div className="mt-1.5 flex items-center gap-1.5">
+                    {ownerUserId ? (
+                      <MemberAvatar
+                        userId={ownerUserId}
+                        displayName={ownerDisplay}
+                        hasAvatar={ownerMember?.hasAvatar}
+                        size="sm"
+                        className="!size-6 text-[9px] border"
+                      />
+                    ) : (
+                      <span
+                        className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-[9px] font-bold text-muted-foreground"
+                        aria-hidden
+                      >
+                        —
+                      </span>
+                    )}
+                    <span className="truncate text-[12.5px] font-semibold text-muted-foreground">
+                      {ownerDisplay}
                     </span>
-                    <button
-                      type="button"
-                      className="inline-flex size-6 items-center justify-center rounded-full bg-muted text-muted-foreground"
-                      aria-label="Ajouter un relecteur"
-                      disabled={!editable}
-                      onClick={() =>
-                        toast.message('Relecteurs — bientôt disponible')
-                      }
-                    >
-                      <Plus className="size-3.5" aria-hidden />
-                    </button>
                   </div>
                 </div>
               </div>
             </div>
+
+            {governanceSlot ? (
+              <div className="starium-section p-3">{governanceSlot}</div>
+            ) : null}
 
             {historySlot ?? (
               <div id="pr-hist" className="starium-section p-4">
