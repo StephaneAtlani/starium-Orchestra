@@ -7230,6 +7230,11 @@ enum ProcedureVersionLifecycle {
   PUBLISHED
 }
 
+enum ProcedureVersionBumpType {
+  MINOR
+  MAJOR
+}
+
 /// RFC-PROC-007 — référentiel catégories procédures (par client).
 model ProcedureCategory {
   id        String   @id @default(cuid())
@@ -7279,23 +7284,27 @@ model Procedure {
 }
 
 model ProcedureVersion {
-  id                String                     @id @default(cuid())
+  id                String                      @id @default(cuid())
   clientId          String
   procedureId       String
-  versionNumber     Int
-  lifecycle         ProcedureVersionLifecycle  @default(DRAFT)
+  /// Null sur le brouillon technique ; renseigné uniquement à la publish.
+  versionMajor      Int?
+  versionMinor      Int?
+  bumpType          ProcedureVersionBumpType?
+  lifecycle         ProcedureVersionLifecycle   @default(DRAFT)
   title             String
   contentJson       Json
   changeSummary     String?
   publishedAt       DateTime?
   publishedByUserId String?
-  createdAt         DateTime                   @default(now())
-  updatedAt         DateTime                   @updatedAt
+  createdAt         DateTime                    @default(now())
+  updatedAt         DateTime                    @updatedAt
 
   client    Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
   procedure Procedure @relation(fields: [procedureId], references: [id], onDelete: Cascade)
 
-  @@unique([procedureId, versionNumber])
+  /// Unicité métier des publiées (major.minor). Les drafts ont major/minor NULL (PostgreSQL autorise plusieurs NULL).
+  @@unique([procedureId, versionMajor, versionMinor])
   @@index([clientId, procedureId])
   @@index([clientId, lifecycle])
 }

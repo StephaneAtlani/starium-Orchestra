@@ -243,8 +243,9 @@ export function ProcedureBlockEditor({
   category,
   categoryOptions,
   ownerLabel,
-  versionNumber,
+  publishedVersionLabel,
   editable,
+  historySlot,
   onChange,
   onTitleChange,
   onCategoryChange,
@@ -257,8 +258,11 @@ export function ProcedureBlockEditor({
   category: ProcedureCategoryRef;
   categoryOptions: ProcedureCategoryRef[];
   ownerLabel: string | null;
-  versionNumber: number | null;
+  /** Libellé de la version publiée courante (`vX.Y`) — null si aucune. */
+  publishedVersionLabel: string | null;
   editable: boolean;
+  /** Historique versions — rendu dans le panneau droit (optionnel). */
+  historySlot?: ReactNode;
   onChange: (doc: ProcedureBlocksDoc) => void;
   onTitleChange: (title: string) => void;
   onCategoryChange: (categoryId: string) => void;
@@ -717,7 +721,10 @@ export function ProcedureBlockEditor({
             </div>
             <p className="mt-2 mb-7 border-b border-border/60 pb-3 text-[12.5px] text-muted-foreground">
               {procedureCategoryLabel(category)}
-              {versionNumber != null ? ` · v${versionNumber}` : ''}
+              {' · Brouillon'}
+              {publishedVersionLabel
+                ? ` · Publiée courante ${publishedVersionLabel}`
+                : ''}
               {ownerLabel
                 ? ` · ${displayLabel(ownerLabel, 'Non assigné')}`
                 : ''}
@@ -1232,25 +1239,16 @@ export function ProcedureBlockEditor({
               </div>
             </div>
 
-            <div id="pr-hist" className="starium-section p-4">
-              <p className="mb-2.5 text-[11px] font-extrabold uppercase tracking-[0.07em] text-muted-foreground">
-                Historique
-              </p>
-              {versionNumber != null ? (
-                <div className="flex flex-col gap-2">
-                  <div className="flex gap-2 text-xs text-muted-foreground">
-                    <b className="min-w-9 font-bold text-foreground tabular-nums">
-                      v{versionNumber}
-                    </b>
-                    <span>Version courante</span>
-                  </div>
-                </div>
-              ) : (
+            {historySlot ?? (
+              <div id="pr-hist" className="starium-section p-4">
+                <p className="mb-2.5 text-[11px] font-extrabold uppercase tracking-[0.07em] text-muted-foreground">
+                  Historique
+                </p>
                 <p className="text-[12.5px] text-muted-foreground">
                   Aucune version publiée.
                 </p>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </aside>
       </div>

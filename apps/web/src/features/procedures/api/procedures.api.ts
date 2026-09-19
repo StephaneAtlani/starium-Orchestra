@@ -104,6 +104,7 @@ export function transitionProcedure(
   id: string,
   input: {
     to: 'DRAFT' | 'IN_REVIEW' | 'PUBLISHED';
+    bumpType?: 'MINOR' | 'MAJOR';
     changeSummary?: string;
     expectedUpdatedAt?: string;
   },
@@ -113,6 +114,26 @@ export function transitionProcedure(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(input),
   }).then((r: Response) => parseJson<ProcedureDetail>(r));
+}
+
+export function listProcedureVersions(
+  authFetch: AuthFetch,
+  id: string,
+): Promise<{ items: import('../types/procedure.types').ProcedureVersionListItem[] }> {
+  return authFetch(`${BASE}/${id}/versions`).then((r: Response) =>
+    parseJson(r),
+  );
+}
+
+export function restoreProcedureVersionToDraft(
+  authFetch: AuthFetch,
+  procedureId: string,
+  versionId: string,
+): Promise<ProcedureDetail> {
+  return authFetch(
+    `${BASE}/${procedureId}/versions/${versionId}/restore-to-draft`,
+    { method: 'POST' },
+  ).then((r: Response) => parseJson<ProcedureDetail>(r));
 }
 
 export type ProcedureAssetDto = {

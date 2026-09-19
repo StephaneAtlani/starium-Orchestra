@@ -29,12 +29,15 @@ import {
   type ProcedureBlocksDoc,
   type TextBlock,
 } from '@/features/procedures/components/procedure-block-editor';
+import { ProcedurePublishDialog } from '@/features/procedures/components/procedure-publish-dialog';
+import { ProcedureVersionHistory } from '@/features/procedures/components/procedure-version-history';
 import {
   ProcedureDiagramEditor,
   type DiagEdge,
   type DiagNode,
 } from '@/features/procedures/components/procedure-diagram-editor';
 import type {
+  ProcedureBumpType,
   ProcedureCategoryRef,
   ProcedureStatusApi,
 } from '@/features/procedures/types/procedure.types';
@@ -90,6 +93,7 @@ export default function ProcedureEditPage() {
     'idle' | 'saving' | 'saved' | 'error'
   >('idle');
   const [diagIndex, setDiagIndex] = useState<number | null>(null);
+  const [publishOpen, setPublishOpen] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const updatedAtRef = useRef<string | undefined>(undefined);
 
@@ -155,21 +159,29 @@ export default function ProcedureEditPage() {
   );
 
   const transitionMut = useMutation({
-    mutationFn: (to: 'DRAFT' | 'IN_REVIEW' | 'PUBLISHED') =>
+    mutationFn: (input: {
+      to: 'DRAFT' | 'IN_REVIEW' | 'PUBLISHED';
+      bumpType?: ProcedureBumpType;
+      changeSummary?: string;
+    }) =>
       transitionProcedure(authFetch, procedureId, {
-        to,
+        ...input,
         expectedUpdatedAt: updatedAtRef.current,
       }),
-    onSuccess: async (_res, to) => {
+    onSuccess: async (res, input) => {
+      const label = res.publishedVersion?.versionLabel;
       toast.success(
-        to === 'PUBLISHED'
-          ? 'Procédure publiée'
-          : to === 'IN_REVIEW'
+        input.to === 'PUBLISHED'
+          ? label
+            ? `Procédure publiée — ${label}`
+            : 'Procédure publiée'
+          : input.to === 'IN_REVIEW'
             ? usePilotageCycle
               ? 'Procédure envoyée en revue'
               : 'Procédure soumise pour validation'
             : 'Retour en brouillon',
       );
+      setPublishOpen(false);
       await queryClient.invalidateQueries({
         queryKey: procedureQueryKeys.all(clientId),
       });
@@ -190,19 +202,34 @@ export default function ProcedureEditPage() {
   const canApproveNonCycle =
     canUpdate && (isValidator || isClientAdmin || isPlatformAdmin);
 
-  const primaryTransition =
+  const canOpenPublish =
+    status === 'IN_REVIEW' &&
+    ((usePilotageCycle && canPublish) ||
+      (!usePilotageCycle && canApproveNonCycle));
+
+  const primaryAction =
     status === 'DRAFT' && canUpdate
-      ? ({ to: 'IN_REVIEW' as const, label: usePilotageCycle ? 'Publier' : 'Soumettre' })
-      : status === 'IN_REVIEW' && usePilotageCycle && canPublish
-        ? ({ to: 'PUBLISHED' as const, label: 'Publier' })
-        : status === 'IN_REVIEW' && !usePilotageCycle && canApproveNonCycle
-          ? ({ to: 'PUBLISHED' as const, label: 'Approuver' })
-          : null;
+      ? ({
+          kind: 'review' as const,
+          label: usePilotageCycle ? 'Envoyer en revue' : 'Soumettre',
+        })
+      : canOpenPublish
+        ? ({ kind: 'publish' as const, label: 'Publier' })
+        : null;
 
   const canRejectToDraft =
     status === 'IN_REVIEW' &&
     canUpdate &&
     (!usePilotageCycle || canPublish);
+
+  const published = q.data?.publishedVersion;
+  const currentPublished =
+    published?.versionMajor != null && published.versionMinor != null
+      ? {
+          versionMajor: published.versionMajor,
+          versionMinor: published.versionMinor,
+        }
+      : null;
 
   return (
     <RequireActiveClient>
@@ -283,17 +310,31 @@ export default function ProcedureEditPage() {
               <Clock className="size-4" aria-hidden />
               Versions
             </Button>
-            {primaryTransition ? (
+            {primaryAction?.kind === 'review' ? (
               <Button
                 type="button"
                 size="sm"
                 className="min-h-11 sm:min-h-9"
                 disabled={transitionMut.isPending}
                 aria-busy={transitionMut.isPending}
-                onClick={() => transitionMut.mutate(primaryTransition.to)}
+                onClick={() =>
+                  transitionMut.mutate({ to: 'IN_REVIEW' })
+                }
               >
                 <Check className="size-4" aria-hidden />
-                {primaryTransition.label}
+                {primaryAction.label}
+              </Button>
+            ) : null}
+            {primaryAction?.kind === 'publish' ? (
+              <Button
+                type="button"
+                size="sm"
+                className="min-h-11 sm:min-h-9"
+                disabled={transitionMut.isPending}
+                onClick={() => setPublishOpen(true)}
+              >
+                <Check className="size-4" aria-hidden />
+                {primaryAction.label}
               </Button>
             ) : null}
             {canRejectToDraft ? (
@@ -303,15 +344,13 @@ export default function ProcedureEditPage() {
                 size="sm"
                 className="min-h-11 sm:min-h-9"
                 disabled={transitionMut.isPending}
-                onClick={() => transitionMut.mutate('DRAFT')}
+                onClick={() => transitionMut.mutate({ to: 'DRAFT' })}
               >
                 Renvoyer en brouillon
               </Button>
             ) : null}
             <p className="sr-only" aria-live="polite">
-              {transitionMut.isPending
-                ? `${primaryTransition?.label ?? 'Transition'} en cours…`
-                : ''}
+              {transitionMut.isPending ? 'Transition en cours…' : ''}
             </p>
           </div>
         </div>
@@ -332,13 +371,21 @@ export default function ProcedureEditPage() {
             initialTitle={title}
             category={category}
             categoryOptions={
-              categoriesQ.data?.length
-                ? categoriesQ.data
-                : [category]
+              categoriesQ.data?.length ? categoriesQ.data : [category]
             }
             ownerLabel={q.data.ownerLabel}
-            versionNumber={q.data.currentDraft?.versionNumber ?? null}
+            publishedVersionLabel={
+              q.data.publishedVersion?.versionLabel ?? null
+            }
             editable={editable}
+            historySlot={
+              <ProcedureVersionHistory
+                procedureId={procedureId}
+                clientId={clientId}
+                authFetch={authFetch}
+                canRestore={editable}
+              />
+            }
             onOpenDiagram={(idx) => setDiagIndex(idx)}
             onChange={(next) => {
               setDoc(next);
@@ -357,6 +404,20 @@ export default function ProcedureEditPage() {
             }}
           />
         ) : null}
+
+        <ProcedurePublishDialog
+          open={publishOpen}
+          onOpenChange={setPublishOpen}
+          currentPublished={currentPublished}
+          submitting={transitionMut.isPending}
+          onConfirm={({ bumpType, changeSummary }) => {
+            transitionMut.mutate({
+              to: 'PUBLISHED',
+              bumpType,
+              changeSummary,
+            });
+          }}
+        />
 
         {diagIndex != null && doc ? (
           <ProcedureDiagramEditor

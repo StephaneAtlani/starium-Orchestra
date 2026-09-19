@@ -1,5 +1,11 @@
-import { IsEnum, IsISO8601, IsOptional, IsString, MaxLength } from 'class-validator';
-import { ProcedureStatus } from '@prisma/client';
+import {
+  IsEnum,
+  IsISO8601,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
+import { ProcedureStatus, ProcedureVersionBumpType } from '@prisma/client';
 
 /** Cibles autorisées via POST …/transition (pas ARCHIVED). */
 export enum ProcedureTransitionTarget {
@@ -11,6 +17,11 @@ export enum ProcedureTransitionTarget {
 export class TransitionProcedureDto {
   @IsEnum(ProcedureTransitionTarget)
   to!: ProcedureTransitionTarget;
+
+  /** Mineure (défaut) ou Majeure — ignoré / forcé à la 1ʳᵉ publish (v1.0). */
+  @IsOptional()
+  @IsEnum(ProcedureVersionBumpType)
+  bumpType?: ProcedureVersionBumpType;
 
   @IsOptional()
   @IsString()

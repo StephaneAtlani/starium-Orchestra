@@ -74,7 +74,8 @@ describe('ProceduresService', () => {
       id: 'ver-1',
       clientId: 'c1',
       procedureId: 'proc-1',
-      versionNumber: 1,
+      versionMajor: null,
+      versionMinor: null,
       lifecycle: ProcedureVersionLifecycle.DRAFT,
       title: 'PSSI',
       contentJson: {
@@ -138,7 +139,8 @@ describe('ProceduresService', () => {
     expect(tx.procedureVersion.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          versionNumber: 1,
+          versionMajor: null,
+      versionMinor: null,
           lifecycle: ProcedureVersionLifecycle.DRAFT,
           contentJson: expect.objectContaining({ schemaVersion: 2 }),
         }),
@@ -279,7 +281,8 @@ describe('ProceduresService', () => {
     });
     const draftRow = {
       id: 'ver-1',
-      versionNumber: 1,
+      versionMajor: null,
+      versionMinor: null,
       title: 'T',
       lifecycle: ProcedureVersionLifecycle.DRAFT,
       contentJson: {
@@ -328,7 +331,13 @@ describe('ProceduresService', () => {
         findFirst: jest.fn().mockResolvedValue(draftRow),
       },
       $transaction: jest.fn().mockResolvedValue({
-        published: { id: 'ver-1', versionNumber: 1, title: 'T' },
+        published: {
+          id: 'ver-1',
+          versionMajor: 1,
+          versionMinor: 0,
+          bumpType: 'MAJOR',
+          title: 'T',
+        },
         newDraft: { id: 'ver-2' },
       }),
     };
@@ -351,7 +360,8 @@ describe('ProceduresService', () => {
     });
     const draftRow = {
       id: 'ver-1',
-      versionNumber: 1,
+      versionMajor: null,
+      versionMinor: null,
       title: 'T',
       lifecycle: ProcedureVersionLifecycle.DRAFT,
       contentJson: {
@@ -393,7 +403,13 @@ describe('ProceduresService', () => {
         findFirst: jest.fn().mockResolvedValue(draftRow),
       },
       $transaction: jest.fn().mockResolvedValue({
-        published: { id: 'ver-1', versionNumber: 1, title: 'T' },
+        published: {
+          id: 'ver-1',
+          versionMajor: 1,
+          versionMinor: 0,
+          bumpType: 'MAJOR',
+          title: 'T',
+        },
         newDraft: { id: 'ver-2' },
       }),
       user: { findFirst: jest.fn() },

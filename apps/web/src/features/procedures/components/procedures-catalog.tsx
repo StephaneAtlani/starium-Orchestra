@@ -77,10 +77,7 @@ function statusBadgeClass(status: ProcedureStatusApi): string {
 }
 
 function ProcedureCard({ row }: { row: ProcedureListItem }) {
-  const ver =
-    row.displayVersionNumber ??
-    row.publishedVersionNumber ??
-    row.draftVersionNumber;
+  const ver = row.publishedVersionLabel;
   const summary =
     row.description?.trim() ||
     'Aucune description — ouvrez la procédure pour rédiger.';
@@ -101,7 +98,7 @@ function ProcedureCard({ row }: { row: ProcedureListItem }) {
         <span className="pr-av" title={owner} aria-label={owner}>
           {ownerInitials(row.ownerLabel)}
         </span>
-        <span className="tabular-nums">{ver != null ? `v${ver}` : 'v—'}</span>
+        <span className="tabular-nums">{ver ?? 'Brouillon'}</span>
         <span className="sp" aria-hidden />
         <span className="tabular-nums">
           {row.blockCount ?? 0} bloc{(row.blockCount ?? 0) > 1 ? 's' : ''} ·{' '}

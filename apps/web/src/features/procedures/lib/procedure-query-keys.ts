@@ -4,6 +4,8 @@ export const procedureQueryKeys = {
     [...procedureQueryKeys.all(clientId), 'list', filters ?? {}] as const,
   detail: (clientId: string, id: string) =>
     [...procedureQueryKeys.all(clientId), 'detail', id] as const,
+  versions: (clientId: string, id: string) =>
+    [...procedureQueryKeys.all(clientId), 'versions', id] as const,
   settings: (clientId: string) =>
     [...procedureQueryKeys.all(clientId), 'settings'] as const,
   categories: (clientId: string, activeOnly?: boolean) =>

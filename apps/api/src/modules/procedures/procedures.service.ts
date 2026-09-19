@@ -8,6 +8,7 @@ import {
 import {
   Prisma,
   ProcedureStatus,
+  ProcedureVersionBumpType,
   ProcedureVersionLifecycle,
   ClientUserRole,
   ClientUserStatus,
@@ -19,9 +20,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { CreateProcedureDto } from './dto/create-procedure.dto';
 import { ListProceduresQueryDto } from './dto/list-procedures.query.dto';
-import {
-  TransitionProcedureDto,
-} from './dto/transition-procedure.dto';
+import { TransitionProcedureDto } from './dto/transition-procedure.dto';
 import { UpdateProcedureDraftDto } from './dto/update-procedure-draft.dto';
 import {
   assertProcedureContentJson,
@@ -29,10 +28,14 @@ import {
   EMPTY_PROCEDURE_DOC,
   isProcedureContentEmpty,
 } from './lib/procedure-content.util';
+import { personDisplayLabel } from './lib/procedure-display.util';
+import {
+  formatProcedureVersionLabel,
+  resolveNextProcedureVersion,
+} from './lib/procedure-version.util';
 import { ProcedureAssetsService } from './procedure-assets.service';
 import { ProcedureCategoriesService } from './procedure-categories.service';
 import { ProcedureSettingsService } from './procedure-settings.service';
-import { personDisplayLabel } from './lib/procedure-display.util';
 
 type AuditMeta = {
   ipAddress?: string;
@@ -119,7 +122,9 @@ export class ProceduresService {
           where: { id: { in: publishedIds }, clientId },
           select: {
             id: true,
-            versionNumber: true,
+            versionMajor: true,
+            versionMinor: true,
+            bumpType: true,
             publishedAt: true,
             contentJson: true,
           },
@@ -133,7 +138,7 @@ export class ProceduresService {
     const draftVersions = draftIds.length
       ? await this.prisma.procedureVersion.findMany({
           where: { id: { in: draftIds }, clientId },
-          select: { id: true, versionNumber: true, contentJson: true },
+          select: { id: true, contentJson: true },
         })
       : [];
     const draftMap = new Map(draftVersions.map((v) => [v.id, v]));
@@ -170,12 +175,25 @@ export class ProceduresService {
         })
       : null;
 
+    const published = row.currentPublishedVersionId
+      ? await this.prisma.procedureVersion.findFirst({
+          where: {
+            id: row.currentPublishedVersionId,
+            clientId,
+            procedureId: id,
+            lifecycle: ProcedureVersionLifecycle.PUBLISHED,
+          },
+        })
+      : null;
+
     return {
       ...this.toDetail(row, owner, row.category),
+      publishedVersion: published
+        ? this.toPublishedVersionSummary(published, row.currentPublishedVersionId)
+        : null,
       currentDraft: draft
         ? {
             id: draft.id,
-            versionNumber: draft.versionNumber,
             lifecycle: draft.lifecycle,
             title: draft.title,
             contentJson: draft.contentJson,
@@ -183,6 +201,184 @@ export class ProceduresService {
           }
         : null,
     };
+  }
+
+  async listVersions(clientId: string, procedureId: string) {
+    const procedure = await this.prisma.procedure.findFirst({
+      where: { id: procedureId, clientId },
+      select: { id: true, currentPublishedVersionId: true },
+    });
+    if (!procedure) throw new NotFoundException('Procédure introuvable');
+
+    const rows = await this.prisma.procedureVersion.findMany({
+      where: {
+        clientId,
+        procedureId,
+        lifecycle: ProcedureVersionLifecycle.PUBLISHED,
+      },
+      orderBy: [{ versionMajor: 'desc' }, { versionMinor: 'desc' }],
+    });
+
+    const publisherIds = [
+      ...new Set(
+        rows
+          .map((r) => r.publishedByUserId)
+          .filter(Boolean) as string[],
+      ),
+    ];
+    const publishers = publisherIds.length
+      ? await this.prisma.user.findMany({
+          where: { id: { in: publisherIds } },
+          select: { id: true, firstName: true, lastName: true, email: true },
+        })
+      : [];
+    const publisherMap = new Map(publishers.map((u) => [u.id, u]));
+
+    return {
+      items: rows.map((row) => {
+        const publisher = row.publishedByUserId
+          ? publisherMap.get(row.publishedByUserId) ?? null
+          : null;
+        return {
+          id: row.id,
+          versionLabel: formatProcedureVersionLabel(
+            row.versionMajor,
+            row.versionMinor,
+          ),
+          versionMajor: row.versionMajor,
+          versionMinor: row.versionMinor,
+          bumpType: row.bumpType,
+          isMajor: row.bumpType === ProcedureVersionBumpType.MAJOR,
+          isCurrent: row.id === procedure.currentPublishedVersionId,
+          changeSummary: row.changeSummary,
+          publishedAt: row.publishedAt?.toISOString() ?? null,
+          publishedByLabel: this.ownerLabel(publisher),
+          title: row.title,
+        };
+      }),
+    };
+  }
+
+  async getVersion(clientId: string, procedureId: string, versionId: string) {
+    const procedure = await this.prisma.procedure.findFirst({
+      where: { id: procedureId, clientId },
+      select: { id: true, currentPublishedVersionId: true },
+    });
+    if (!procedure) throw new NotFoundException('Procédure introuvable');
+
+    const row = await this.prisma.procedureVersion.findFirst({
+      where: {
+        id: versionId,
+        clientId,
+        procedureId,
+        lifecycle: ProcedureVersionLifecycle.PUBLISHED,
+      },
+    });
+    if (!row) throw new NotFoundException('Version introuvable');
+
+    const publisher = row.publishedByUserId
+      ? await this.prisma.user.findFirst({
+          where: { id: row.publishedByUserId },
+          select: { id: true, firstName: true, lastName: true, email: true },
+        })
+      : null;
+
+    return {
+      id: row.id,
+      versionLabel: formatProcedureVersionLabel(
+        row.versionMajor,
+        row.versionMinor,
+      ),
+      versionMajor: row.versionMajor,
+      versionMinor: row.versionMinor,
+      bumpType: row.bumpType,
+      isMajor: row.bumpType === ProcedureVersionBumpType.MAJOR,
+      isCurrent: row.id === procedure.currentPublishedVersionId,
+      changeSummary: row.changeSummary,
+      publishedAt: row.publishedAt?.toISOString() ?? null,
+      publishedByLabel: this.ownerLabel(publisher),
+      title: row.title,
+      contentJson: row.contentJson,
+    };
+  }
+
+  async restoreVersionToDraft(
+    clientId: string,
+    procedureId: string,
+    versionId: string,
+    actorUserId?: string,
+    meta?: AuditMeta,
+  ) {
+    const procedure = await this.prisma.procedure.findFirst({
+      where: { id: procedureId, clientId },
+    });
+    if (!procedure) throw new NotFoundException('Procédure introuvable');
+    if (procedure.status === ProcedureStatus.ARCHIVED) {
+      throw new BadRequestException(
+        'Procédure archivée — désarchiver pour restaurer une version',
+      );
+    }
+    if (!procedure.currentDraftVersionId) {
+      throw new BadRequestException('Aucun brouillon courant');
+    }
+
+    const source = await this.prisma.procedureVersion.findFirst({
+      where: {
+        id: versionId,
+        clientId,
+        procedureId,
+        lifecycle: ProcedureVersionLifecycle.PUBLISHED,
+      },
+    });
+    if (!source) throw new NotFoundException('Version introuvable');
+
+    const draft = await this.prisma.procedureVersion.findFirst({
+      where: {
+        id: procedure.currentDraftVersionId,
+        clientId,
+        procedureId,
+        lifecycle: ProcedureVersionLifecycle.DRAFT,
+      },
+    });
+    if (!draft) throw new NotFoundException('Brouillon introuvable');
+
+    await this.prisma.$transaction([
+      this.prisma.procedureVersion.update({
+        where: { id: draft.id },
+        data: {
+          title: source.title,
+          contentJson: source.contentJson as Prisma.InputJsonValue,
+        },
+      }),
+      this.prisma.procedure.update({
+        where: { id: procedureId },
+        data: {
+          title: source.title,
+          updatedAt: new Date(),
+        },
+      }),
+    ]);
+
+    await this.auditLogs.create({
+      clientId,
+      userId: actorUserId,
+      action: 'procedure.draft.restored_from_version',
+      resourceType: 'procedure',
+      resourceId: procedureId,
+      newValue: {
+        sourceVersionId: source.id,
+        versionLabel: formatProcedureVersionLabel(
+          source.versionMajor,
+          source.versionMinor,
+        ),
+        draftVersionId: draft.id,
+      },
+      ipAddress: meta?.ipAddress,
+      userAgent: meta?.userAgent,
+      requestId: meta?.requestId,
+    });
+
+    return this.getById(clientId, procedureId);
   }
 
   async updateDraft(
@@ -280,7 +476,6 @@ export class ProceduresService {
       resourceId: id,
       newValue: {
         versionId: draft.id,
-        versionNumber: draft.versionNumber,
         contentBytes: contentJson
           ? JSON.stringify(contentJson).length
           : undefined,
@@ -377,6 +572,7 @@ export class ProceduresService {
           clientId,
           procedure,
           draft,
+          dto.bumpType,
           dto.changeSummary,
           actorUserId,
           meta,
@@ -416,21 +612,72 @@ export class ProceduresService {
     },
     draft: {
       id: string;
-      versionNumber: number;
       title: string;
       contentJson: Prisma.JsonValue;
     },
+    bumpType: ProcedureVersionBumpType | undefined,
     changeSummary: string | undefined,
     actorUserId: string,
     meta?: AuditMeta,
   ) {
+    const currentPublished = procedure.currentPublishedVersionId
+      ? await this.prisma.procedureVersion.findFirst({
+          where: {
+            id: procedure.currentPublishedVersionId,
+            clientId,
+            procedureId: procedure.id,
+            lifecycle: ProcedureVersionLifecycle.PUBLISHED,
+          },
+          select: { versionMajor: true, versionMinor: true },
+        })
+      : null;
+
+    if (
+      currentPublished &&
+      (currentPublished.versionMajor == null ||
+        currentPublished.versionMinor == null)
+    ) {
+      throw new BadRequestException(
+        'Version publiée courante invalide — contactez un administrateur',
+      );
+    }
+
+    let next: ReturnType<typeof resolveNextProcedureVersion>;
+    try {
+      next = resolveNextProcedureVersion(
+        currentPublished
+          ? {
+              versionMajor: currentPublished.versionMajor!,
+              versionMinor: currentPublished.versionMinor!,
+            }
+          : null,
+        bumpType,
+        changeSummary,
+      );
+    } catch (e) {
+      if (e instanceof Error && e.message === 'MAJOR_SUMMARY_REQUIRED') {
+        throw new BadRequestException(
+          'Indiquez un motif pour la version majeure',
+        );
+      }
+      throw e;
+    }
+
+    const summary =
+      next.bumpType === 'MAJOR' && currentPublished
+        ? changeSummary!.trim()
+        : changeSummary?.trim() || null;
+
     const result = await this.prisma.$transaction(async (tx) => {
       const published = await tx.procedureVersion.update({
         where: { id: draft.id },
         data: {
           lifecycle: ProcedureVersionLifecycle.PUBLISHED,
+          versionMajor: next.major,
+          versionMinor: next.minor,
+          bumpType: next.bumpType,
           title: draft.title || procedure.title,
-          changeSummary: changeSummary?.trim() || null,
+          changeSummary: summary,
           publishedAt: new Date(),
           publishedByUserId: actorUserId,
         },
@@ -440,7 +687,9 @@ export class ProceduresService {
         data: {
           clientId,
           procedureId: procedure.id,
-          versionNumber: draft.versionNumber + 1,
+          versionMajor: null,
+          versionMinor: null,
+          bumpType: null,
           lifecycle: ProcedureVersionLifecycle.DRAFT,
           title: published.title,
           contentJson: draft.contentJson as Prisma.InputJsonValue,
@@ -482,8 +731,14 @@ export class ProceduresService {
       resourceId: procedure.id,
       newValue: {
         versionId: result.published.id,
-        versionNumber: result.published.versionNumber,
-        changeSummary: changeSummary?.trim() || null,
+        versionLabel: formatProcedureVersionLabel(
+          result.published.versionMajor,
+          result.published.versionMinor,
+        ),
+        versionMajor: result.published.versionMajor,
+        versionMinor: result.published.versionMinor,
+        bumpType: result.published.bumpType,
+        changeSummary: summary,
       },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
@@ -533,7 +788,9 @@ export class ProceduresService {
           data: {
             clientId,
             procedureId: procedure.id,
-            versionNumber: 1,
+            versionMajor: null,
+            versionMinor: null,
+            bumpType: null,
             lifecycle: ProcedureVersionLifecycle.DRAFT,
             title,
             contentJson: EMPTY_DOC,
@@ -754,15 +1011,14 @@ export class ProceduresService {
       string,
       {
         id: string;
-        versionNumber: number;
+        versionMajor: number | null;
+        versionMinor: number | null;
+        bumpType: ProcedureVersionBumpType | null;
         publishedAt: Date | null;
         contentJson: Prisma.JsonValue;
       }
     >,
-    draftMap: Map<
-      string,
-      { id: string; versionNumber: number; contentJson: Prisma.JsonValue }
-    >,
+    draftMap: Map<string, { id: string; contentJson: Prisma.JsonValue }>,
   ) {
     const owner = row.ownerUserId
       ? ownerMap.get(row.ownerUserId) ?? null
@@ -773,8 +1029,10 @@ export class ProceduresService {
     const draft = row.currentDraftVersionId
       ? draftMap.get(row.currentDraftVersionId) ?? null
       : null;
-    const displayVersion =
-      published?.versionNumber ?? draft?.versionNumber ?? null;
+    const publishedVersionLabel = formatProcedureVersionLabel(
+      published?.versionMajor,
+      published?.versionMinor,
+    );
     /** Carte catalogue : contenu publié si dispo (sinon brouillon) — aligné mock nb blocs. */
     const contentForCount = published?.contentJson ?? draft?.contentJson;
     return {
@@ -786,12 +1044,41 @@ export class ProceduresService {
       category: row.category,
       status: row.status,
       ownerLabel: this.ownerLabel(owner),
-      publishedVersionNumber: published?.versionNumber ?? null,
-      draftVersionNumber: draft?.versionNumber ?? null,
-      displayVersionNumber: displayVersion,
+      publishedVersionLabel,
+      publishedVersionMajor: published?.versionMajor ?? null,
+      publishedVersionMinor: published?.versionMinor ?? null,
       blockCount: countProcedureBlocks(contentForCount),
       publishedAt: published?.publishedAt?.toISOString() ?? null,
       updatedAt: row.updatedAt.toISOString(),
+    };
+  }
+
+  private toPublishedVersionSummary(
+    published: {
+      id: string;
+      versionMajor: number | null;
+      versionMinor: number | null;
+      bumpType: ProcedureVersionBumpType | null;
+      changeSummary: string | null;
+      publishedAt: Date | null;
+      title: string;
+    },
+    currentPublishedVersionId: string | null,
+  ) {
+    return {
+      id: published.id,
+      versionLabel: formatProcedureVersionLabel(
+        published.versionMajor,
+        published.versionMinor,
+      ),
+      versionMajor: published.versionMajor,
+      versionMinor: published.versionMinor,
+      bumpType: published.bumpType,
+      isMajor: published.bumpType === ProcedureVersionBumpType.MAJOR,
+      isCurrent: published.id === currentPublishedVersionId,
+      changeSummary: published.changeSummary,
+      publishedAt: published.publishedAt?.toISOString() ?? null,
+      title: published.title,
     };
   }
 

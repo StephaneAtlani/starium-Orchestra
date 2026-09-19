@@ -4,6 +4,8 @@ export type ProcedureStatusApi =
   | 'PUBLISHED'
   | 'ARCHIVED';
 
+export type ProcedureBumpType = 'MINOR' | 'MAJOR';
+
 export type ProcedureCategoryRef = {
   id: string;
   code: string;
@@ -16,6 +18,20 @@ export type ProcedureCategoryItem = ProcedureCategoryRef & {
   updatedAt: string;
 };
 
+export type ProcedurePublishedVersionSummary = {
+  id: string;
+  versionLabel: string | null;
+  versionMajor: number | null;
+  versionMinor: number | null;
+  bumpType: ProcedureBumpType | null;
+  isMajor: boolean;
+  isCurrent: boolean;
+  changeSummary: string | null;
+  publishedAt: string | null;
+  title: string;
+  publishedByLabel?: string | null;
+};
+
 export type ProcedureListItem = {
   id: string;
   code: string;
@@ -25,9 +41,9 @@ export type ProcedureListItem = {
   category: ProcedureCategoryRef;
   status: ProcedureStatusApi;
   ownerLabel: string | null;
-  publishedVersionNumber: number | null;
-  draftVersionNumber?: number | null;
-  displayVersionNumber?: number | null;
+  publishedVersionLabel: string | null;
+  publishedVersionMajor: number | null;
+  publishedVersionMinor: number | null;
   blockCount?: number;
   publishedAt: string | null;
   updatedAt: string;
@@ -46,14 +62,28 @@ export type ProcedureDetail = {
   currentPublishedVersionId: string | null;
   createdAt: string;
   updatedAt: string;
+  publishedVersion: ProcedurePublishedVersionSummary | null;
   currentDraft: {
     id: string;
-    versionNumber: number;
     lifecycle: 'DRAFT' | 'PUBLISHED';
     title: string;
     contentJson?: Record<string, unknown>;
     updatedAt: string;
   } | null;
+};
+
+export type ProcedureVersionListItem = {
+  id: string;
+  versionLabel: string | null;
+  versionMajor: number | null;
+  versionMinor: number | null;
+  bumpType: ProcedureBumpType | null;
+  isMajor: boolean;
+  isCurrent: boolean;
+  changeSummary: string | null;
+  publishedAt: string | null;
+  publishedByLabel: string | null;
+  title: string;
 };
 
 export type ProcedureListResponse = {
@@ -73,6 +103,7 @@ export type CreateProcedureInput = {
 
 export type TransitionProcedureInput = {
   to: 'DRAFT' | 'IN_REVIEW' | 'PUBLISHED';
+  bumpType?: ProcedureBumpType;
   changeSummary?: string;
   expectedUpdatedAt?: string;
 };

@@ -128,6 +128,44 @@ export class ProceduresController {
     return this.proceduresService.getById(clientId!, id);
   }
 
+  @Get(':id/versions')
+  @RequirePermissions('procedures.read')
+  listVersions(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+  ) {
+    return this.proceduresService.listVersions(clientId!, id);
+  }
+
+  @Get(':id/versions/:versionId')
+  @RequirePermissions('procedures.read')
+  getVersion(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+    @Param('versionId') versionId: string,
+  ) {
+    return this.proceduresService.getVersion(clientId!, id, versionId);
+  }
+
+  @Post(':id/versions/:versionId/restore-to-draft')
+  @RequirePermissions('procedures.update')
+  restoreVersionToDraft(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+    @Param('versionId') versionId: string,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta()
+    meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    return this.proceduresService.restoreVersionToDraft(
+      clientId!,
+      id,
+      versionId,
+      actorUserId,
+      meta,
+    );
+  }
+
   @Patch(':id/draft')
   @RequirePermissions('procedures.update')
   updateDraft(

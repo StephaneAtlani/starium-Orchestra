@@ -5,6 +5,7 @@
 import {
   Prisma,
   ProcedureStatus,
+  ProcedureVersionBumpType,
   ProcedureVersionLifecycle,
   type PrismaClient,
 } from '@prisma/client';
@@ -42,7 +43,9 @@ type DemoProc = {
   description: string;
   categoryCode: (typeof DEFAULT_CATEGORIES)[number]['code'];
   status: ProcedureStatus;
-  versionNumber: number;
+  /** Version publiée démo (major.minor) — ignoré pour DRAFT / IN_REVIEW. */
+  publishedMajor?: number;
+  publishedMinor?: number;
   contentJson: Prisma.InputJsonValue;
 };
 
@@ -54,7 +57,8 @@ const DEMO_PROCS: DemoProc[] = [
       "Du dépôt de la demande à la création du projet : qualification PMO, passage en instance, décision.",
     categoryCode: 'PILOTAGE',
     status: ProcedureStatus.PUBLISHED,
-    versionNumber: 2,
+    publishedMajor: 2,
+    publishedMinor: 1,
     contentJson: {
       schemaVersion: 2,
       blocks: [
@@ -104,7 +108,6 @@ const DEMO_PROCS: DemoProc[] = [
       'Campagne de réévaluation des exigences par domaine, consolidation des écarts et plan de remédiation.',
     categoryCode: 'COMPLIANCE',
     status: ProcedureStatus.IN_REVIEW,
-    versionNumber: 1,
     contentJson: {
       schemaVersion: 2,
       blocks: [
@@ -128,7 +131,8 @@ const DEMO_PROCS: DemoProc[] = [
       "Demande, validation et journalisation d'un transfert entre lignes budgétaires d'un même budget.",
     categoryCode: 'FINANCE',
     status: ProcedureStatus.PUBLISHED,
-    versionNumber: 3,
+    publishedMajor: 3,
+    publishedMinor: 0,
     contentJson: {
       schemaVersion: 2,
       blocks: [
@@ -154,7 +158,6 @@ const DEMO_PROCS: DemoProc[] = [
       'Accès, équipes, rituels et premiers livrables attendus le premier mois.',
     categoryCode: 'ORGANISATION',
     status: ProcedureStatus.DRAFT,
-    versionNumber: 1,
     contentJson: {
       schemaVersion: 2,
       blocks: [
@@ -243,6 +246,12 @@ async function seedOneProcedure(
           title: demo.title,
           contentJson: demo.contentJson,
           lifecycle: ProcedureVersionLifecycle.PUBLISHED,
+          versionMajor: demo.publishedMajor ?? 1,
+          versionMinor: demo.publishedMinor ?? 0,
+          bumpType:
+            (demo.publishedMinor ?? 0) === 0
+              ? ProcedureVersionBumpType.MAJOR
+              : ProcedureVersionBumpType.MINOR,
           publishedAt: new Date(),
         },
       });
@@ -251,7 +260,6 @@ async function seedOneProcedure(
       !existing.currentPublishedVersionId &&
       existing.currentDraftVersionId
     ) {
-      // Passage draft → published pour une fiche démo déjà créée sans snapshot
       const draft = await prisma.procedureVersion.findUnique({
         where: { id: existing.currentDraftVersionId },
       });
@@ -260,7 +268,12 @@ async function seedOneProcedure(
           data: {
             clientId,
             procedureId: existing.id,
-            versionNumber: demo.versionNumber,
+            versionMajor: demo.publishedMajor ?? 1,
+            versionMinor: demo.publishedMinor ?? 0,
+            bumpType:
+              (demo.publishedMinor ?? 0) === 0
+                ? ProcedureVersionBumpType.MAJOR
+                : ProcedureVersionBumpType.MINOR,
             lifecycle: ProcedureVersionLifecycle.PUBLISHED,
             title: demo.title,
             contentJson: demo.contentJson,
@@ -297,7 +310,12 @@ async function seedOneProcedure(
       data: {
         clientId,
         procedureId: procedure.id,
-        versionNumber: demo.versionNumber,
+        versionMajor: demo.publishedMajor ?? 1,
+        versionMinor: demo.publishedMinor ?? 0,
+        bumpType:
+          (demo.publishedMinor ?? 0) === 0
+            ? ProcedureVersionBumpType.MAJOR
+            : ProcedureVersionBumpType.MINOR,
         lifecycle: ProcedureVersionLifecycle.PUBLISHED,
         title: demo.title,
         contentJson: demo.contentJson,
@@ -310,7 +328,9 @@ async function seedOneProcedure(
       data: {
         clientId,
         procedureId: procedure.id,
-        versionNumber: demo.versionNumber + 1,
+        versionMajor: null,
+        versionMinor: null,
+        bumpType: null,
         lifecycle: ProcedureVersionLifecycle.DRAFT,
         title: demo.title,
         contentJson: demo.contentJson,
@@ -328,7 +348,9 @@ async function seedOneProcedure(
       data: {
         clientId,
         procedureId: procedure.id,
-        versionNumber: demo.versionNumber,
+        versionMajor: null,
+        versionMinor: null,
+        bumpType: null,
         lifecycle: ProcedureVersionLifecycle.DRAFT,
         title: demo.title,
         contentJson: demo.contentJson,
