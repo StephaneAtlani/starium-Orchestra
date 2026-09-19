@@ -6,6 +6,13 @@ import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Download, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { EmptyState } from '@/components/feedback/empty-state';
 import { ErrorState } from '@/components/feedback/error-state';
 import { LoadingState } from '@/components/feedback/loading-state';
@@ -26,6 +33,7 @@ import type { ProcedureListItem, ProcedureStatusApi } from '../types/procedure.t
 import { ProcedureCreateDialog } from './procedure-create-dialog';
 
 const PAGE_SIZE = 48;
+const ALL_CATEGORIES = '__all__';
 
 type SegFilter =
   | 'all'
@@ -170,15 +178,17 @@ export function ProceduresCatalog({
   const setCreateDialogOpen = onCreateOpenChange ?? setInternalCreateOpen;
   const membersQ = useClientMembers();
   const [seg, setSeg] = useState<SegFilter>('all');
+  const [categoryId, setCategoryId] = useState('');
   const [offset, setOffset] = useState(0);
 
   const filters = useMemo(
     () => ({
       status: seg === 'all' ? undefined : seg,
+      categoryId: categoryId || undefined,
       limit: PAGE_SIZE,
       offset,
     }),
-    [seg, offset],
+    [seg, categoryId, offset],
   );
 
   const listQ = useQuery({
@@ -188,6 +198,7 @@ export function ProceduresCatalog({
         limit: filters.limit,
         offset: filters.offset,
         status: filters.status,
+        categoryId: filters.categoryId,
       }),
     enabled: Boolean(clientId),
   });
@@ -195,7 +206,7 @@ export function ProceduresCatalog({
   const categoriesQ = useQuery({
     queryKey: procedureQueryKeys.categories(clientId, true),
     queryFn: () => listProcedureCategories(authFetch, { activeOnly: true }),
-    enabled: Boolean(clientId) && createDialogOpen,
+    enabled: Boolean(clientId),
   });
 
   const templatesQ = useQuery({
@@ -221,6 +232,9 @@ export function ProceduresCatalog({
   const total = listQ.data?.total ?? 0;
   const canPrev = offset > 0;
   const canNext = offset + PAGE_SIZE < total;
+  const categories = categoriesQ.data ?? [];
+  const selectedCategory = categories.find((c) => c.id === categoryId);
+  const hasActiveFilter = seg !== 'all' || Boolean(categoryId);
 
   return (
     <div className="flex flex-col gap-4">
@@ -244,6 +258,43 @@ export function ProceduresCatalog({
             );
           })}
         </div>
+
+        <div className="pr-cat-filter min-w-0 sm:ml-auto">
+          <label htmlFor="pr-filter-category" className="sr-only">
+            Filtrer par catégorie
+          </label>
+          <Select
+            value={categoryId || ALL_CATEGORIES}
+            onValueChange={(v) => {
+              setCategoryId(!v || v === ALL_CATEGORIES ? '' : v);
+              setOffset(0);
+            }}
+            disabled={categoriesQ.isLoading}
+          >
+            <SelectTrigger
+              id="pr-filter-category"
+              className="min-h-11 w-full sm:min-h-9 sm:w-[220px]"
+            >
+              <SelectValue placeholder="Toutes les catégories">
+                {categoriesQ.isLoading
+                  ? 'Chargement…'
+                  : selectedCategory
+                    ? procedureCategoryLabel(selectedCategory)
+                    : 'Toutes les catégories'}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_CATEGORIES}>
+                Toutes les catégories
+              </SelectItem>
+              {categories.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {procedureCategoryLabel(c)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {listQ.isLoading ? <LoadingState rows={4} /> : null}
@@ -258,7 +309,7 @@ export function ProceduresCatalog({
         <EmptyState
           title="Aucune procédure"
           description={
-            seg !== 'all'
+            hasActiveFilter
               ? 'Aucun résultat pour ce filtre.'
               : 'Créez la première procédure du client actif pour démarrer la rédaction.'
           }
@@ -286,7 +337,10 @@ export function ProceduresCatalog({
         </div>
       ) : null}
 
-      {listQ.isSuccess && listQ.data.items.length === 0 && canCreate && seg !== 'all' ? (
+      {listQ.isSuccess &&
+      listQ.data.items.length === 0 &&
+      canCreate &&
+      hasActiveFilter ? (
         <EmptyState
           title="Aucune procédure"
           description="Aucun résultat pour ce filtre."

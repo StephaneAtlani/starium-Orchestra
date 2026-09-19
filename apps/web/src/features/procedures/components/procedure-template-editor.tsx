@@ -30,12 +30,20 @@ import {
   updateProcedureTemplate,
 } from '../api/procedures.api';
 import { procedureQueryKeys } from '../lib/procedure-query-keys';
-import { procedureTemplateStatusLabel } from '../lib/procedure-labels';
+import {
+  procedureCategoryLabel,
+  procedureTemplateStatusLabel,
+} from '../lib/procedure-labels';
 import { outlineHierarchyWarnings } from '../lib/procedure-template-outline';
 import { displayLabel } from '@/lib/display-label';
 import type { ProcedureTemplateOutlineItem } from '../types/procedure.types';
 
 const NONE_CATEGORY = '__none__';
+const LEVEL_LABELS: Record<'1' | '2' | '3', string> = {
+  '1': 'H1',
+  '2': 'H2',
+  '3': 'H3',
+};
 
 type Props = { templateId: string };
 
@@ -75,6 +83,14 @@ export function ProcedureTemplateEditor({ templateId }: Props) {
     () => outlineHierarchyWarnings(outline),
     [outline],
   );
+
+  const categories = categoriesQ.data ?? [];
+  const selectedCategory = categories.find((c) => c.id === categoryId);
+  const categoryTriggerLabel = categoryId
+    ? selectedCategory
+      ? procedureCategoryLabel(selectedCategory)
+      : 'Catégorie inconnue'
+    : 'Sans catégorie';
 
   const saveMut = useMutation({
     mutationFn: () =>
@@ -154,7 +170,6 @@ export function ProcedureTemplateEditor({ templateId }: Props) {
 
   const tpl = detailQ.data;
   const readOnly = tpl.status === 'ARCHIVED';
-  const categories = categoriesQ.data ?? [];
   const hasH1 = outline.some((o) => o.level === 1 && o.title.trim());
 
   function updateRow(index: number, patch: Partial<ProcedureTemplateOutlineItem>) {
@@ -232,13 +247,15 @@ export function ProcedureTemplateEditor({ templateId }: Props) {
             disabled={readOnly || categoriesQ.isLoading}
           >
             <SelectTrigger id="tpl-edit-category" className="min-h-11 sm:min-h-9">
-              <SelectValue placeholder="Sans catégorie" />
+              <SelectValue placeholder="Sans catégorie">
+                {categoriesQ.isLoading ? 'Chargement…' : categoryTriggerLabel}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={NONE_CATEGORY}>Sans catégorie</SelectItem>
               {categories.map((c) => (
                 <SelectItem key={c.id} value={c.id}>
-                  {displayLabel(c.label, 'Catégorie')}
+                  {procedureCategoryLabel(c)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -336,7 +353,10 @@ export function ProcedureTemplateEditor({ templateId }: Props) {
                       className="min-h-11 w-24 sm:min-h-9"
                       aria-label={`Niveau du titre ${index + 1}`}
                     >
-                      <SelectValue />
+                      <SelectValue>
+                        {LEVEL_LABELS[String(row.level) as '1' | '2' | '3'] ??
+                          `H${row.level}`}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="1">H1</SelectItem>

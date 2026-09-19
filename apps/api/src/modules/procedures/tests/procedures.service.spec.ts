@@ -138,6 +138,64 @@ describe('ProceduresService', () => {
     );
   });
 
+  it('create — code omis → null en base', async () => {
+    const category = { id: 'cat-sec', code: 'SECURITY', label: 'Sécurité' };
+    const procedure = {
+      id: 'proc-2',
+      clientId: 'c1',
+      code: null,
+      title: 'Sans code',
+      description: null,
+      categoryId: 'cat-sec',
+      category,
+      status: ProcedureStatus.DRAFT,
+      ownerUserId: null,
+      currentDraftVersionId: 'ver-2',
+      currentPublishedVersionId: null,
+      sourceTemplateId: null,
+      sourceTemplateName: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    const version = {
+      id: 'ver-2',
+      title: 'Sans code',
+      contentJson: { schemaVersion: 2, blocks: [] },
+      lifecycle: ProcedureVersionLifecycle.DRAFT,
+      updatedAt: new Date(),
+    };
+    const tx = {
+      procedure: {
+        create: jest.fn().mockImplementation(async ({ data }: any) => {
+          expect(data.code).toBeNull();
+          return { ...procedure, ...data };
+        }),
+        update: jest.fn().mockResolvedValue(procedure),
+      },
+      procedureVersion: {
+        create: jest.fn().mockResolvedValue(version),
+      },
+    };
+    const prisma = {
+      $transaction: jest.fn(async (fn: any) => fn(tx)),
+      procedure: {
+        findFirst: jest.fn().mockResolvedValue({
+          ...procedure,
+          category,
+          sourceTemplate: null,
+        }),
+      },
+      procedureVersion: {
+        findFirst: jest.fn().mockResolvedValue(version),
+      },
+      user: { findFirst: jest.fn().mockResolvedValue(null) },
+    };
+    const service = buildService(prisma);
+    const result = await service.create('c1', { title: 'Sans code' }, 'actor-1');
+    expect(result.id).toBe('proc-2');
+    expect(tx.procedure.create).toHaveBeenCalled();
+  });
+
   it('transition — refuse contenu vide vers IN_REVIEW', async () => {
     const prisma = {
       procedure: {
@@ -334,6 +392,7 @@ describe('ProceduresService', () => {
           .mockResolvedValueOnce({
             id: 'proc-1',
             clientId: 'c1',
+            code: 'PSSI',
             status: ProcedureStatus.PENDING_VALIDATION,
             currentDraftVersionId: 'ver-1',
             currentPublishedVersionId: null,

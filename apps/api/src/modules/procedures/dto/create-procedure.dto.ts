@@ -6,10 +6,11 @@ import {
 } from 'class-validator';
 
 export class CreateProcedureDto {
+  /** Optionnel — généré à la publication si omis. */
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(64)
-  code!: string;
+  code?: string;
 
   @IsString()
   @IsNotEmpty()

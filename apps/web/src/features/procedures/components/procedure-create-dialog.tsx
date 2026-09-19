@@ -29,7 +29,7 @@ import type {
 const NONE_TEMPLATE = '__none__';
 
 const schema = z.object({
-  code: z.string().trim().min(1, 'Code obligatoire').max(64),
+  code: z.string().trim().max(64).optional(),
   title: z.string().trim().min(1, 'Titre obligatoire').max(300),
   description: z.string().max(2000).optional(),
   categoryId: z.string().min(1, 'Catégorie obligatoire'),
@@ -142,8 +142,9 @@ export function ProcedureCreateDialog({
         id={formId}
         className="starium-form space-y-4"
         onSubmit={form.handleSubmit((values) => {
+          const code = values.code?.trim();
           onSubmit({
-            code: values.code,
+            ...(code ? { code } : {}),
             title: values.title,
             description: values.description?.trim() || undefined,
             categoryId: values.categoryId,
@@ -218,25 +219,30 @@ export function ProcedureCreateDialog({
         </div>
         <div className="starium-form-field space-y-2">
           <Label htmlFor="procedure-code" className="starium-form-label">
-            Code <span className="text-[var(--state-danger)]">*</span>
+            Code
           </Label>
           <Input
             id="procedure-code"
             autoComplete="off"
             className="starium-form-input min-h-11"
-            required
-            aria-required
+            placeholder="Optionnel"
             {...form.register('code')}
             aria-invalid={Boolean(form.formState.errors.code)}
             aria-describedby={
-              form.formState.errors.code ? 'procedure-code-error' : undefined
+              form.formState.errors.code
+                ? 'procedure-code-error'
+                : 'procedure-code-hint'
             }
           />
           {form.formState.errors.code ? (
             <p id="procedure-code-error" className="starium-form-hint text-destructive">
               {form.formState.errors.code.message}
             </p>
-          ) : null}
+          ) : (
+            <p id="procedure-code-hint" className="starium-form-hint text-muted-foreground">
+              Optionnel — généré automatiquement à la publication s’il est vide.
+            </p>
+          )}
         </div>
 
         <div className="starium-form-field space-y-2">

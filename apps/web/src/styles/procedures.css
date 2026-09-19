@@ -1,9 +1,21 @@
 /* Procédures — liste catalogue (fidélité mock handoff RFC-PROC-006) */
 .pr-filters {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
   align-items: center;
   margin-top: 0.25rem;
+}
+
+.pr-cat-filter {
+  flex: 1 1 12rem;
+  max-width: 100%;
+}
+
+@media (min-width: 640px) {
+  .pr-cat-filter {
+    flex: 0 0 auto;
+  }
 }
 
 .pr-seg {

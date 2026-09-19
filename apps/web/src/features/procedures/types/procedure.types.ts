@@ -35,7 +35,7 @@ export type ProcedurePublishedVersionSummary = {
 
 export type ProcedureListItem = {
   id: string;
-  code: string;
+  code: string | null;
   title: string;
   description: string | null;
   categoryId: string;
@@ -52,7 +52,7 @@ export type ProcedureListItem = {
 
 export type ProcedureDetail = {
   id: string;
-  code: string;
+  code: string | null;
   title: string;
   description: string | null;
   categoryId: string;
@@ -100,7 +100,7 @@ export type ProcedureListResponse = {
 };
 
 export type CreateProcedureInput = {
-  code: string;
+  code?: string;
   title: string;
   description?: string;
   categoryId?: string;

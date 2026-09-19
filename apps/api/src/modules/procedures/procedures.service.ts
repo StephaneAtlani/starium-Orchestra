@@ -70,7 +70,22 @@ function isPrismaUniqueConstraintError(error: unknown): boolean {
 }
 
 function normalizeCode(code: string): string {
-  return code.trim().toUpperCase();
+  return code
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9_]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 64);
+}
+
+/** Dérive un code métier depuis le titre (publication sans code saisi). */
+function codeFromTitle(title: string): string {
+  const ascii = title
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toUpperCase();
+  const slug = normalizeCode(ascii.replace(/\s+/g, '_'));
+  return slug || 'PROC';
 }
 
 @Injectable()
@@ -679,6 +694,7 @@ export class ProceduresService {
     procedure: {
       id: string;
       status: ProcedureStatus;
+      code: string | null;
       currentDraftVersionId: string | null;
       currentPublishedVersionId: string | null;
       title: string;
@@ -742,6 +758,14 @@ export class ProceduresService {
         : changeSummary?.trim() || null;
 
     const result = await this.prisma.$transaction(async (tx) => {
+      const resolvedCode = await this.resolveCodeForPublish(
+        tx,
+        clientId,
+        procedure.id,
+        procedure.code,
+        draft.title || procedure.title,
+      );
+
       const published = await tx.procedureVersion.update({
         where: { id: draft.id },
         data: {
@@ -773,6 +797,7 @@ export class ProceduresService {
         where: { id: procedure.id },
         data: {
           status: ProcedureStatus.PUBLISHED,
+          code: resolvedCode,
           title: published.title,
           currentPublishedVersionId: published.id,
           currentDraftVersionId: newDraft.id,
@@ -780,7 +805,7 @@ export class ProceduresService {
         },
       });
 
-      return { published, newDraft };
+      return { published, newDraft, code: resolvedCode };
     });
 
     await this.auditLogs.create({
@@ -790,7 +815,7 @@ export class ProceduresService {
       resourceType: 'procedure',
       resourceId: procedure.id,
       oldValue: { status: procedure.status },
-      newValue: { status: ProcedureStatus.PUBLISHED },
+      newValue: { status: ProcedureStatus.PUBLISHED, code: result.code },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
       requestId: meta?.requestId,
@@ -812,6 +837,7 @@ export class ProceduresService {
         versionMinor: result.published.versionMinor,
         bumpType: result.published.bumpType,
         changeSummary: summary,
+        code: result.code,
       },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
@@ -821,16 +847,50 @@ export class ProceduresService {
     return this.getById(clientId, procedure.id);
   }
 
+  /** Code figé à la publication : saisi ou dérivé du titre (unique client). */
+  private async resolveCodeForPublish(
+    tx: Prisma.TransactionClient,
+    clientId: string,
+    procedureId: string,
+    currentCode: string | null,
+    title: string,
+  ): Promise<string> {
+    if (currentCode?.trim()) {
+      return normalizeCode(currentCode);
+    }
+    const base = codeFromTitle(title);
+    for (let n = 0; n < 500; n++) {
+      const suffix = n === 0 ? '' : `_${n + 1}`;
+      const candidate = `${base.slice(0, Math.max(1, 64 - suffix.length))}${suffix}`;
+      const clash = await tx.procedure.findFirst({
+        where: {
+          clientId,
+          code: candidate,
+          NOT: { id: procedureId },
+        },
+        select: { id: true },
+      });
+      if (!clash) return candidate;
+    }
+    throw new ConflictException(
+      'Impossible de générer un code unique — saisissez un code manuellement',
+    );
+  }
+
   async create(
     clientId: string,
     dto: CreateProcedureDto,
     actorUserId?: string,
     meta?: AuditMeta,
   ) {
-    const code = normalizeCode(dto.code);
     const title = dto.title.trim();
-    if (!code || !title) {
-      throw new BadRequestException('Code et titre sont obligatoires');
+    if (!title) {
+      throw new BadRequestException('Titre obligatoire');
+    }
+    const rawCode = dto.code?.trim();
+    const code = rawCode ? normalizeCode(rawCode) : null;
+    if (rawCode && !code) {
+      throw new BadRequestException('Code invalide');
     }
 
     if (dto.ownerUserId) {
@@ -1217,7 +1277,7 @@ export class ProceduresService {
   private toListItem(
     row: {
       id: string;
-      code: string;
+      code: string | null;
       title: string;
       description: string | null;
       category: CategoryRef;
@@ -1314,7 +1374,7 @@ export class ProceduresService {
   private toDetail(
     row: {
       id: string;
-      code: string;
+      code: string | null;
       title: string;
       description: string | null;
       status: ProcedureStatus;

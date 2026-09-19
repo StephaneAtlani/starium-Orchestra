@@ -7296,7 +7296,8 @@ model ProcedureTemplate {
 model Procedure {
   id                        String          @id @default(cuid())
   clientId                  String
-  code                      String
+  /// Optionnel jusqu'à publication — généré depuis le titre si absent à la 1ʳᵉ publish.
+  code                      String?
   title                     String
   description               String?
   categoryId                String
